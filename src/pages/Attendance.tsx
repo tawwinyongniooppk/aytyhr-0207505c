@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LogIn, LogOut, Clock, AlertTriangle, DollarSign } from "lucide-react";
+import { LogIn, LogOut, Clock, AlertTriangle, DollarSign, Wallet } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +13,7 @@ interface AttendanceRecord {
   check_out_time: string | null;
   late_minutes: number;
   early_minutes: number;
+  deduction_applied: boolean;
 }
 
 interface Settings {
@@ -19,6 +21,12 @@ interface Settings {
   end_time: string;
   grace_period_minutes: number;
   deduction_rate_per_minute: number;
+}
+
+interface SalaryRecord {
+  base_salary: number;
+  current_salary: number;
+  total_deductions: number;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -44,12 +52,20 @@ function calcEarlyMinutes(checkOutTime: Date, endTime: string): number {
   return Math.max(0, diff);
 }
 
+function getMonthStart(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
 export default function Attendance() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [record, setRecord] = useState<AttendanceRecord | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [salary, setSalary] = useState<SalaryRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showSalaryModal, setShowSalaryModal] = useState(false);
+  const [lastDeduction, setLastDeduction] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -59,18 +75,16 @@ export default function Attendance() {
   const loadData = async () => {
     setLoading(true);
     const today = new Date().toISOString().split("T")[0];
+    const monthStart = getMonthStart();
 
-    const [attRes, settRes] = await Promise.all([
-      supabase
-        .from("attendance")
-        .select("*")
-        .eq("user_id", user!.id)
-        .eq("date", today)
-        .maybeSingle(),
+    const [attRes, settRes, salRes] = await Promise.all([
+      supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
       supabase.from("app_settings").select("*"),
+      supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
     ]);
 
     if (attRes.data) setRecord(attRes.data as unknown as AttendanceRecord);
+    if (salRes.data) setSalary(salRes.data as unknown as SalaryRecord);
 
     if (settRes.data) {
       const map: Record<string, string> = {};
@@ -83,6 +97,43 @@ export default function Attendance() {
       });
     }
     setLoading(false);
+  };
+
+  const ensureSalaryRecord = async (): Promise<SalaryRecord> => {
+    const monthStart = getMonthStart();
+
+    // Check existing
+    const { data: existing } = await supabase
+      .from("salaries")
+      .select("*")
+      .eq("user_id", user!.id)
+      .eq("month", monthStart)
+      .maybeSingle();
+
+    if (existing) return existing as unknown as SalaryRecord;
+
+    // Get base_salary from profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("base_salary")
+      .eq("id", user!.id)
+      .single();
+
+    const baseSalary = (profile as any)?.base_salary ?? 300000;
+
+    const { data: newRec } = await supabase
+      .from("salaries")
+      .insert({
+        user_id: user!.id,
+        month: monthStart,
+        base_salary: baseSalary,
+        current_salary: baseSalary,
+        total_deductions: 0,
+      } as any)
+      .select()
+      .single();
+
+    return (newRec as unknown as SalaryRecord) ?? { base_salary: baseSalary, current_salary: baseSalary, total_deductions: 0 };
   };
 
   const handleCheckIn = async () => {
@@ -98,6 +149,7 @@ export default function Attendance() {
         date: today,
         check_in_time: now.toISOString(),
         late_minutes: lateMin,
+        deduction_applied: false,
       } as any)
       .select()
       .single();
@@ -106,6 +158,9 @@ export default function Attendance() {
       toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
     } else {
       setRecord(data as unknown as AttendanceRecord);
+      // Ensure salary record exists for the month
+      const sal = await ensureSalaryRecord();
+      setSalary(sal);
       toast({ title: lateMin > 0 ? `Checked in (${lateMin} min late)` : "Checked in on time ✓" });
     }
   };
@@ -115,6 +170,7 @@ export default function Attendance() {
     const now = new Date();
     const earlyMin = calcEarlyMinutes(now, settings.end_time);
 
+    // Update attendance
     const { data, error } = await supabase
       .from("attendance")
       .update({
@@ -127,10 +183,54 @@ export default function Attendance() {
 
     if (error) {
       toast({ title: "Check-out failed", description: error.message, variant: "destructive" });
-    } else {
-      setRecord(data as unknown as AttendanceRecord);
-      toast({ title: earlyMin > 0 ? `Checked out (${earlyMin} min early)` : "Checked out ✓" });
+      return;
     }
+
+    const updatedRecord = data as unknown as AttendanceRecord;
+    setRecord(updatedRecord);
+
+    // Apply deduction if not already applied
+    if (!updatedRecord.deduction_applied) {
+      const totalMinutes = (updatedRecord.late_minutes ?? 0) + earlyMin;
+      const deduction = totalMinutes * settings.deduction_rate_per_minute;
+
+      if (deduction > 0) {
+        const sal = await ensureSalaryRecord();
+        const newCurrent = Math.max(0, sal.current_salary - deduction);
+        const newDeductions = sal.total_deductions + deduction;
+
+        await supabase
+          .from("salaries")
+          .update({
+            current_salary: newCurrent,
+            total_deductions: newDeductions,
+            last_updated: new Date().toISOString(),
+          } as any)
+          .eq("user_id", user.id)
+          .eq("month", getMonthStart());
+
+        // Mark deduction as applied
+        await supabase
+          .from("attendance")
+          .update({ deduction_applied: true } as any)
+          .eq("id", record.id);
+
+        setRecord({ ...updatedRecord, deduction_applied: true });
+        setSalary({ ...sal, current_salary: newCurrent, total_deductions: newDeductions });
+        setLastDeduction(deduction);
+        setShowSalaryModal(true);
+      } else {
+        const sal = await ensureSalaryRecord();
+        setSalary(sal);
+        // Mark applied even with 0 deduction
+        await supabase.from("attendance").update({ deduction_applied: true } as any).eq("id", record.id);
+        setRecord({ ...updatedRecord, deduction_applied: true });
+        setShowSalaryModal(true);
+        setLastDeduction(0);
+      }
+    }
+
+    toast({ title: earlyMin > 0 ? `Checked out (${earlyMin} min early)` : "Checked out ✓" });
   };
 
   const checkedIn = !!record?.check_in_time;
@@ -160,34 +260,41 @@ export default function Attendance() {
         <p className="text-muted-foreground text-sm mt-1">Mark your attendance for today</p>
       </div>
 
+      {/* Salary Summary */}
+      {salary && (
+        <Card className="border border-secondary/30 shadow-none bg-secondary/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Wallet className="h-4 w-4 text-secondary" />
+              <span className="font-display font-semibold text-sm">Your Salary This Month</span>
+            </div>
+            <p className="text-2xl font-bold font-display text-secondary">
+              {salary.current_salary.toLocaleString()} kyats
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Base: {salary.base_salary.toLocaleString()} · Deducted: {salary.total_deductions.toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Status Card */}
       <Card className="border border-border shadow-none">
         <CardContent className="p-6 text-center space-y-4">
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-muted mx-auto">
             <Clock className="h-8 w-8 text-secondary" />
           </div>
-
           <div>
             <p className="text-sm text-muted-foreground">Current Status</p>
             <p className={`text-lg font-bold font-display mt-1 ${checkedIn ? "text-accent" : "text-muted-foreground"}`}>
               {checkedOut ? "Day Complete ✓" : checkedIn ? "Present ✓" : "Not Checked In"}
             </p>
           </div>
-
           <div className="flex gap-3 justify-center">
-            <Button
-              onClick={handleCheckIn}
-              disabled={checkedIn}
-              className="bg-accent text-accent-foreground hover:bg-accent/90 active:animate-press"
-            >
+            <Button onClick={handleCheckIn} disabled={checkedIn} className="bg-accent text-accent-foreground hover:bg-accent/90 active:animate-press">
               <LogIn className="h-4 w-4 mr-2" /> Check In
             </Button>
-            <Button
-              onClick={handleCheckOut}
-              disabled={!checkedIn || checkedOut}
-              variant="outline"
-              className="active:animate-press"
-            >
+            <Button onClick={handleCheckOut} disabled={!checkedIn || checkedOut} variant="outline" className="active:animate-press">
               <LogOut className="h-4 w-4 mr-2" /> Check Out
             </Button>
           </div>
@@ -232,13 +339,15 @@ export default function Attendance() {
         </Card>
       ) : null}
 
-      {/* Deduction Preview */}
+      {/* Deduction Breakdown */}
       {totalDeduction > 0 && (
         <Card className="border border-border shadow-none">
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-secondary" />
-              <span className="font-display font-semibold text-sm">Deduction Preview</span>
+              <span className="font-display font-semibold text-sm">
+                Deduction {record?.deduction_applied ? "(Applied)" : "(Preview)"}
+              </span>
             </div>
             <div className="space-y-1 text-sm">
               {lateDeduction > 0 && (
@@ -261,6 +370,37 @@ export default function Attendance() {
           </CardContent>
         </Card>
       )}
+
+      {/* Salary Modal after checkout */}
+      <Dialog open={showSalaryModal} onOpenChange={setShowSalaryModal}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-center">Day Summary</DialogTitle>
+          </DialogHeader>
+          <div className="text-center space-y-4 py-4">
+            <div className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-secondary/10 mx-auto">
+              <Wallet className="h-7 w-7 text-secondary" />
+            </div>
+            {lastDeduction > 0 ? (
+              <>
+                <p className="text-sm text-muted-foreground">Today's deduction</p>
+                <p className="text-xl font-bold text-destructive">-{lastDeduction.toLocaleString()} kyats</p>
+              </>
+            ) : (
+              <p className="text-sm text-accent font-medium">No deductions today ✓</p>
+            )}
+            <div className="pt-3 border-t border-border">
+              <p className="text-sm text-muted-foreground">Remaining Salary</p>
+              <p className="text-2xl font-bold font-display text-secondary">
+                {(salary?.current_salary ?? 0).toLocaleString()} kyats
+              </p>
+            </div>
+            <Button onClick={() => setShowSalaryModal(false)} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90">
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
