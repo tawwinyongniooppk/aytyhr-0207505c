@@ -38,6 +38,7 @@ export type Database = {
           check_out_time: string | null
           created_at: string
           date: string
+          deduction_applied: boolean
           early_minutes: number
           id: string
           late_minutes: number
@@ -48,6 +49,7 @@ export type Database = {
           check_out_time?: string | null
           created_at?: string
           date?: string
+          deduction_applied?: boolean
           early_minutes?: number
           id?: string
           late_minutes?: number
@@ -58,6 +60,7 @@ export type Database = {
           check_out_time?: string | null
           created_at?: string
           date?: string
+          deduction_applied?: boolean
           early_minutes?: number
           id?: string
           late_minutes?: number
@@ -67,22 +70,55 @@ export type Database = {
       }
       profiles: {
         Row: {
+          base_salary: number
           created_at: string
           full_name: string
           id: string
           role: string
         }
         Insert: {
+          base_salary?: number
           created_at?: string
           full_name?: string
           id: string
           role?: string
         }
         Update: {
+          base_salary?: number
           created_at?: string
           full_name?: string
           id?: string
           role?: string
+        }
+        Relationships: []
+      }
+      salaries: {
+        Row: {
+          base_salary: number
+          current_salary: number
+          id: string
+          last_updated: string
+          month: string
+          total_deductions: number
+          user_id: string
+        }
+        Insert: {
+          base_salary?: number
+          current_salary?: number
+          id?: string
+          last_updated?: string
+          month: string
+          total_deductions?: number
+          user_id: string
+        }
+        Update: {
+          base_salary?: number
+          current_salary?: number
+          id?: string
+          last_updated?: string
+          month?: string
+          total_deductions?: number
+          user_id?: string
         }
         Relationships: []
       }

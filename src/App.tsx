@@ -12,6 +12,7 @@ import Attendance from "@/pages/Attendance";
 import Leave from "@/pages/Leave";
 import CalendarPage from "@/pages/CalendarPage";
 import Tasks from "@/pages/Tasks";
+import SalaryPage from "@/pages/SalaryPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
 
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/leave" element={<Leave />} />
               <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/tasks" element={<Tasks />} />
+              <Route path="/salary" element={<SalaryPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />

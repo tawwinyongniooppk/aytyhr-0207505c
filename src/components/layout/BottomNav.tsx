@@ -1,12 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, Clock, CalendarDays, Settings } from "lucide-react";
+import { LayoutDashboard, Clock, Wallet, CalendarDays, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Home" },
   { to: "/attendance", icon: Clock, label: "Attend" },
-  { to: "/tasks", icon: CalendarDays, label: "Tasks" },
-  { to: "/leave", icon: Users, label: "Leave" },
+  { to: "/salary", icon: Wallet, label: "Salary" },
+  { to: "/leave", icon: CalendarDays, label: "Leave" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
