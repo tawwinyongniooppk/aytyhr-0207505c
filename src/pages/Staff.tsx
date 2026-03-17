@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Phone, Wallet, TrendingDown, DollarSign } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Plus, Phone, Wallet, TrendingDown, DollarSign, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -38,8 +38,12 @@ export default function Staff() {
   const [deductionRate, setDeductionRate] = useState(200);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "" });
+  const [addForm, setAddForm] = useState({ full_name: "", email: "", password: "", role: "staff", base_salary: "300000", phone: "" });
+  const [addLoading, setAddLoading] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -58,6 +62,8 @@ export default function Staff() {
 
     if (profilesRes.data) {
       setStaff(profilesRes.data as unknown as StaffProfile[]);
+      const me = profilesRes.data.find((p: any) => p.id === user?.id);
+      if (me) setCurrentUserRole((me as any).role);
     }
 
     if (salariesRes.data) {
@@ -76,7 +82,6 @@ export default function Staff() {
     if (!form.full_name || !user) return;
 
     if (editId) {
-      // Update existing profile
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -101,6 +106,41 @@ export default function Staff() {
     loadData();
   };
 
+  const handleAddStaff = async () => {
+    if (!addForm.full_name || !addForm.email || !addForm.password) {
+      toast({ title: "Missing fields", description: "Name, email, and password are required.", variant: "destructive" });
+      return;
+    }
+    setAddLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke("create-staff", {
+        body: {
+          email: addForm.email,
+          password: addForm.password,
+          full_name: addForm.full_name,
+          role: addForm.role,
+          base_salary: Number(addForm.base_salary) || 300000,
+          phone: addForm.phone,
+        },
+      });
+
+      if (res.error) {
+        toast({ title: "Failed to create staff", description: res.error.message, variant: "destructive" });
+      } else if (res.data?.error) {
+        toast({ title: "Failed to create staff", description: res.data.error, variant: "destructive" });
+      } else {
+        toast({ title: "Staff account created!", description: `${addForm.full_name} can now log in.` });
+        setAddOpen(false);
+        setAddForm({ full_name: "", email: "", password: "", role: "staff", base_salary: "300000", phone: "" });
+        loadData();
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+    setAddLoading(false);
+  };
+
   const openEdit = (member: StaffProfile) => {
     setEditId(member.id);
     setForm({
@@ -114,6 +154,7 @@ export default function Staff() {
   };
 
   const currentMonth = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const isAdmin = currentUserRole === "admin";
 
   if (loading) {
     return (
@@ -131,9 +172,14 @@ export default function Staff() {
           <h1 className="text-2xl font-bold font-display">Staff</h1>
           <p className="text-muted-foreground text-sm mt-1">{staff.length} members · {currentMonth}</p>
         </div>
+        {isAdmin && (
+          <Button onClick={() => setAddOpen(true)} className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
+            <UserPlus className="h-4 w-4 mr-2" /> Add Staff
+          </Button>
+        )}
       </div>
 
-      {/* Staff Cards with Salary Preview */}
+      {/* Staff Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {staff.map((member) => {
           const sal = salaryMap[member.id];
@@ -149,14 +195,13 @@ export default function Staff() {
               onClick={() => openEdit(member)}
             >
               <CardContent className="p-4 space-y-3">
-                {/* Header */}
                 <div className="flex items-start gap-3">
                   <div className="h-10 w-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary text-sm font-bold shrink-0">
                     {member.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm truncate">{member.full_name || "Unnamed"}</h3>
-                    <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{member.role.replace("_", " ")}</p>
                     {member.phone && (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                         <Phone className="h-3 w-3" />{member.phone}
@@ -165,7 +210,6 @@ export default function Staff() {
                   </div>
                 </div>
 
-                {/* Salary Preview */}
                 <div className="border-t border-border pt-3 space-y-1.5">
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground flex items-center gap-1">
@@ -189,7 +233,6 @@ export default function Staff() {
                   </div>
                 </div>
 
-                {/* Status indicator */}
                 <div className="flex items-center gap-1.5">
                   <div className={`h-2 w-2 rounded-full ${hasDeductions ? "bg-destructive" : "bg-accent"}`} />
                   <span className="text-xs text-muted-foreground">
@@ -206,17 +249,17 @@ export default function Staff() {
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "" }); } }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-display">{editId ? "Edit Staff" : "Staff Details"}</DialogTitle>
+            <DialogTitle className="font-display">Edit Staff</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
               <Label>Full Name</Label>
-              <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="Enter name" />
+              <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
             </div>
             <div>
               <Label>Role</Label>
               <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
-                <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="assistant_admin">Assistant Admin</SelectItem>
@@ -226,18 +269,17 @@ export default function Staff() {
             </div>
             <div>
               <Label>Base Salary (kyats/month)</Label>
-              <Input type="number" value={form.base_salary} onChange={(e) => setForm({ ...form, base_salary: e.target.value })} placeholder="e.g. 300000" />
+              <Input type="number" value={form.base_salary} onChange={(e) => setForm({ ...form, base_salary: e.target.value })} />
             </div>
             <div>
               <Label>Phone</Label>
-              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone number" />
+              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             </div>
             <div>
               <Label>Join Date</Label>
               <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
             </div>
 
-            {/* Live Salary Preview in edit */}
             {editId && salaryMap[editId] && (
               <Card className="border border-secondary/30 bg-secondary/5 shadow-none">
                 <CardContent className="p-3 space-y-1">
@@ -261,7 +303,52 @@ export default function Staff() {
             )}
 
             <Button onClick={handleSave} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90">
-              {editId ? "Save Changes" : "Close"}
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Staff Dialog (Admin only) */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display">Add New Staff</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label>Full Name *</Label>
+              <Input value={addForm.full_name} onChange={(e) => setAddForm({ ...addForm, full_name: e.target.value })} placeholder="Jane Doe" />
+            </div>
+            <div>
+              <Label>Email *</Label>
+              <Input type="email" value={addForm.email} onChange={(e) => setAddForm({ ...addForm, email: e.target.value })} placeholder="jane@school.com" />
+            </div>
+            <div>
+              <Label>Password *</Label>
+              <Input type="password" value={addForm.password} onChange={(e) => setAddForm({ ...addForm, password: e.target.value })} placeholder="Min 6 characters" minLength={6} />
+            </div>
+            <div>
+              <Label>Role</Label>
+              <Select value={addForm.role} onValueChange={(v) => setAddForm({ ...addForm, role: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="assistant_admin">Assistant Admin</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Base Salary (kyats/month)</Label>
+              <Input type="number" value={addForm.base_salary} onChange={(e) => setAddForm({ ...addForm, base_salary: e.target.value })} />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input value={addForm.phone} onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })} placeholder="Optional" />
+            </div>
+            <Button onClick={handleAddStaff} disabled={addLoading} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90">
+              {addLoading ? "Creating..." : "Create Staff Account"}
             </Button>
           </div>
         </DialogContent>

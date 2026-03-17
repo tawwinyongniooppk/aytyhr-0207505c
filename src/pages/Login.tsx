@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,15 +7,23 @@ import { Label } from "@/components/ui/label";
 import { GraduationCap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,19 +38,25 @@ export default function Login() {
       if (error) {
         toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Account created", description: "You can now sign in." });
-        navigate("/dashboard");
+        toast({ title: "Account created!", description: "Redirecting to dashboard..." });
+        navigate("/dashboard", { replace: true });
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
+        let msg = error.message;
+        if (msg.includes("Invalid login credentials")) {
+          msg = "Invalid email or password. Please check and try again.";
+        }
+        toast({ title: "Sign in failed", description: msg, variant: "destructive" });
       } else {
-        navigate("/dashboard");
+        navigate("/dashboard", { replace: true });
       }
     }
     setLoading(false);
   };
+
+  if (authLoading) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
