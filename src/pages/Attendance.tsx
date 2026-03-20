@@ -169,6 +169,7 @@ export default function Attendance() {
     if (!user || !record) return;
     const now = new Date();
     const earlyMin = calcEarlyMinutes(now, settings.end_time);
+    const today = now.toISOString().split("T")[0];
 
     // Update attendance
     const { data, error } = await supabase
@@ -189,13 +190,30 @@ export default function Attendance() {
     const updatedRecord = data as unknown as AttendanceRecord;
     setRecord(updatedRecord);
 
+    // Check for approved leave/late_excuse for today
+    const { data: approvedLeave } = await supabase
+      .from("leave_requests")
+      .select("type")
+      .eq("user_id", user.id)
+      .eq("date", today)
+      .eq("status", "approved");
+
+    const approvedTypes = (approvedLeave as any[] | null)?.map((r: any) => r.type) ?? [];
+    const hasApprovedLeave = approvedTypes.includes("leave");
+    const hasApprovedLateExcuse = approvedTypes.includes("late_excuse");
+
     // Apply deduction if not already applied
     if (!updatedRecord.deduction_applied) {
-      const totalMinutes = (updatedRecord.late_minutes ?? 0) + earlyMin;
+      // If full leave approved, skip all deductions
+      // If late excuse approved, skip late deduction only
+      const effectiveLateMin = hasApprovedLeave || hasApprovedLateExcuse ? 0 : (updatedRecord.late_minutes ?? 0);
+      const effectiveEarlyMin = hasApprovedLeave ? 0 : earlyMin;
+      const totalMinutes = effectiveLateMin + effectiveEarlyMin;
       const deduction = totalMinutes * settings.deduction_rate_per_minute;
 
+      const sal = await ensureSalaryRecord();
+
       if (deduction > 0) {
-        const sal = await ensureSalaryRecord();
         const newCurrent = Math.max(0, sal.current_salary - deduction);
         const newDeductions = sal.total_deductions + deduction;
 
@@ -209,28 +227,21 @@ export default function Attendance() {
           .eq("user_id", user.id)
           .eq("month", getMonthStart());
 
-        // Mark deduction as applied
-        await supabase
-          .from("attendance")
-          .update({ deduction_applied: true } as any)
-          .eq("id", record.id);
-
+        await supabase.from("attendance").update({ deduction_applied: true } as any).eq("id", record.id);
         setRecord({ ...updatedRecord, deduction_applied: true });
         setSalary({ ...sal, current_salary: newCurrent, total_deductions: newDeductions });
         setLastDeduction(deduction);
-        setShowSalaryModal(true);
       } else {
-        const sal = await ensureSalaryRecord();
-        setSalary(sal);
-        // Mark applied even with 0 deduction
         await supabase.from("attendance").update({ deduction_applied: true } as any).eq("id", record.id);
         setRecord({ ...updatedRecord, deduction_applied: true });
-        setShowSalaryModal(true);
+        setSalary(sal);
         setLastDeduction(0);
       }
+      setShowSalaryModal(true);
     }
 
-    toast({ title: earlyMin > 0 ? `Checked out (${earlyMin} min early)` : "Checked out ✓" });
+    const excuseNote = hasApprovedLeave ? " (Leave approved)" : hasApprovedLateExcuse ? " (Late excused)" : "";
+    toast({ title: earlyMin > 0 ? `Checked out (${earlyMin} min early)${excuseNote}` : `Checked out ✓${excuseNote}` });
   };
 
   const checkedIn = !!record?.check_in_time;
