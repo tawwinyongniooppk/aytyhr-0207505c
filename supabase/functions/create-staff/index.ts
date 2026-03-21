@@ -14,10 +14,11 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const authHeader = req.headers.get("Authorization")!;
 
     // Verify the caller is authenticated
-    const callerClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!, {
+    const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user: caller } } = await callerClient.auth.getUser();
@@ -43,8 +44,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (password.length < 6) {
+      return new Response(JSON.stringify({ error: "Password must be at least 6 characters" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Use service role to create user
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // Check if email already exists
+    const { data: existingUsers } = await adminClient.auth.admin.listUsers();
+    const emailExists = existingUsers?.users?.some((u: any) => u.email === email);
+    if (emailExists) {
+      return new Response(JSON.stringify({ error: "Email already exists" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { data, error } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -58,12 +75,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update profile with role and salary
+    // Update profile with role and salary (profile auto-created by trigger)
     if (data.user) {
       await adminClient.from("profiles").update({
         role: role || "staff",
         base_salary: base_salary || 300000,
         phone: phone || "",
+        full_name: full_name,
       }).eq("id", data.user.id);
     }
 
