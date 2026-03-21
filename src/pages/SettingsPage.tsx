@@ -12,6 +12,9 @@ export default function SettingsPage() {
   const [endTime, setEndTime] = useState("16:00");
   const [gracePeriod, setGracePeriod] = useState("10");
   const [deductionRate, setDeductionRate] = useState("200");
+  const [schoolLat, setSchoolLat] = useState("0");
+  const [schoolLng, setSchoolLng] = useState("0");
+  const [allowedRadius, setAllowedRadius] = useState("50");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
