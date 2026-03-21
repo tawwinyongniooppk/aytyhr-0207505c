@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { MapPin } from "lucide-react";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -12,6 +13,9 @@ export default function SettingsPage() {
   const [endTime, setEndTime] = useState("16:00");
   const [gracePeriod, setGracePeriod] = useState("10");
   const [deductionRate, setDeductionRate] = useState("200");
+  const [schoolLat, setSchoolLat] = useState("0");
+  const [schoolLng, setSchoolLng] = useState("0");
+  const [allowedRadius, setAllowedRadius] = useState("50");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -27,6 +31,9 @@ export default function SettingsPage() {
       if (map.end_time) setEndTime(map.end_time);
       if (map.grace_period_minutes) setGracePeriod(map.grace_period_minutes);
       if (map.deduction_rate_per_minute) setDeductionRate(map.deduction_rate_per_minute);
+      if (map.school_latitude) setSchoolLat(map.school_latitude);
+      if (map.school_longitude) setSchoolLng(map.school_longitude);
+      if (map.allowed_radius_meters) setAllowedRadius(map.allowed_radius_meters);
     }
   };
 
@@ -37,17 +44,35 @@ export default function SettingsPage() {
       { key: "end_time", value: endTime },
       { key: "grace_period_minutes", value: gracePeriod },
       { key: "deduction_rate_per_minute", value: deductionRate },
+      { key: "school_latitude", value: schoolLat },
+      { key: "school_longitude", value: schoolLng },
+      { key: "allowed_radius_meters", value: allowedRadius },
     ];
 
     for (const entry of entries) {
       await supabase
         .from("app_settings")
-        .update({ value: entry.value, updated_at: new Date().toISOString() } as any)
-        .eq("key", entry.key);
+        .upsert({ key: entry.key, value: entry.value, updated_at: new Date().toISOString() } as any, { onConflict: "key" });
     }
 
     toast({ title: "Settings saved ✓" });
     setSaving(false);
+  };
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast({ title: "Geolocation not supported", variant: "destructive" });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setSchoolLat(String(pos.coords.latitude));
+        setSchoolLng(String(pos.coords.longitude));
+        toast({ title: "Location captured ✓" });
+      },
+      () => toast({ title: "Could not get location", variant: "destructive" }),
+      { enableHighAccuracy: true }
+    );
   };
 
   return (
@@ -85,6 +110,37 @@ export default function SettingsPage() {
               <Input type="number" value={deductionRate} onChange={(e) => setDeductionRate(e.target.value)} />
               <p className="text-xs text-muted-foreground mt-1">Applied to both late and early leave minutes</p>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border shadow-none md:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base font-display flex items-center gap-2">
+              <MapPin className="h-4 w-4" /> School Location (Geo-Fence)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Latitude</Label>
+                <Input type="number" step="any" value={schoolLat} onChange={(e) => setSchoolLat(e.target.value)} />
+              </div>
+              <div>
+                <Label>Longitude</Label>
+                <Input type="number" step="any" value={schoolLng} onChange={(e) => setSchoolLng(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <Label>Allowed Radius (meters)</Label>
+              <Input type="number" value={allowedRadius} onChange={(e) => setAllowedRadius(e.target.value)} />
+              <p className="text-xs text-muted-foreground mt-1">Staff must be within this distance to check in</p>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={handleGetCurrentLocation}>
+              <MapPin className="h-4 w-4 mr-2" /> Use Current Location
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Set lat/lng to 0 to disable geo-fencing
+            </p>
           </CardContent>
         </Card>
       </div>
