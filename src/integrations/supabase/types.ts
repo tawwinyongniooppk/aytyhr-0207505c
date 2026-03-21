@@ -34,6 +34,9 @@ export type Database = {
       }
       attendance: {
         Row: {
+          check_in_distance: number | null
+          check_in_lat: number | null
+          check_in_lng: number | null
           check_in_time: string | null
           check_out_time: string | null
           created_at: string
@@ -45,6 +48,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          check_in_distance?: number | null
+          check_in_lat?: number | null
+          check_in_lng?: number | null
           check_in_time?: string | null
           check_out_time?: string | null
           created_at?: string
@@ -56,6 +62,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          check_in_distance?: number | null
+          check_in_lat?: number | null
+          check_in_lng?: number | null
           check_in_time?: string | null
           check_out_time?: string | null
           created_at?: string
