@@ -48,7 +48,7 @@ const App = () => (
           <BrowserRouter>
             <Suspense fallback={<PageLoader />}>
               <Routes>
-                <Route path="/" element={<Navigate to="/login" replace />} />
+                <Route path="/" element={<Navigate to="/attendance" replace />} />
                 <Route path="/login" element={<Login />} />
                 <Route element={<AppLayout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
