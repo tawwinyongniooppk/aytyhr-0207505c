@@ -1,0 +1,1 @@
+ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS location_status text DEFAULT NULL;

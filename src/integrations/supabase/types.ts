@@ -45,6 +45,7 @@ export type Database = {
           early_minutes: number
           id: string
           late_minutes: number
+          location_status: string | null
           user_id: string
         }
         Insert: {
@@ -59,6 +60,7 @@ export type Database = {
           early_minutes?: number
           id?: string
           late_minutes?: number
+          location_status?: string | null
           user_id: string
         }
         Update: {
@@ -73,6 +75,7 @@ export type Database = {
           early_minutes?: number
           id?: string
           late_minutes?: number
+          location_status?: string | null
           user_id?: string
         }
         Relationships: []
