@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LogIn, LogOut, Clock, AlertTriangle, DollarSign, Wallet, MapPin, ShieldCheck, ShieldX } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { LogIn, LogOut, Clock, AlertTriangle, DollarSign, Wallet, MapPin, ShieldCheck, ShieldX, RefreshCw, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +39,7 @@ interface LocationState {
   lng: number | null;
   distance: number | null;
   isInside: boolean | null;
+  errorMessage: string | null;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -72,7 +74,7 @@ function getMonthStart(): string {
 }
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000; // Earth radius in meters
+  const R = 6371000;
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
@@ -89,14 +91,18 @@ export default function Attendance() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [salary, setSalary] = useState<SalaryRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   const [showSalaryModal, setShowSalaryModal] = useState(false);
   const [lastDeduction, setLastDeduction] = useState(0);
+  const [userRole, setUserRole] = useState<string>("staff");
   const [location, setLocation] = useState<LocationState>({
     status: "idle",
     lat: null,
     lng: null,
     distance: null,
     isInside: null,
+    errorMessage: null,
   });
 
   useEffect(() => {
@@ -104,189 +110,263 @@ export default function Attendance() {
     loadData();
   }, [user]);
 
-  // Get location on mount
   useEffect(() => {
-    getLocation();
-  }, [settings.school_latitude]);
-
-  const getLocation = () => {
-    if (!navigator.geolocation) {
-      setLocation((prev) => ({ ...prev, status: "error" }));
-      return;
+    if (settings.school_latitude !== 0 || settings.school_longitude !== 0) {
+      getLocation();
     }
+  }, [settings.school_latitude, settings.school_longitude]);
 
-    setLocation((prev) => ({ ...prev, status: "loading" }));
+  const getLocation = useCallback(() => {
+    try {
+      if (!navigator.geolocation) {
+        setLocation((prev) => ({ ...prev, status: "error", errorMessage: "Geolocation not supported by your browser" }));
+        return;
+      }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        const schoolConfigured = settings.school_latitude !== 0 || settings.school_longitude !== 0;
-        let distance: number | null = null;
-        let isInside: boolean | null = null;
+      setLocation((prev) => ({ ...prev, status: "loading", errorMessage: null }));
 
-        if (schoolConfigured) {
-          distance = Math.round(haversineDistance(lat, lng, settings.school_latitude, settings.school_longitude));
-          isInside = distance <= settings.allowed_radius_meters;
-        }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          try {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const schoolConfigured = settings.school_latitude !== 0 || settings.school_longitude !== 0;
+            let distance: number | null = null;
+            let isInside: boolean | null = null;
 
-        setLocation({ status: "granted", lat, lng, distance, isInside });
-      },
-      () => {
-        setLocation({ status: "denied", lat: null, lng: null, distance: null, isInside: null });
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
+            if (schoolConfigured) {
+              distance = Math.round(haversineDistance(lat, lng, settings.school_latitude, settings.school_longitude));
+              isInside = distance <= settings.allowed_radius_meters;
+            }
+
+            setLocation({ status: "granted", lat, lng, distance, isInside, errorMessage: null });
+          } catch (e) {
+            console.error("Location calculation error:", e);
+            setLocation({ status: "error", lat: null, lng: null, distance: null, isInside: null, errorMessage: "Unable to verify location, please try again" });
+          }
+        },
+        (err) => {
+          console.warn("Geolocation denied:", err.message);
+          const msg = err.code === 1 ? "Location permission denied" : err.code === 3 ? "Location request timed out" : "Unable to get location";
+          setLocation({ status: "denied", lat: null, lng: null, distance: null, isInside: null, errorMessage: msg });
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+      );
+    } catch (e) {
+      console.error("getLocation unexpected error:", e);
+      setLocation({ status: "error", lat: null, lng: null, distance: null, isInside: null, errorMessage: "Unable to verify location, please try again" });
+    }
+  }, [settings.school_latitude, settings.school_longitude, settings.allowed_radius_meters]);
 
   const loadData = async () => {
-    setLoading(true);
-    const today = new Date().toISOString().split("T")[0];
-    const monthStart = getMonthStart();
+    try {
+      setLoading(true);
+      const today = new Date().toISOString().split("T")[0];
+      const monthStart = getMonthStart();
 
-    const [attRes, settRes, salRes] = await Promise.all([
-      supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
-      supabase.from("app_settings").select("*"),
-      supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
-    ]);
+      const [attRes, settRes, salRes, profileRes] = await Promise.all([
+        supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
+        supabase.from("app_settings").select("*"),
+        supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
+        supabase.from("profiles").select("role").eq("id", user!.id).single(),
+      ]);
 
-    if (attRes.data) setRecord(attRes.data as unknown as AttendanceRecord);
-    if (salRes.data) setSalary(salRes.data as unknown as SalaryRecord);
+      if (attRes.data) setRecord(attRes.data as unknown as AttendanceRecord);
+      if (salRes.data) setSalary(salRes.data as unknown as SalaryRecord);
+      if (profileRes.data) setUserRole((profileRes.data as any).role ?? "staff");
 
-    if (settRes.data) {
-      const map: Record<string, string> = {};
-      (settRes.data as unknown as { key: string; value: string }[]).forEach((r) => (map[r.key] = r.value));
-      setSettings({
-        start_time: map.start_time ?? DEFAULT_SETTINGS.start_time,
-        end_time: map.end_time ?? DEFAULT_SETTINGS.end_time,
-        grace_period_minutes: Number(map.grace_period_minutes) || DEFAULT_SETTINGS.grace_period_minutes,
-        deduction_rate_per_minute: Number(map.deduction_rate_per_minute) || DEFAULT_SETTINGS.deduction_rate_per_minute,
-        school_latitude: Number(map.school_latitude) || 0,
-        school_longitude: Number(map.school_longitude) || 0,
-        allowed_radius_meters: Number(map.allowed_radius_meters) || DEFAULT_SETTINGS.allowed_radius_meters,
-      });
+      if (settRes.data) {
+        const map: Record<string, string> = {};
+        (settRes.data as unknown as { key: string; value: string }[]).forEach((r) => (map[r.key] = r.value));
+        setSettings({
+          start_time: map.start_time ?? DEFAULT_SETTINGS.start_time,
+          end_time: map.end_time ?? DEFAULT_SETTINGS.end_time,
+          grace_period_minutes: Number(map.grace_period_minutes) || DEFAULT_SETTINGS.grace_period_minutes,
+          deduction_rate_per_minute: Number(map.deduction_rate_per_minute) || DEFAULT_SETTINGS.deduction_rate_per_minute,
+          school_latitude: Number(map.school_latitude) || 0,
+          school_longitude: Number(map.school_longitude) || 0,
+          allowed_radius_meters: Number(map.allowed_radius_meters) || DEFAULT_SETTINGS.allowed_radius_meters,
+        });
+      }
+    } catch (e) {
+      console.error("loadData error:", e);
+      toast({ title: "Failed to load data", description: "Please refresh the page", variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const ensureSalaryRecord = async (): Promise<SalaryRecord> => {
-    const monthStart = getMonthStart();
-    const { data: existing } = await supabase
-      .from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle();
-    if (existing) return existing as unknown as SalaryRecord;
+    try {
+      const monthStart = getMonthStart();
+      const { data: existing } = await supabase
+        .from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle();
+      if (existing) return existing as unknown as SalaryRecord;
 
-    const { data: profile } = await supabase
-      .from("profiles").select("base_salary").eq("id", user!.id).single();
-    const baseSalary = (profile as any)?.base_salary ?? 300000;
+      const { data: profile } = await supabase
+        .from("profiles").select("base_salary").eq("id", user!.id).single();
+      const baseSalary = (profile as any)?.base_salary ?? 300000;
 
-    const { data: newRec } = await supabase
-      .from("salaries")
-      .insert({ user_id: user!.id, month: monthStart, base_salary: baseSalary, current_salary: baseSalary, total_deductions: 0 } as any)
-      .select().single();
+      const { data: newRec } = await supabase
+        .from("salaries")
+        .insert({ user_id: user!.id, month: monthStart, base_salary: baseSalary, current_salary: baseSalary, total_deductions: 0 } as any)
+        .select().single();
 
-    return (newRec as unknown as SalaryRecord) ?? { base_salary: baseSalary, current_salary: baseSalary, total_deductions: 0 };
+      return (newRec as unknown as SalaryRecord) ?? { base_salary: baseSalary, current_salary: baseSalary, total_deductions: 0 };
+    } catch (e) {
+      console.error("ensureSalaryRecord error:", e);
+      return { base_salary: 300000, current_salary: 300000, total_deductions: 0 };
+    }
   };
 
   const schoolConfigured = settings.school_latitude !== 0 || settings.school_longitude !== 0;
+  const isAdmin = userRole === "admin";
   const geoBlocked = schoolConfigured && location.status === "granted" && location.isInside === false;
   const geoDenied = location.status === "denied";
+  const geoError = location.status === "error";
+  const geoLoading = location.status === "loading";
+
+  // Admin can override geo-blocking when location is denied or errored
+  const canCheckIn = (() => {
+    if (record?.check_in_time) return false; // already checked in
+    if (!schoolConfigured) return true; // no geo-fence
+    if (location.isInside === true) return true; // inside
+    if ((geoDenied || geoError) && isAdmin) return true; // admin override
+    return false;
+  })();
+
+  const getLocationStatusLabel = (): string => {
+    if (!schoolConfigured) return "";
+    if (location.isInside === true) return "inside";
+    if (location.isInside === false) return "outside";
+    if (geoDenied) return "denied";
+    if (geoError) return "error";
+    if (geoLoading) return "loading";
+    return "unknown";
+  };
 
   const handleCheckIn = async () => {
-    if (!user) return;
+    if (!user || checkingIn) return;
 
-    // Re-check location before check-in
-    if (schoolConfigured && location.status !== "denied") {
-      if (geoBlocked) {
+    try {
+      setCheckingIn(true);
+
+      // Block non-admin if outside
+      if (schoolConfigured && geoBlocked && !isAdmin) {
         toast({ title: "Outside school area", description: `You are ${location.distance}m away. Move closer to check in.`, variant: "destructive" });
         return;
       }
-    }
 
-    const now = new Date();
-    const lateMin = calcLateMinutes(now, settings.start_time, settings.grace_period_minutes);
-    const today = now.toISOString().split("T")[0];
+      // Block if location denied and not admin
+      if (schoolConfigured && (geoDenied || geoError) && !isAdmin) {
+        toast({ title: "Location required", description: "Please enable location access for attendance", variant: "destructive" });
+        return;
+      }
 
-    const insertData: any = {
-      user_id: user.id,
-      date: today,
-      check_in_time: now.toISOString(),
-      late_minutes: lateMin,
-      deduction_applied: false,
-    };
+      const now = new Date();
+      const lateMin = calcLateMinutes(now, settings.start_time, settings.grace_period_minutes);
+      const today = now.toISOString().split("T")[0];
+      const locationStatus = getLocationStatusLabel();
 
-    if (location.lat != null) {
-      insertData.check_in_lat = location.lat;
-      insertData.check_in_lng = location.lng;
-      insertData.check_in_distance = location.distance;
-    }
+      const insertData: any = {
+        user_id: user.id,
+        date: today,
+        check_in_time: now.toISOString(),
+        late_minutes: lateMin,
+        deduction_applied: false,
+        location_status: locationStatus || null,
+      };
 
-    const { data, error } = await supabase
-      .from("attendance").insert(insertData).select().single();
+      if (location.lat != null) {
+        insertData.check_in_lat = location.lat;
+        insertData.check_in_lng = location.lng;
+        insertData.check_in_distance = location.distance;
+      }
 
-    if (error) {
-      toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
-    } else {
-      setRecord(data as unknown as AttendanceRecord);
-      const sal = await ensureSalaryRecord();
-      setSalary(sal);
-      toast({ title: lateMin > 0 ? `Checked in (${lateMin} min late)` : "Checked in on time ✓" });
+      const { data, error } = await supabase
+        .from("attendance").insert(insertData).select().single();
+
+      if (error) {
+        toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
+      } else {
+        setRecord(data as unknown as AttendanceRecord);
+        const sal = await ensureSalaryRecord();
+        setSalary(sal);
+
+        const overrideNote = (geoDenied || geoError) && isAdmin ? " (Admin override)" : "";
+        toast({ title: lateMin > 0 ? `Checked in (${lateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}` });
+      }
+    } catch (e) {
+      console.error("handleCheckIn error:", e);
+      toast({ title: "Check-in failed", description: "An unexpected error occurred. Please try again.", variant: "destructive" });
+    } finally {
+      setCheckingIn(false);
     }
   };
 
   const handleCheckOut = async () => {
-    if (!user || !record) return;
-    const now = new Date();
-    const earlyMin = calcEarlyMinutes(now, settings.end_time);
-    const today = now.toISOString().split("T")[0];
+    if (!user || !record || checkingOut) return;
 
-    const { data, error } = await supabase
-      .from("attendance")
-      .update({ check_out_time: now.toISOString(), early_minutes: earlyMin } as any)
-      .eq("id", record.id).select().single();
+    try {
+      setCheckingOut(true);
+      const now = new Date();
+      const earlyMin = calcEarlyMinutes(now, settings.end_time);
+      const today = now.toISOString().split("T")[0];
 
-    if (error) {
-      toast({ title: "Check-out failed", description: error.message, variant: "destructive" });
-      return;
-    }
+      const { data, error } = await supabase
+        .from("attendance")
+        .update({ check_out_time: now.toISOString(), early_minutes: earlyMin } as any)
+        .eq("id", record.id).select().single();
 
-    const updatedRecord = data as unknown as AttendanceRecord;
-    setRecord(updatedRecord);
-
-    const { data: approvedLeave } = await supabase
-      .from("leave_requests").select("type")
-      .eq("user_id", user.id).eq("date", today).eq("status", "approved");
-
-    const approvedTypes = (approvedLeave as any[] | null)?.map((r: any) => r.type) ?? [];
-    const hasApprovedLeave = approvedTypes.includes("leave");
-    const hasApprovedLateExcuse = approvedTypes.includes("late_excuse");
-
-    if (!updatedRecord.deduction_applied) {
-      const effectiveLateMin = hasApprovedLeave || hasApprovedLateExcuse ? 0 : (updatedRecord.late_minutes ?? 0);
-      const effectiveEarlyMin = hasApprovedLeave ? 0 : earlyMin;
-      const totalMinutes = effectiveLateMin + effectiveEarlyMin;
-      const deduction = totalMinutes * settings.deduction_rate_per_minute;
-      const sal = await ensureSalaryRecord();
-
-      if (deduction > 0) {
-        const newCurrent = Math.max(0, sal.current_salary - deduction);
-        const newDeductions = sal.total_deductions + deduction;
-        await supabase.from("salaries").update({ current_salary: newCurrent, total_deductions: newDeductions, last_updated: new Date().toISOString() } as any)
-          .eq("user_id", user.id).eq("month", getMonthStart());
-        await supabase.from("attendance").update({ deduction_applied: true } as any).eq("id", record.id);
-        setRecord({ ...updatedRecord, deduction_applied: true });
-        setSalary({ ...sal, current_salary: newCurrent, total_deductions: newDeductions });
-        setLastDeduction(deduction);
-      } else {
-        await supabase.from("attendance").update({ deduction_applied: true } as any).eq("id", record.id);
-        setRecord({ ...updatedRecord, deduction_applied: true });
-        setSalary(sal);
-        setLastDeduction(0);
+      if (error) {
+        toast({ title: "Check-out failed", description: error.message, variant: "destructive" });
+        return;
       }
-      setShowSalaryModal(true);
-    }
 
-    const excuseNote = hasApprovedLeave ? " (Leave approved)" : hasApprovedLateExcuse ? " (Late excused)" : "";
-    toast({ title: earlyMin > 0 ? `Checked out (${earlyMin} min early)${excuseNote}` : `Checked out ✓${excuseNote}` });
+      const updatedRecord = data as unknown as AttendanceRecord;
+      setRecord(updatedRecord);
+
+      const { data: approvedLeave } = await supabase
+        .from("leave_requests").select("type")
+        .eq("user_id", user.id).eq("date", today).eq("status", "approved");
+
+      const approvedTypes = (approvedLeave as any[] | null)?.map((r: any) => r.type) ?? [];
+      const hasApprovedLeave = approvedTypes.includes("leave");
+      const hasApprovedLateExcuse = approvedTypes.includes("late_excuse");
+
+      if (!updatedRecord.deduction_applied) {
+        const effectiveLateMin = hasApprovedLeave || hasApprovedLateExcuse ? 0 : (updatedRecord.late_minutes ?? 0);
+        const effectiveEarlyMin = hasApprovedLeave ? 0 : earlyMin;
+        const totalMinutes = effectiveLateMin + effectiveEarlyMin;
+        const deduction = totalMinutes * settings.deduction_rate_per_minute;
+        const sal = await ensureSalaryRecord();
+
+        if (deduction > 0) {
+          const newCurrent = Math.max(0, sal.current_salary - deduction);
+          const newDeductions = sal.total_deductions + deduction;
+          await supabase.from("salaries").update({ current_salary: newCurrent, total_deductions: newDeductions, last_updated: new Date().toISOString() } as any)
+            .eq("user_id", user.id).eq("month", getMonthStart());
+          await supabase.from("attendance").update({ deduction_applied: true } as any).eq("id", record.id);
+          setRecord({ ...updatedRecord, deduction_applied: true });
+          setSalary({ ...sal, current_salary: newCurrent, total_deductions: newDeductions });
+          setLastDeduction(deduction);
+        } else {
+          await supabase.from("attendance").update({ deduction_applied: true } as any).eq("id", record.id);
+          setRecord({ ...updatedRecord, deduction_applied: true });
+          setSalary(sal);
+          setLastDeduction(0);
+        }
+        setShowSalaryModal(true);
+      }
+
+      const excuseNote = hasApprovedLeave ? " (Leave approved)" : hasApprovedLateExcuse ? " (Late excused)" : "";
+      toast({ title: earlyMin > 0 ? `Checked out (${earlyMin} min early)${excuseNote}` : `Checked out ✓${excuseNote}` });
+    } catch (e) {
+      console.error("handleCheckOut error:", e);
+      toast({ title: "Check-out failed", description: "An unexpected error occurred. Please try again.", variant: "destructive" });
+    } finally {
+      setCheckingOut(false);
+    }
   };
 
   const checkedIn = !!record?.check_in_time;
@@ -304,7 +384,10 @@ export default function Attendance() {
     return (
       <div className="space-y-6">
         <div><h1 className="text-2xl font-bold font-display">Attendance</h1></div>
-        <p className="text-muted-foreground text-sm">Loading...</p>
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Loading...</span>
+        </div>
       </div>
     );
   }
@@ -321,34 +404,57 @@ export default function Attendance() {
         <Card className={`border shadow-none ${
           location.isInside === true ? "border-accent/30 bg-accent/5" :
           location.isInside === false ? "border-destructive/30 bg-destructive/5" :
+          geoError ? "border-destructive/30 bg-destructive/5" :
           "border-border"
         }`}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              {location.status === "loading" ? (
+              {geoLoading ? (
                 <>
-                  <MapPin className="h-5 w-5 text-muted-foreground animate-pulse" />
-                  <div>
+                  <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+                  <div className="flex-1">
                     <p className="text-sm font-semibold font-display">Checking location...</p>
                     <p className="text-xs text-muted-foreground">Getting your GPS position</p>
                   </div>
                 </>
-              ) : location.status === "denied" ? (
+              ) : geoDenied ? (
                 <>
                   <AlertTriangle className="h-5 w-5 text-yellow-500" />
                   <div className="flex-1">
                     <p className="text-sm font-semibold font-display">Location permission denied</p>
-                    <p className="text-xs text-muted-foreground">Check-in allowed but location won't be recorded</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isAdmin ? "Admin override available — check-in allowed without location" : "Location is required for check-in. Please enable it in your browser settings."}
+                    </p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={getLocation}>Retry</Button>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && <Badge className="bg-secondary text-secondary-foreground text-[10px]">Admin</Badge>}
+                    <Button size="sm" variant="outline" onClick={getLocation}>
+                      <RefreshCw className="h-3 w-3 mr-1" /> Retry
+                    </Button>
+                  </div>
+                </>
+              ) : geoError ? (
+                <>
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold font-display text-destructive">Location error</p>
+                    <p className="text-xs text-muted-foreground">{location.errorMessage || "Unable to verify location, please try again"}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && <Badge className="bg-secondary text-secondary-foreground text-[10px]">Admin</Badge>}
+                    <Button size="sm" variant="outline" onClick={getLocation}>
+                      <RefreshCw className="h-3 w-3 mr-1" /> Retry
+                    </Button>
+                  </div>
                 </>
               ) : location.isInside === true ? (
                 <>
                   <ShieldCheck className="h-5 w-5 text-accent" />
-                  <div>
-                    <p className="text-sm font-semibold font-display text-accent">Inside school area ✓</p>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold font-display text-accent">Inside school area</p>
                     <p className="text-xs text-muted-foreground">{location.distance}m from school (allowed: {settings.allowed_radius_meters}m)</p>
                   </div>
+                  <Badge className="bg-accent/10 text-accent border-accent/30 text-[10px]">Inside</Badge>
                 </>
               ) : location.isInside === false ? (
                 <>
@@ -357,15 +463,23 @@ export default function Attendance() {
                     <p className="text-sm font-semibold font-display text-destructive">Outside school area</p>
                     <p className="text-xs text-muted-foreground">{location.distance}m away (max: {settings.allowed_radius_meters}m)</p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={getLocation}>Refresh</Button>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="destructive" className="text-[10px]">Outside</Badge>
+                    <Button size="sm" variant="outline" onClick={getLocation}>
+                      <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+                    </Button>
+                  </div>
                 </>
               ) : (
                 <>
                   <MapPin className="h-5 w-5 text-muted-foreground" />
                   <div className="flex-1">
                     <p className="text-sm font-semibold font-display">Location not available</p>
+                    <p className="text-xs text-muted-foreground">Tap to get your current location</p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={getLocation}>Get Location</Button>
+                  <Button size="sm" variant="outline" onClick={getLocation}>
+                    <MapPin className="h-3 w-3 mr-1" /> Get Location
+                  </Button>
                 </>
               )}
             </div>
@@ -406,17 +520,28 @@ export default function Attendance() {
           <div className="flex gap-3 justify-center">
             <Button
               onClick={handleCheckIn}
-              disabled={checkedIn || (geoBlocked && !geoDenied)}
+              disabled={!canCheckIn || checkingIn || geoLoading}
               className="bg-accent text-accent-foreground hover:bg-accent/90 active:animate-press"
             >
-              <LogIn className="h-4 w-4 mr-2" /> Check In
+              {checkingIn ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <LogIn className="h-4 w-4 mr-2" />}
+              Check In
             </Button>
-            <Button onClick={handleCheckOut} disabled={!checkedIn || checkedOut} variant="outline" className="active:animate-press">
-              <LogOut className="h-4 w-4 mr-2" /> Check Out
+            <Button
+              onClick={handleCheckOut}
+              disabled={!checkedIn || checkedOut || checkingOut}
+              variant="outline"
+              className="active:animate-press"
+            >
+              {checkingOut ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <LogOut className="h-4 w-4 mr-2" />}
+              Check Out
             </Button>
           </div>
-          {geoBlocked && !geoDenied && !checkedIn && (
-            <p className="text-xs text-destructive">Move inside school area to check in</p>
+          {schoolConfigured && !canCheckIn && !checkedIn && !geoLoading && (
+            <p className="text-xs text-destructive">
+              {geoBlocked ? "Move inside school area to check in" :
+               (geoDenied || geoError) && !isAdmin ? "Enable location access to check in" :
+               ""}
+            </p>
           )}
         </CardContent>
       </Card>
