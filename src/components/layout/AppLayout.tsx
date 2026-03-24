@@ -9,8 +9,8 @@ const adminOnlyRoutes = ["/dashboard", "/staff", "/settings"];
 const salaryRoutes = ["/salary"];
 
 export function AppLayout() {
-  const { user, loading } = useAuth();
-  const { isAdmin, canViewSalary, loading: profileLoading } = useProfile();
+  const { user, loading, signOut } = useAuth();
+  const { isAdmin, canViewSalary, loading: profileLoading, error: profileError } = useProfile();
   const location = useLocation();
 
   if (loading || profileLoading) {
@@ -22,6 +22,22 @@ export function AppLayout() {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+
+  if (profileError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center space-y-4 max-w-sm">
+          <p className="text-destructive font-medium">{profileError}</p>
+          <button
+            onClick={signOut}
+            className="text-sm text-muted-foreground underline hover:text-foreground"
+          >
+            Sign out and try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Redirect staff away from admin-only routes
   if (!isAdmin && adminOnlyRoutes.includes(location.pathname)) {
