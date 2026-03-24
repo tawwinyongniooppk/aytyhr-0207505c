@@ -5,17 +5,21 @@ import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 
 const allNavItems = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Home", adminOnly: true },
-  { to: "/attendance", icon: Clock, label: "Attend", adminOnly: false },
-  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false },
-  { to: "/leave", icon: CalendarDays, label: "Leave", adminOnly: false },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Home", adminOnly: true, requireSalaryAccess: false },
+  { to: "/attendance", icon: Clock, label: "Attend", adminOnly: false, requireSalaryAccess: false },
+  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, requireSalaryAccess: true },
+  { to: "/leave", icon: CalendarDays, label: "Leave", adminOnly: false, requireSalaryAccess: false },
 ];
 
 export function BottomNav() {
-  const { isAdmin } = useProfile();
+  const { isAdmin, canViewSalary } = useProfile();
   const { signOut } = useAuth();
 
-  const navItems = allNavItems.filter((item) => isAdmin || !item.adminOnly);
+  const navItems = allNavItems.filter((item) => {
+    if (item.adminOnly && !isAdmin) return false;
+    if (item.requireSalaryAccess && !canViewSalary) return false;
+    return true;
+  });
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card">

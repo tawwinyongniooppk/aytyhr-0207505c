@@ -6,10 +6,11 @@ import { useProfile } from "@/hooks/useProfile";
 import { Loader2 } from "lucide-react";
 
 const adminOnlyRoutes = ["/dashboard", "/staff", "/settings"];
+const salaryRoutes = ["/salary"];
 
 export function AppLayout() {
   const { user, loading } = useAuth();
-  const { isAdmin, loading: profileLoading } = useProfile();
+  const { isAdmin, canViewSalary, loading: profileLoading } = useProfile();
   const location = useLocation();
 
   if (loading || profileLoading) {
@@ -24,6 +25,11 @@ export function AppLayout() {
 
   // Redirect staff away from admin-only routes
   if (!isAdmin && adminOnlyRoutes.includes(location.pathname)) {
+    return <Navigate to="/attendance" replace />;
+  }
+
+  // Redirect assistant away from salary routes
+  if (!canViewSalary && salaryRoutes.includes(location.pathname)) {
     return <Navigate to="/attendance" replace />;
   }
 

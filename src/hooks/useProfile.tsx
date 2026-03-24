@@ -45,7 +45,9 @@ export function useProfile() {
   }, [user]);
 
   const isAdmin = profile?.role === "admin" || profile?.role === "assistant";
+  const isAssistant = profile?.role === "assistant";
   const isStaff = profile?.role === "staff";
+  const canViewSalary = profile?.role === "admin" || profile?.role === "staff";
 
-  return { profile, loading, isAdmin, isStaff };
+  return { profile, loading, isAdmin, isAssistant, isStaff, canViewSalary };
 }
