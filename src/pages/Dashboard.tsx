@@ -151,9 +151,9 @@ export default function Dashboard() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {summaryCards.map((card) => (
-          <Card key={card.label} className="border border-border shadow-none">
+          <Card key={card.label} className="border border-border shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
