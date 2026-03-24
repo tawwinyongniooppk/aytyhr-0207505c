@@ -16,10 +16,13 @@ export function useProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!user) {
       setProfile(null);
       setLoading(false);
+      setError(null);
       return;
     }
 
@@ -27,14 +30,26 @@ export function useProfile() {
 
     async function load() {
       try {
-        const { data } = await supabase
+        setError(null);
+        const { data, error: fetchError } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", user!.id)
-          .single();
-        if (!cancelled) setProfile(data);
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (fetchError) {
+          setError("Failed to load profile. Please try again.");
+          setProfile(null);
+        } else if (!data) {
+          setError("No profile found for this account. Contact an administrator.");
+          setProfile(null);
+        } else {
+          setProfile(data);
+        }
       } catch {
-        // ignore
+        if (!cancelled) setError("Unexpected error loading profile.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -44,10 +59,11 @@ export function useProfile() {
     return () => { cancelled = true; };
   }, [user]);
 
-  const isAdmin = profile?.role === "admin" || profile?.role === "assistant";
-  const isAssistant = profile?.role === "assistant";
-  const isStaff = profile?.role === "staff";
-  const canViewSalary = profile?.role === "admin" || profile?.role === "staff";
+  const role = profile?.role;
+  const isAdmin = role === "admin" || role === "assistant";
+  const isAssistant = role === "assistant";
+  const isStaff = role === "staff" || !role;
+  const canViewSalary = role === "admin" || role === "staff";
 
-  return { profile, loading, isAdmin, isAssistant, isStaff, canViewSalary };
+  return { profile, loading, error, isAdmin, isAssistant, isStaff, canViewSalary };
 }
