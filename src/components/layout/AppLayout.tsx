@@ -10,7 +10,7 @@ const salaryRoutes = ["/salary"];
 
 export function AppLayout() {
   const { user, loading } = useAuth();
-  const { isAdmin, loading: profileLoading } = useProfile();
+  const { isAdmin, canViewSalary, loading: profileLoading } = useProfile();
   const location = useLocation();
 
   if (loading || profileLoading) {
