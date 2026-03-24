@@ -26,18 +26,26 @@ export function DesktopSidebar() {
     return true;
   });
 
+  const roleBadgeColor = profile?.role === "admin"
+    ? "bg-primary/20 text-primary-foreground"
+    : profile?.role === "assistant"
+      ? "bg-warning/20 text-sidebar-foreground"
+      : "bg-accent/20 text-sidebar-foreground";
+
   return (
-    <aside className="w-60 bg-primary text-primary-foreground flex flex-col min-h-screen">
+    <aside className="w-60 bg-secondary text-secondary-foreground flex flex-col min-h-screen">
       <div className="p-5 flex items-center gap-3 border-b border-sidebar-border">
-        <GraduationCap className="h-7 w-7 text-secondary" />
+        <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
+          <GraduationCap className="h-5 w-5 text-primary-foreground" />
+        </div>
         <h1 className="font-display text-lg font-bold">StaffPortal</h1>
       </div>
 
       {profile && (
         <div className="px-5 py-3 border-b border-sidebar-border">
           <p className="text-sm font-medium truncate">{profile.full_name || "User"}</p>
-          <Badge variant="secondary" className="mt-1 text-[10px] uppercase">
-            {profile.role}
+          <Badge className={cn("mt-1 text-[10px] uppercase border-0", roleBadgeColor)}>
+            {profile.role === "assistant" ? "Assistant Admin" : profile.role}
           </Badge>
         </div>
       )}
@@ -49,10 +57,10 @@ export function DesktopSidebar() {
             to={item.to}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-primary"
-                  : "text-primary-foreground/70 hover:bg-sidebar-accent/50 hover:text-primary-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-secondary-foreground/70 hover:bg-sidebar-accent hover:text-secondary-foreground"
               )
             }
           >
@@ -65,12 +73,11 @@ export function DesktopSidebar() {
       <div className="p-3 border-t border-sidebar-border">
         <button
           onClick={signOut}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-primary-foreground/70 hover:bg-destructive/20 hover:text-destructive-foreground w-full transition-colors"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-secondary-foreground/70 hover:bg-destructive/20 hover:text-destructive-foreground w-full transition-colors"
         >
           <LogOut className="h-4 w-4" />
           <span>Logout</span>
         </button>
-        <p className="text-xs text-primary-foreground/50 mt-2 px-3">© 2026 StaffPortal</p>
       </div>
     </aside>
   );

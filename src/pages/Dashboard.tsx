@@ -112,10 +112,10 @@ export default function Dashboard() {
     .slice(0, 3);
 
   const summaryCards = [
-    { label: "Total Staff", value: totalStaff, icon: Users, accent: "text-secondary" },
-    { label: "Present Today", value: presentToday, icon: CalendarCheck, accent: "text-green-600" },
+    { label: "Total Staff", value: totalStaff, icon: Users, accent: "text-primary" },
+    { label: "Present Today", value: presentToday, icon: CalendarCheck, accent: "text-accent" },
     { label: "Late Today", value: lateToday, icon: AlertTriangle, accent: "text-destructive" },
-    { label: "On Leave", value: onLeaveToday, icon: FileText, accent: "text-amber-500" },
+    { label: "On Leave", value: onLeaveToday, icon: FileText, accent: "text-warning" },
     { label: "Today's Deductions", value: `${todayDeductions.toLocaleString()} Ks`, icon: TrendingDown, accent: "text-destructive" },
   ];
 
@@ -151,9 +151,9 @@ export default function Dashboard() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {summaryCards.map((card) => (
-          <Card key={card.label} className="border border-border shadow-none">
+          <Card key={card.label} className="border border-border shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
@@ -165,9 +165,9 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-5">
         {/* Today's Attendance */}
-        <Card className="border border-border shadow-none">
+        <Card className="border border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
@@ -185,7 +185,7 @@ export default function Dashboard() {
                   return (
                     <div key={a.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-8 w-8 rounded-full bg-secondary/10 flex items-center justify-center text-secondary text-xs font-bold shrink-0">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
                           {(profile?.full_name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2)}
                         </div>
                         <div className="min-w-0">
@@ -205,7 +205,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Leave & Approval */}
-        <Card className="border border-border shadow-none">
+        <Card className="border border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
@@ -247,7 +247,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Salary Impact */}
-        <Card className="border border-border shadow-none">
+        <Card className="border border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center gap-2">
               <TrendingDown className="h-4 w-4 text-muted-foreground" />
@@ -279,7 +279,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Monthly Report */}
-        <Card className="border border-border shadow-none">
+        <Card className="border border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center gap-2">
               <CalendarCheck className="h-4 w-4 text-muted-foreground" />
