@@ -205,7 +205,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Leave & Approval */}
-        <Card className="border border-border shadow-none">
+        <Card className="border border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
