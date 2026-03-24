@@ -165,9 +165,9 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-5">
         {/* Today's Attendance */}
-        <Card className="border border-border shadow-none">
+        <Card className="border border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
