@@ -112,10 +112,10 @@ export default function Dashboard() {
     .slice(0, 3);
 
   const summaryCards = [
-    { label: "Total Staff", value: totalStaff, icon: Users, accent: "text-secondary" },
-    { label: "Present Today", value: presentToday, icon: CalendarCheck, accent: "text-green-600" },
+    { label: "Total Staff", value: totalStaff, icon: Users, accent: "text-primary" },
+    { label: "Present Today", value: presentToday, icon: CalendarCheck, accent: "text-accent" },
     { label: "Late Today", value: lateToday, icon: AlertTriangle, accent: "text-destructive" },
-    { label: "On Leave", value: onLeaveToday, icon: FileText, accent: "text-amber-500" },
+    { label: "On Leave", value: onLeaveToday, icon: FileText, accent: "text-warning" },
     { label: "Today's Deductions", value: `${todayDeductions.toLocaleString()} Ks`, icon: TrendingDown, accent: "text-destructive" },
   ];
 
