@@ -17,10 +17,14 @@ const allNavItems = [
 ];
 
 export function DesktopSidebar() {
-  const { profile, isAdmin } = useProfile();
+  const { profile, isAdmin, canViewSalary } = useProfile();
   const { signOut } = useAuth();
 
-  const navItems = allNavItems.filter((item) => isAdmin || !item.adminOnly);
+  const navItems = allNavItems.filter((item) => {
+    if (item.adminOnly && !isAdmin) return false;
+    if (item.requireSalaryAccess && !canViewSalary) return false;
+    return true;
+  });
 
   return (
     <aside className="w-60 bg-primary text-primary-foreground flex flex-col min-h-screen">

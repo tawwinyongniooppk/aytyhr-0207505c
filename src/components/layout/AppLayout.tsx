@@ -28,6 +28,11 @@ export function AppLayout() {
     return <Navigate to="/attendance" replace />;
   }
 
+  // Redirect assistant away from salary routes
+  if (!canViewSalary && salaryRoutes.includes(location.pathname)) {
+    return <Navigate to="/attendance" replace />;
+  }
+
   return (
     <div className="min-h-screen flex w-full bg-background">
       <div className="hidden md:flex">
