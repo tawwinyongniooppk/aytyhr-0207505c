@@ -6,6 +6,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { Loader2 } from "lucide-react";
 
 const adminOnlyRoutes = ["/dashboard", "/staff", "/settings"];
+const salaryRoutes = ["/salary"];
 
 export function AppLayout() {
   const { user, loading } = useAuth();
