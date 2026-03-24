@@ -185,7 +185,7 @@ export default function Dashboard() {
                   return (
                     <div key={a.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-8 w-8 rounded-full bg-secondary/10 flex items-center justify-center text-secondary text-xs font-bold shrink-0">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
                           {(profile?.full_name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2)}
                         </div>
                         <div className="min-w-0">
