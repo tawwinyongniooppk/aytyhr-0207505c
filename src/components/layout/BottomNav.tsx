@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Clock, Wallet, CalendarDays, Settings, LogOut, FileText } from "lucide-react";
+import { LayoutDashboard, Clock, Wallet, CalendarDays, ClipboardList, LogOut, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,7 +8,8 @@ const allNavItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Home", adminOnly: true, requireSalaryAccess: false },
   { to: "/attendance", icon: Clock, label: "Attend", adminOnly: false, requireSalaryAccess: false },
   { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, requireSalaryAccess: true },
-  { to: "/leave", icon: CalendarDays, label: "Leave", adminOnly: false, requireSalaryAccess: false },
+  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, requireSalaryAccess: false },
+  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, requireSalaryAccess: false },
 ];
 
 export function BottomNav() {
@@ -22,7 +23,7 @@ export function BottomNav() {
   });
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card shadow-lg">
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => (
           <NavLink
@@ -30,8 +31,10 @@ export function BottomNav() {
             to={item.to}
             className={({ isActive }) =>
               cn(
-                "flex flex-col items-center gap-0.5 px-3 py-2 text-xs font-medium transition-colors duration-200",
-                isActive ? "text-secondary" : "text-muted-foreground"
+                "flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 min-w-[3.5rem]",
+                isActive
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground"
               )
             }
           >
@@ -41,7 +44,7 @@ export function BottomNav() {
         ))}
         <button
           onClick={signOut}
-          className="flex flex-col items-center gap-0.5 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-destructive transition-colors"
+          className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-destructive transition-colors min-w-[3.5rem]"
         >
           <LogOut className="h-5 w-5" />
           <span>Logout</span>
