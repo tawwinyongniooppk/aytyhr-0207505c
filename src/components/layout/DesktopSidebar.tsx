@@ -6,14 +6,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 
 const allNavItems = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", adminOnly: true },
-  { to: "/staff", icon: Users, label: "Staff", adminOnly: true },
-  { to: "/attendance", icon: Clock, label: "Attendance", adminOnly: false },
-  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false },
-  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false },
-  { to: "/calendar", icon: CalendarDays, label: "Calendar", adminOnly: false },
-  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false },
-  { to: "/settings", icon: Settings, label: "Settings", adminOnly: true },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", adminOnly: true, requireSalaryAccess: false },
+  { to: "/staff", icon: Users, label: "Staff", adminOnly: true, requireSalaryAccess: false },
+  { to: "/attendance", icon: Clock, label: "Attendance", adminOnly: false, requireSalaryAccess: false },
+  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, requireSalaryAccess: true },
+  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, requireSalaryAccess: false },
+  { to: "/calendar", icon: CalendarDays, label: "Calendar", adminOnly: false, requireSalaryAccess: false },
+  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, requireSalaryAccess: false },
+  { to: "/settings", icon: Settings, label: "Settings", adminOnly: true, requireSalaryAccess: false },
 ];
 
 export function DesktopSidebar() {
