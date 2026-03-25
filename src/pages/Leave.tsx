@@ -52,34 +52,15 @@ export default function Leave() {
   const loadData = async () => {
     setLoading(true);
 
-    const promises: Promise<any>[] = [];
+    const myPromise = canSubmitLeave
+      ? supabase.from("leave_requests").select("*").eq("user_id", user!.id).order("created_at", { ascending: false }).then(r => r)
+      : Promise.resolve({ data: [] as any[] });
 
-    // Load my requests (staff + assistant only)
-    if (canSubmitLeave) {
-      promises.push(
-        supabase
-          .from("leave_requests")
-          .select("*")
-          .eq("user_id", user!.id)
-          .order("created_at", { ascending: false })
-      );
-    } else {
-      promises.push(Promise.resolve({ data: [] }));
-    }
+    const allPromise = canManage
+      ? supabase.from("leave_requests").select("*").order("created_at", { ascending: false }).then(r => r)
+      : Promise.resolve({ data: [] as any[] });
 
-    // Load all requests (admin + assistant)
-    if (canManage) {
-      promises.push(
-        supabase
-          .from("leave_requests")
-          .select("*")
-          .order("created_at", { ascending: false })
-      );
-    } else {
-      promises.push(Promise.resolve({ data: [] }));
-    }
-
-    const [myRes, allRes] = await Promise.all(promises);
+    const [myRes, allRes] = await Promise.all([myPromise, allPromise]);
 
     if (myRes.data) setMyRequests(myRes.data as unknown as LeaveRequest[]);
 
