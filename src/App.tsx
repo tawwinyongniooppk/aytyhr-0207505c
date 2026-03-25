@@ -8,6 +8,13 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Suspense, lazy } from "react";
 import { Loader2 } from "lucide-react";
+import { useProfile } from "@/hooks/useProfile";
+
+function RoleRedirect() {
+  const { isAdmin, loading } = useProfile();
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+  return <Navigate to={isAdmin ? "/dashboard" : "/attendance"} replace />;
+}
 
 const Login = lazy(() => import("@/pages/Login"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
