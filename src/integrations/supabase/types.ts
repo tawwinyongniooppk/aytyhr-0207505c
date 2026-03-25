@@ -176,6 +176,36 @@ export type Database = {
         }
         Relationships: []
       }
+      tasks: {
+        Row: {
+          assigned_by: string
+          assignee_id: string
+          completed: boolean
+          created_at: string
+          description: string
+          id: string
+          title: string
+        }
+        Insert: {
+          assigned_by: string
+          assignee_id: string
+          completed?: boolean
+          created_at?: string
+          description?: string
+          id?: string
+          title: string
+        }
+        Update: {
+          assigned_by?: string
+          assignee_id?: string
+          completed?: boolean
+          created_at?: string
+          description?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
