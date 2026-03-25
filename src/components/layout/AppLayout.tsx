@@ -5,8 +5,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { Loader2 } from "lucide-react";
 
-const adminOnlyRoutes = ["/dashboard", "/staff", "/settings"];
+const adminOnlyRoutes = ["/dashboard", "/staff", "/settings", "/calendar"];
 const salaryRoutes = ["/salary"];
+const staffOnlyRoutes = ["/attendance", "/salary"];
 
 export function AppLayout() {
   const { user, loading, signOut } = useAuth();
@@ -42,6 +43,11 @@ export function AppLayout() {
   // Redirect staff away from admin-only routes
   if (!isAdmin && adminOnlyRoutes.includes(location.pathname)) {
     return <Navigate to="/attendance" replace />;
+  }
+
+  // Redirect admin/assistant away from staff-only routes
+  if (isAdmin && staffOnlyRoutes.includes(location.pathname)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   // Redirect assistant away from salary routes

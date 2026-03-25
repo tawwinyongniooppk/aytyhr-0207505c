@@ -6,14 +6,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 
 const allNavItems = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", adminOnly: true, requireSalaryAccess: false },
-  { to: "/staff", icon: Users, label: "Staff", adminOnly: true, requireSalaryAccess: false },
-  { to: "/attendance", icon: Clock, label: "Attendance", adminOnly: false, requireSalaryAccess: false },
-  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, requireSalaryAccess: true },
-  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, requireSalaryAccess: false },
-  { to: "/calendar", icon: CalendarDays, label: "Calendar", adminOnly: false, requireSalaryAccess: false },
-  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, requireSalaryAccess: false },
-  { to: "/settings", icon: Settings, label: "Settings", adminOnly: true, requireSalaryAccess: false },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
+  { to: "/staff", icon: Users, label: "Staff", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
+  { to: "/attendance", icon: Clock, label: "Attendance", adminOnly: false, staffOnly: true, requireSalaryAccess: false },
+  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, staffOnly: true, requireSalaryAccess: true },
+  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: false, requireSalaryAccess: false },
+  { to: "/calendar", icon: CalendarDays, label: "Calendar", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
+  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: false, requireSalaryAccess: false },
+  { to: "/settings", icon: Settings, label: "Settings", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
 ];
 
 export function DesktopSidebar() {
@@ -22,6 +22,7 @@ export function DesktopSidebar() {
 
   const navItems = allNavItems.filter((item) => {
     if (item.adminOnly && !isAdmin) return false;
+    if (item.staffOnly && isAdmin) return false;
     if (item.requireSalaryAccess && !canViewSalary) return false;
     return true;
   });
