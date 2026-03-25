@@ -16,16 +16,26 @@ function RoleRedirect() {
   return <Navigate to={isAdmin ? "/dashboard" : "/attendance"} replace />;
 }
 
-const Login = lazy(() => import("@/pages/Login"));
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const Staff = lazy(() => import("@/pages/Staff"));
-const Attendance = lazy(() => import("@/pages/Attendance"));
-const Leave = lazy(() => import("@/pages/Leave"));
-const CalendarPage = lazy(() => import("@/pages/CalendarPage"));
-const Tasks = lazy(() => import("@/pages/Tasks"));
-const SalaryPage = lazy(() => import("@/pages/SalaryPage"));
-const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
-const NotFound = lazy(() => import("@/pages/NotFound"));
+function lazyRetry(fn: () => Promise<any>) {
+  return lazy(() =>
+    fn().catch(() => {
+      // Force reload on chunk failure (cache bust)
+      window.location.reload();
+      return new Promise(() => {}); // never resolves, page reloads
+    })
+  );
+}
+
+const Login = lazyRetry(() => import("@/pages/Login"));
+const Dashboard = lazyRetry(() => import("@/pages/Dashboard"));
+const Staff = lazyRetry(() => import("@/pages/Staff"));
+const Attendance = lazyRetry(() => import("@/pages/Attendance"));
+const Leave = lazyRetry(() => import("@/pages/Leave"));
+const CalendarPage = lazyRetry(() => import("@/pages/CalendarPage"));
+const Tasks = lazyRetry(() => import("@/pages/Tasks"));
+const SalaryPage = lazyRetry(() => import("@/pages/SalaryPage"));
+const SettingsPage = lazyRetry(() => import("@/pages/SettingsPage"));
+const NotFound = lazyRetry(() => import("@/pages/NotFound"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
