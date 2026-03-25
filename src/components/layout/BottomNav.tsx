@@ -5,11 +5,11 @@ import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 
 const allNavItems = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Home", adminOnly: true, requireSalaryAccess: false },
-  { to: "/attendance", icon: Clock, label: "Attend", adminOnly: false, requireSalaryAccess: false },
-  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, requireSalaryAccess: true },
-  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, requireSalaryAccess: false },
-  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, requireSalaryAccess: false },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Home", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
+  { to: "/attendance", icon: Clock, label: "Attend", adminOnly: false, staffOnly: true, requireSalaryAccess: false },
+  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, staffOnly: true, requireSalaryAccess: true },
+  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: false, requireSalaryAccess: false },
+  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: false, requireSalaryAccess: false },
 ];
 
 export function BottomNav() {
