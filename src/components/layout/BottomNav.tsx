@@ -18,6 +18,7 @@ export function BottomNav() {
 
   const navItems = allNavItems.filter((item) => {
     if (item.adminOnly && !isAdmin) return false;
+    if (item.staffOnly && isAdmin) return false;
     if (item.requireSalaryAccess && !canViewSalary) return false;
     return true;
   });

@@ -45,6 +45,11 @@ export function AppLayout() {
     return <Navigate to="/attendance" replace />;
   }
 
+  // Redirect admin/assistant away from staff-only routes
+  if (isAdmin && staffOnlyRoutes.includes(location.pathname)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   // Redirect assistant away from salary routes
   if (!canViewSalary && salaryRoutes.includes(location.pathname)) {
     return <Navigate to="/attendance" replace />;
