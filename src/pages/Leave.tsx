@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { FileText, CheckCircle, XCircle, Clock, Filter } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { FileText, CheckCircle, XCircle, Clock, Filter, Loader2, Inbox } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,11 +37,13 @@ export default function Leave() {
   const [reason, setReason] = useState("");
   const [type, setType] = useState<"leave" | "late_excuse">("leave");
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
 
   const canManage = isAdmin || isAssistant;
-  const canSubmitLeave = isStaff || isAssistant; // Admin cannot submit personal leave
+  const canSubmitLeave = isStaff || isAssistant;
   const showMyRequests = canSubmitLeave;
   const showManageRequests = canManage;
 
@@ -94,61 +97,70 @@ export default function Leave() {
     e.preventDefault();
     if (!date || !reason || !user) return;
 
-    const { error } = await supabase.from("leave_requests").insert({
-      user_id: user.id,
-      date,
-      type,
-      reason,
-      status: "pending",
-    } as any);
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("leave_requests").insert({
+        user_id: user.id,
+        date,
+        type,
+        reason,
+        status: "pending",
+      } as any);
 
-    if (error) {
-      toast({ title: "Failed to submit", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Request submitted ✓" });
-      setDate("");
-      setReason("");
-      setType("leave");
-      loadData();
+      if (error) {
+        toast({ title: "Failed to submit", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Leave request submitted successfully ✓" });
+        setDate("");
+        setReason("");
+        setType("leave");
+        loadData();
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleReview = async (requestId: string, decision: "approved" | "rejected") => {
     if (!user) return;
 
-    const { error } = await supabase
-      .from("leave_requests")
-      .update({
-        status: decision,
-        reviewed_by: user.id,
-        reviewed_at: new Date().toISOString(),
-      } as any)
-      .eq("id", requestId);
+    setReviewingId(requestId);
+    try {
+      const { error } = await supabase
+        .from("leave_requests")
+        .update({
+          status: decision,
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+        } as any)
+        .eq("id", requestId);
 
-    if (error) {
-      toast({ title: "Review failed", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: `Request ${decision} ✓` });
-      setSelectedRequest(null);
-      loadData();
+      if (error) {
+        toast({ title: "Review failed", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: decision === "approved" ? "Leave request approved ✓" : "Leave request rejected" });
+        setSelectedRequest(null);
+        loadData();
+      }
+    } finally {
+      setReviewingId(null);
     }
   };
 
-  const statusColor = (s: string) =>
-    s === "approved"
-      ? "text-accent bg-accent/10"
-      : s === "rejected"
-        ? "text-destructive bg-destructive/10"
-        : "text-orange-600 bg-orange-50";
+  const statusBadge = (s: string) => {
+    const config = {
+      approved: { cls: "bg-accent/10 text-accent", icon: <CheckCircle className="h-3.5 w-3.5" /> },
+      rejected: { cls: "bg-destructive/10 text-destructive", icon: <XCircle className="h-3.5 w-3.5" /> },
+      pending: { cls: "bg-warning/10 text-warning", icon: <Clock className="h-3.5 w-3.5" /> },
+    }[s] || { cls: "bg-muted text-muted-foreground", icon: <Clock className="h-3.5 w-3.5" /> };
 
-  const statusIcon = (s: string) =>
-    s === "approved" ? (
-      <CheckCircle className="h-3.5 w-3.5" />
-    ) : s === "rejected" ? (
-      <XCircle className="h-3.5 w-3.5" />
-    ) : (
-      <Clock className="h-3.5 w-3.5" />
+    return (
+      <Badge variant="secondary" className={`text-xs flex items-center gap-1 ${config.cls}`}>
+        {config.icon}
+        {s.charAt(0).toUpperCase() + s.slice(1)}
+      </Badge>
     );
+  };
 
   const filteredAdminRequests =
     filter === "all" ? allRequests : allRequests.filter((r) => r.status === filter);
@@ -159,12 +171,14 @@ export default function Leave() {
         <div>
           <h1 className="text-2xl font-bold font-display">Leave Requests</h1>
         </div>
-        <p className="text-muted-foreground text-sm">Loading...</p>
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading requests...</p>
+        </div>
       </div>
     );
   }
 
-  // Determine default tab
   const defaultTab = isAdmin ? "manage" : "my";
 
   return (
@@ -176,35 +190,28 @@ export default function Leave() {
         </p>
       </div>
 
-      {/* Staff: no tabs, just my requests */}
       {isStaff && (
         <>
           <SubmitForm
-            date={date}
-            setDate={setDate}
-            reason={reason}
-            setReason={setReason}
-            type={type}
-            setType={setType}
+            date={date} setDate={setDate}
+            reason={reason} setReason={setReason}
+            type={type} setType={setType}
             onSubmit={handleSubmit}
+            submitting={submitting}
           />
-          <MyRequestsList requests={myRequests} statusColor={statusColor} statusIcon={statusIcon} />
+          <MyRequestsList requests={myRequests} statusBadge={statusBadge} />
         </>
       )}
 
-      {/* Admin: only manage tab */}
       {isAdmin && (
         <ManageSection
-          filter={filter}
-          setFilter={setFilter}
+          filter={filter} setFilter={setFilter}
           filteredRequests={filteredAdminRequests}
-          statusColor={statusColor}
-          statusIcon={statusIcon}
+          statusBadge={statusBadge}
           onSelect={setSelectedRequest}
         />
       )}
 
-      {/* Assistant: tabs for both */}
       {isAssistant && (
         <Tabs defaultValue="my" className="w-full">
           <TabsList className="w-full">
@@ -213,23 +220,19 @@ export default function Leave() {
           </TabsList>
           <TabsContent value="my" className="space-y-6 mt-4">
             <SubmitForm
-              date={date}
-              setDate={setDate}
-              reason={reason}
-              setReason={setReason}
-              type={type}
-              setType={setType}
+              date={date} setDate={setDate}
+              reason={reason} setReason={setReason}
+              type={type} setType={setType}
               onSubmit={handleSubmit}
+              submitting={submitting}
             />
-            <MyRequestsList requests={myRequests} statusColor={statusColor} statusIcon={statusIcon} />
+            <MyRequestsList requests={myRequests} statusBadge={statusBadge} />
           </TabsContent>
           <TabsContent value="manage" className="space-y-6 mt-4">
             <ManageSection
-              filter={filter}
-              setFilter={setFilter}
+              filter={filter} setFilter={setFilter}
               filteredRequests={filteredAdminRequests}
-              statusColor={statusColor}
-              statusIcon={statusIcon}
+              statusBadge={statusBadge}
               onSelect={setSelectedRequest}
             />
           </TabsContent>
@@ -263,28 +266,35 @@ export default function Leave() {
                   <span className="text-muted-foreground">Reason</span>
                   <p className="mt-1 p-2 bg-muted rounded text-sm">{selectedRequest.reason}</p>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Status</span>
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1 ${statusColor(selectedRequest.status)}`}>
-                    {statusIcon(selectedRequest.status)}
-                    {selectedRequest.status.charAt(0).toUpperCase() + selectedRequest.status.slice(1)}
-                  </span>
+                  {statusBadge(selectedRequest.status)}
                 </div>
               </div>
               {selectedRequest.status === "pending" && (
                 <div className="flex gap-2 pt-2">
                   <Button
                     onClick={() => handleReview(selectedRequest.id, "approved")}
+                    disabled={reviewingId === selectedRequest.id}
                     className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90 active:scale-[0.98] transition-transform"
                   >
-                    <CheckCircle className="h-4 w-4 mr-2" /> Approve
+                    {reviewingId === selectedRequest.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <><CheckCircle className="h-4 w-4 mr-2" /> Approve</>
+                    )}
                   </Button>
                   <Button
                     onClick={() => handleReview(selectedRequest.id, "rejected")}
+                    disabled={reviewingId === selectedRequest.id}
                     variant="outline"
                     className="flex-1 border-destructive text-destructive hover:bg-destructive/10 active:scale-[0.98] transition-transform"
                   >
-                    <XCircle className="h-4 w-4 mr-2" /> Reject
+                    {reviewingId === selectedRequest.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <><XCircle className="h-4 w-4 mr-2" /> Reject</>
+                    )}
                   </Button>
                 </div>
               )}
@@ -299,13 +309,15 @@ export default function Leave() {
 /* ---------- Sub-components ---------- */
 
 function SubmitForm({
-  date, setDate, reason, setReason, type, setType, onSubmit,
+  date, setDate, reason, setReason, type, setType, onSubmit, submitting,
 }: {
   date: string; setDate: (v: string) => void;
   reason: string; setReason: (v: string) => void;
   type: "leave" | "late_excuse"; setType: (v: "leave" | "late_excuse") => void;
   onSubmit: (e: React.FormEvent) => void;
+  submitting: boolean;
 }) {
+  const isValid = date && reason;
   return (
     <Card className="border border-border shadow-none">
       <CardHeader>
@@ -341,9 +353,14 @@ function SubmitForm({
           </div>
           <Button
             type="submit"
+            disabled={submitting || !isValid}
             className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 active:scale-[0.98] transition-transform"
           >
-            <FileText className="h-4 w-4 mr-2" /> Submit Request
+            {submitting ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting...</>
+            ) : (
+              <><FileText className="h-4 w-4 mr-2" /> Submit Request</>
+            )}
           </Button>
         </form>
       </CardContent>
@@ -352,11 +369,10 @@ function SubmitForm({
 }
 
 function MyRequestsList({
-  requests, statusColor, statusIcon,
+  requests, statusBadge,
 }: {
   requests: LeaveRequest[];
-  statusColor: (s: string) => string;
-  statusIcon: (s: string) => React.ReactNode;
+  statusBadge: (s: string) => React.ReactNode;
 }) {
   return (
     <Card className="border border-border shadow-none">
@@ -365,7 +381,10 @@ function MyRequestsList({
       </CardHeader>
       <CardContent>
         {requests.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No requests yet. Submit one above.</p>
+          <div className="flex flex-col items-center justify-center py-8 gap-2">
+            <Inbox className="h-10 w-10 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">No leave requests yet</p>
+          </div>
         ) : (
           <div className="space-y-3">
             {requests.map((req) => (
@@ -373,16 +392,13 @@ function MyRequestsList({
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium">{req.date}</p>
-                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                    <Badge variant="outline" className="text-xs">
                       {req.type === "late_excuse" ? "Late Excuse" : "Leave"}
-                    </span>
+                    </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{req.reason}</p>
                 </div>
-                <span className={`text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1 ${statusColor(req.status)}`}>
-                  {statusIcon(req.status)}
-                  {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                </span>
+                {statusBadge(req.status)}
               </div>
             ))}
           </div>
@@ -393,13 +409,12 @@ function MyRequestsList({
 }
 
 function ManageSection({
-  filter, setFilter, filteredRequests, statusColor, statusIcon, onSelect,
+  filter, setFilter, filteredRequests, statusBadge, onSelect,
 }: {
   filter: string;
   setFilter: (f: "all" | "pending" | "approved" | "rejected") => void;
   filteredRequests: LeaveRequest[];
-  statusColor: (s: string) => string;
-  statusIcon: (s: string) => React.ReactNode;
+  statusBadge: (s: string) => React.ReactNode;
   onSelect: (r: LeaveRequest) => void;
 }) {
   return (
@@ -426,7 +441,10 @@ function ManageSection({
         </CardHeader>
         <CardContent>
           {filteredRequests.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No {filter} requests.</p>
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <Inbox className="h-10 w-10 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">No {filter} requests</p>
+            </div>
           ) : (
             <div className="space-y-3">
               {filteredRequests.map((req) => (
@@ -439,16 +457,13 @@ function ManageSection({
                     <p className="text-sm font-medium">{req.profile_name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <p className="text-xs text-muted-foreground">{req.date}</p>
-                      <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                      <Badge variant="outline" className="text-xs">
                         {req.type === "late_excuse" ? "Late Excuse" : "Leave"}
-                      </span>
+                      </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{req.reason}</p>
                   </div>
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1 shrink-0 ${statusColor(req.status)}`}>
-                    {statusIcon(req.status)}
-                    {req.status.charAt(0).toUpperCase() + req.status.slice(1)}
-                  </span>
+                  {statusBadge(req.status)}
                 </div>
               ))}
             </div>
