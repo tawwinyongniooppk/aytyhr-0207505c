@@ -132,12 +132,18 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold font-display">Dashboard</h1>
+          <p className="text-muted-foreground text-sm mt-1">Loading overview...</p>
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
           ))}
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       </div>
     );
