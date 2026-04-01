@@ -73,30 +73,21 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp && (
-              <div>
-                <Label>Full Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jane Doe" required />
-              </div>
-            )}
             <div>
               <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@school.com" required />
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@school.com" required />
             </div>
             <div>
               <Label>Password</Label>
               <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
             </div>
             <Button type="submit" disabled={loading} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 active:animate-press">
-              {loading ? "Please wait..." : isSignUp ? "Sign Up" : "Sign In"}
+              {loading ? "Please wait..." : "Sign In"}
             </Button>
           </form>
 
-          <p className="text-center text-sm text-muted-foreground">
-            {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button onClick={() => setIsSignUp(!isSignUp)} className="text-secondary underline">
-              {isSignUp ? "Sign In" : "Sign Up"}
-            </button>
+          <p className="text-center text-xs text-muted-foreground">
+            Contact your IT Manager to create an account.
           </p>
         </CardContent>
       </Card>
