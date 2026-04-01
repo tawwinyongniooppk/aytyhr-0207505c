@@ -27,29 +27,15 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
 
-    if (isSignUp) {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } },
-      });
-      if (error) {
-        toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: "Account created!", description: "Redirecting to dashboard..." });
-        navigate("/dashboard", { replace: true });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      let msg = error.message;
+      if (msg.includes("Invalid login credentials")) {
+        msg = "Invalid email or password. Please check and try again.";
       }
+      toast({ title: "Sign in failed", description: msg, variant: "destructive" });
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        let msg = error.message;
-        if (msg.includes("Invalid login credentials")) {
-          msg = "Invalid email or password. Please check and try again.";
-        }
-        toast({ title: "Sign in failed", description: msg, variant: "destructive" });
-      } else {
-        navigate("/dashboard", { replace: true });
-      }
+      navigate("/", { replace: true });
     }
     setLoading(false);
   };
