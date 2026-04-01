@@ -8,10 +8,11 @@ import { Loader2 } from "lucide-react";
 const adminOnlyRoutes = ["/dashboard", "/staff", "/settings", "/calendar"];
 const salaryRoutes = ["/salary"];
 const staffOnlyRoutes = ["/attendance", "/salary"];
+const itManagerOnlyRoutes = ["/manage-accounts"];
 
 export function AppLayout() {
   const { user, loading, signOut } = useAuth();
-  const { isAdmin, canViewSalary, loading: profileLoading, error: profileError } = useProfile();
+  const { isAdmin, canViewSalary, isItManager, loading: profileLoading, error: profileError } = useProfile();
   const location = useLocation();
 
   if (loading || profileLoading) {
@@ -40,8 +41,18 @@ export function AppLayout() {
     );
   }
 
+  // IT Manager can only access manage-accounts
+  if (isItManager && location.pathname !== "/manage-accounts") {
+    return <Navigate to="/manage-accounts" replace />;
+  }
+
+  // Non-IT-Manager cannot access IT Manager routes
+  if (!isItManager && itManagerOnlyRoutes.includes(location.pathname)) {
+    return <Navigate to={isAdmin ? "/dashboard" : "/attendance"} replace />;
+  }
+
   // Redirect staff away from admin-only routes
-  if (!isAdmin && adminOnlyRoutes.includes(location.pathname)) {
+  if (!isAdmin && !isItManager && adminOnlyRoutes.includes(location.pathname)) {
     return <Navigate to="/attendance" replace />;
   }
 

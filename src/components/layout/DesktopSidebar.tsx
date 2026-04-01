@@ -1,26 +1,29 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, Clock, CalendarDays, ClipboardList, FileText, Settings, GraduationCap, Wallet, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Clock, CalendarDays, ClipboardList, FileText, Settings, GraduationCap, Wallet, LogOut, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 
 const allNavItems = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
-  { to: "/staff", icon: Users, label: "Staff", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
-  { to: "/attendance", icon: Clock, label: "Attendance", adminOnly: false, staffOnly: true, requireSalaryAccess: false },
-  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, staffOnly: true, requireSalaryAccess: true },
-  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: false, requireSalaryAccess: false },
-  { to: "/calendar", icon: CalendarDays, label: "Calendar", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
-  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: false, requireSalaryAccess: false },
-  { to: "/settings", icon: Settings, label: "Settings", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/staff", icon: Users, label: "Staff", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/attendance", icon: Clock, label: "Attendance", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, staffOnly: true, requireSalaryAccess: true, itManagerOnly: false },
+  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/calendar", icon: CalendarDays, label: "Calendar", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/settings", icon: Settings, label: "Settings", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/manage-accounts", icon: UserPlus, label: "Accounts", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true },
 ];
 
 export function DesktopSidebar() {
-  const { profile, isAdmin, canViewSalary } = useProfile();
+  const { profile, isAdmin, canViewSalary, isItManager } = useProfile();
   const { signOut } = useAuth();
 
   const navItems = allNavItems.filter((item) => {
+    if (item.itManagerOnly && !isItManager) return false;
+    if (!item.itManagerOnly && isItManager) return false;
     if (item.adminOnly && !isAdmin) return false;
     if (item.staffOnly && isAdmin) return false;
     if (item.requireSalaryAccess && !canViewSalary) return false;
@@ -31,7 +34,13 @@ export function DesktopSidebar() {
     ? "bg-primary/20 text-primary-foreground"
     : profile?.role === "assistant"
       ? "bg-warning/20 text-sidebar-foreground"
-      : "bg-accent/20 text-sidebar-foreground";
+      : profile?.role === "it_manager"
+        ? "bg-blue-500/20 text-sidebar-foreground"
+        : "bg-accent/20 text-sidebar-foreground";
+
+  const roleLabel = profile?.role === "assistant" ? "Assistant Admin"
+    : profile?.role === "it_manager" ? "IT Manager"
+    : profile?.role;
 
   return (
     <aside className="w-60 bg-secondary text-secondary-foreground flex flex-col min-h-screen">
@@ -46,7 +55,7 @@ export function DesktopSidebar() {
         <div className="px-5 py-3 border-b border-sidebar-border">
           <p className="text-sm font-medium truncate">{profile.full_name || "User"}</p>
           <Badge className={cn("mt-1 text-[10px] uppercase border-0", roleBadgeColor)}>
-            {profile.role === "assistant" ? "Assistant Admin" : profile.role}
+            {roleLabel}
           </Badge>
         </div>
       )}

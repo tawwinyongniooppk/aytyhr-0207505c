@@ -11,8 +11,9 @@ import { Loader2 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 
 function RoleRedirect() {
-  const { isAdmin, loading } = useProfile();
+  const { isAdmin, isItManager, loading } = useProfile();
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+  if (isItManager) return <Navigate to="/manage-accounts" replace />;
   return <Navigate to={isAdmin ? "/dashboard" : "/attendance"} replace />;
 }
 
@@ -35,6 +36,7 @@ const CalendarPage = lazyRetry(() => import("@/pages/CalendarPage"));
 const Tasks = lazyRetry(() => import("@/pages/Tasks"));
 const SalaryPage = lazyRetry(() => import("@/pages/SalaryPage"));
 const SettingsPage = lazyRetry(() => import("@/pages/SettingsPage"));
+const ManageAccounts = lazyRetry(() => import("@/pages/ManageAccounts"));
 const NotFound = lazyRetry(() => import("@/pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -76,6 +78,7 @@ const App = () => (
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/salary" element={<SalaryPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/manage-accounts" element={<ManageAccounts />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
