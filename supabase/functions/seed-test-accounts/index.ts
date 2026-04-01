@@ -10,6 +10,7 @@ const TEST_ACCOUNTS = [
   { email: "admin@school.com", password: "admin123", full_name: "Admin User", role: "admin" },
   { email: "assistant@school.com", password: "assistant123", full_name: "Assistant User", role: "assistant" },
   { email: "staff@school.com", password: "staff123", full_name: "Staff User", role: "staff" },
+  { email: "itmanager@ayty.com", password: "itmanager@2026", full_name: "IT Manager", role: "it_manager" },
 ];
 
 Deno.serve(async (req) => {
