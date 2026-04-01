@@ -185,11 +185,7 @@ export default function Staff() {
           <h1 className="text-2xl font-bold font-display">Staff</h1>
           <p className="text-muted-foreground text-sm mt-1">{staff.length} members · {currentMonth}</p>
         </div>
-        {isAdminRole && (
-          <Button onClick={() => setAddOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-md">
-            <UserPlus className="h-4 w-4 mr-2" /> Add Staff
-          </Button>
-        )}
+        {/* Account creation moved to IT Manager */}
       </div>
 
       {/* Staff Cards */}

@@ -28,10 +28,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check caller is admin
+    // Check caller is IT Manager
     const { data: callerProfile } = await callerClient.from("profiles").select("role").eq("id", caller.id).single();
-    if (!callerProfile || callerProfile.role !== "admin") {
-      return new Response(JSON.stringify({ error: "Only admins can create staff accounts" }), {
+    if (!callerProfile || callerProfile.role !== "it_manager") {
+      return new Response(JSON.stringify({ error: "Only IT Manager can create accounts" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

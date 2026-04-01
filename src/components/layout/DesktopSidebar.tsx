@@ -55,7 +55,7 @@ export function DesktopSidebar() {
         <div className="px-5 py-3 border-b border-sidebar-border">
           <p className="text-sm font-medium truncate">{profile.full_name || "User"}</p>
           <Badge className={cn("mt-1 text-[10px] uppercase border-0", roleBadgeColor)}>
-            {profile.role === "assistant" ? "Assistant Admin" : profile.role}
+            {roleLabel}
           </Badge>
         </div>
       )}

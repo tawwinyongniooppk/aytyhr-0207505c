@@ -51,9 +51,7 @@ export default function Login() {
               <GraduationCap className="h-6 w-6 text-secondary" />
             </div>
             <h1 className="text-xl font-bold font-display">StaffPortal</h1>
-            <p className="text-sm text-muted-foreground">
-              {isSignUp ? "Create your account" : "Sign in to your account"}
-            </p>
+            <p className="text-sm text-muted-foreground">Sign in to your account</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

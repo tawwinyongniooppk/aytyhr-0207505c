@@ -14,10 +14,12 @@ const allNavItems = [
 ];
 
 export function BottomNav() {
-  const { isAdmin, canViewSalary } = useProfile();
+  const { isAdmin, canViewSalary, isItManager } = useProfile();
   const { signOut } = useAuth();
 
   const navItems = allNavItems.filter((item) => {
+    if (item.itManagerOnly && !isItManager) return false;
+    if (!item.itManagerOnly && isItManager) return false;
     if (item.adminOnly && !isAdmin) return false;
     if (item.staffOnly && isAdmin) return false;
     if (item.requireSalaryAccess && !canViewSalary) return false;
