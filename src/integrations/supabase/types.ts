@@ -80,6 +80,68 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_event_assignments: {
+        Row: {
+          event_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          event_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          event_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_assignments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_events: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string
+          end_date: string
+          event_type: string
+          id: string
+          start_date: string
+          title: string
+          visibility: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string
+          end_date: string
+          event_type?: string
+          id?: string
+          start_date: string
+          title: string
+          visibility?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string
+          end_date?: string
+          event_type?: string
+          id?: string
+          start_date?: string
+          title?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
       leave_requests: {
         Row: {
           created_at: string
