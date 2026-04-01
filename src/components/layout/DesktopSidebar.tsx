@@ -34,7 +34,13 @@ export function DesktopSidebar() {
     ? "bg-primary/20 text-primary-foreground"
     : profile?.role === "assistant"
       ? "bg-warning/20 text-sidebar-foreground"
-      : "bg-accent/20 text-sidebar-foreground";
+      : profile?.role === "it_manager"
+        ? "bg-blue-500/20 text-sidebar-foreground"
+        : "bg-accent/20 text-sidebar-foreground";
+
+  const roleLabel = profile?.role === "assistant" ? "Assistant Admin"
+    : profile?.role === "it_manager" ? "IT Manager"
+    : profile?.role;
 
   return (
     <aside className="w-60 bg-secondary text-secondary-foreground flex flex-col min-h-screen">
