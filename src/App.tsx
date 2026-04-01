@@ -11,8 +11,9 @@ import { Loader2 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 
 function RoleRedirect() {
-  const { isAdmin, loading } = useProfile();
+  const { isAdmin, isItManager, loading } = useProfile();
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+  if (isItManager) return <Navigate to="/manage-accounts" replace />;
   return <Navigate to={isAdmin ? "/dashboard" : "/attendance"} replace />;
 }
 
