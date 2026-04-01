@@ -1,19 +1,20 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, Clock, CalendarDays, ClipboardList, FileText, Settings, GraduationCap, Wallet, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Clock, CalendarDays, ClipboardList, FileText, Settings, GraduationCap, Wallet, LogOut, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 
 const allNavItems = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
-  { to: "/staff", icon: Users, label: "Staff", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
-  { to: "/attendance", icon: Clock, label: "Attendance", adminOnly: false, staffOnly: true, requireSalaryAccess: false },
-  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, staffOnly: true, requireSalaryAccess: true },
-  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: false, requireSalaryAccess: false },
-  { to: "/calendar", icon: CalendarDays, label: "Calendar", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
-  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: false, requireSalaryAccess: false },
-  { to: "/settings", icon: Settings, label: "Settings", adminOnly: true, staffOnly: false, requireSalaryAccess: false },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/staff", icon: Users, label: "Staff", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/attendance", icon: Clock, label: "Attendance", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, staffOnly: true, requireSalaryAccess: true, itManagerOnly: false },
+  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/calendar", icon: CalendarDays, label: "Calendar", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/settings", icon: Settings, label: "Settings", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/manage-accounts", icon: UserPlus, label: "Accounts", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true },
 ];
 
 export function DesktopSidebar() {
