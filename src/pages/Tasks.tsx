@@ -93,12 +93,8 @@ export default function Tasks() {
         setTasks(filtered);
       }
 
-      if (isAdmin && results[2]?.data) {
-        setCalendarEvents(results[2].data as CalEvent[]);
-      }
-      if (isAdmin && results[3]?.data) {
-        setEventAssignments(results[3].data as EventAssignment[]);
-      }
+      setCalendarEvents(eventsData);
+      setEventAssignments(assignmentsData);
     } catch {
       toast.error("Failed to load tasks");
     } finally {
