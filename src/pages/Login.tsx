@@ -57,7 +57,7 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@school.com" required />
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@ayty.com" required />
             </div>
             <div>
               <Label>Password</Label>

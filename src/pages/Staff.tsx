@@ -65,7 +65,9 @@ export default function Staff() {
     ]);
 
     if (profilesRes.data) {
-      setStaff(profilesRes.data as unknown as StaffProfile[]);
+      // Hide IT Manager from admin/assistant staff list
+      const filtered = (profilesRes.data as unknown as StaffProfile[]).filter(p => p.role !== "it_manager");
+      setStaff(filtered);
     }
 
     if (salariesRes.data) {
@@ -337,7 +339,7 @@ export default function Staff() {
             </div>
             <div>
               <Label>Email *</Label>
-              <Input type="email" value={addForm.email} onChange={(e) => setAddForm({ ...addForm, email: e.target.value })} placeholder="jane@school.com" />
+              <Input type="email" value={addForm.email} onChange={(e) => setAddForm({ ...addForm, email: e.target.value })} placeholder="jane@ayty.com" />
             </div>
             <div>
               <Label>Password *</Label>
