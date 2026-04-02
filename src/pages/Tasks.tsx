@@ -58,21 +58,22 @@ export default function Tasks() {
   async function loadData() {
     setLoading(true);
     try {
-      const queries: Promise<any>[] = [
-        supabase.from("tasks").select("*").order("created_at", { ascending: false }),
-        supabase.from("profiles").select("id, full_name, role"),
-      ];
+      const tasksQuery = supabase.from("tasks").select("*").order("created_at", { ascending: false });
+      const profilesQuery = supabase.from("profiles").select("id, full_name, role");
 
-      // Admin also loads calendar events + assignments
+      const [tasksRes, profilesRes] = await Promise.all([tasksQuery, profilesQuery]);
+
+      let eventsData: CalEvent[] = [];
+      let assignmentsData: EventAssignment[] = [];
+
       if (isAdmin) {
-        queries.push(
+        const [evRes, assRes] = await Promise.all([
           supabase.from("calendar_events").select("*").order("start_date", { ascending: false }),
-          supabase.from("calendar_event_assignments").select("event_id, user_id")
-        );
+          supabase.from("calendar_event_assignments").select("event_id, user_id"),
+        ]);
+        if (evRes.data) eventsData = evRes.data as CalEvent[];
+        if (assRes.data) assignmentsData = assRes.data as EventAssignment[];
       }
-
-      const results = await Promise.all(queries);
-      const [tasksRes, profilesRes] = results;
 
       if (profilesRes.data) {
         const staff = profilesRes.data.filter((p: any) => p.role === "staff");
