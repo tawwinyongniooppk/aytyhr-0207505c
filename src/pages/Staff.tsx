@@ -339,7 +339,7 @@ export default function Staff() {
             </div>
             <div>
               <Label>Email *</Label>
-              <Input type="email" value={addForm.email} onChange={(e) => setAddForm({ ...addForm, email: e.target.value })} placeholder="jane@school.com" />
+              <Input type="email" value={addForm.email} onChange={(e) => setAddForm({ ...addForm, email: e.target.value })} placeholder="jane@ayty.com" />
             </div>
             <div>
               <Label>Password *</Label>
