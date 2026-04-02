@@ -65,7 +65,9 @@ export default function Staff() {
     ]);
 
     if (profilesRes.data) {
-      setStaff(profilesRes.data as unknown as StaffProfile[]);
+      // Hide IT Manager from admin/assistant staff list
+      const filtered = (profilesRes.data as unknown as StaffProfile[]).filter(p => p.role !== "it_manager");
+      setStaff(filtered);
     }
 
     if (salariesRes.data) {

@@ -17,7 +17,6 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const authHeader = req.headers.get("Authorization")!;
 
-    // Verify the caller is authenticated
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -28,68 +27,52 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check caller is IT Manager
     const { data: callerProfile } = await callerClient.from("profiles").select("role").eq("id", caller.id).single();
     if (!callerProfile || callerProfile.role !== "it_manager") {
-      return new Response(JSON.stringify({ error: "Only IT Manager can create accounts" }), {
+      return new Response(JSON.stringify({ error: "Only IT Manager can update accounts" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { email, password, full_name, role } = await req.json();
-
-    if (!email || !password || !full_name) {
-      return new Response(JSON.stringify({ error: "Email, password, and name are required" }), {
+    const { user_id, full_name, role, email, password } = await req.json();
+    if (!user_id || !full_name) {
+      return new Response(JSON.stringify({ error: "user_id and full_name are required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (!email.endsWith("@ayty.com")) {
+    if (email && !email.endsWith("@ayty.com")) {
       return new Response(JSON.stringify({ error: "Only @ayty.com emails are allowed" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (password.length < 6) {
+    if (password && password.length < 6) {
       return new Response(JSON.stringify({ error: "Password must be at least 6 characters" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Use service role to create user
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Check if email already exists
-    const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-    const emailExists = existingUsers?.users?.some((u: any) => u.email === email);
-    if (emailExists) {
-      return new Response(JSON.stringify({ error: "Email already exists" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Update auth user if email or password changed
+    const authUpdate: any = {};
+    if (email) authUpdate.email = email;
+    if (password) authUpdate.password = password;
+
+    if (Object.keys(authUpdate).length > 0) {
+      const { error: authErr } = await adminClient.auth.admin.updateUserById(user_id, authUpdate);
+      if (authErr) {
+        return new Response(JSON.stringify({ error: authErr.message }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
-    const { data, error } = await adminClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name },
-    });
+    // Update profile
+    await adminClient.from("profiles").update({ full_name, role: role || "staff" }).eq("id", user_id);
 
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Update profile with role (profile auto-created by trigger)
-    if (data.user) {
-      await adminClient.from("profiles").update({
-        role: role || "staff",
-        full_name: full_name,
-      }).eq("id", data.user.id);
-    }
-
-    return new Response(JSON.stringify({ success: true, user_id: data.user?.id }), {
+    return new Response(JSON.stringify({ success: true }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
