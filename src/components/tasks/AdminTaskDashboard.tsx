@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Loader2, Users, CalendarDays, Filter, AlertTriangle } from "lucide-react";
+import { Plus, Loader2, Users, CalendarDays, Filter, AlertTriangle, X } from "lucide-react";
 
 interface TaskRow {
   id: string;
