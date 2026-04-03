@@ -82,18 +82,30 @@ export type Database = {
       }
       calendar_event_assignments: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           event_id: string
           id: string
+          submission_status: string
+          submitted_at: string | null
           user_id: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           event_id: string
           id?: string
+          submission_status?: string
+          submitted_at?: string | null
           user_id: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           event_id?: string
           id?: string
+          submission_status?: string
+          submitted_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -240,30 +252,45 @@ export type Database = {
       }
       tasks: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           assigned_by: string
           assignee_id: string
           completed: boolean
           created_at: string
           description: string
+          due_date: string | null
           id: string
+          submission_status: string
+          submitted_at: string | null
           title: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           assigned_by: string
           assignee_id: string
           completed?: boolean
           created_at?: string
           description?: string
+          due_date?: string | null
           id?: string
+          submission_status?: string
+          submitted_at?: string | null
           title: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           assigned_by?: string
           assignee_id?: string
           completed?: boolean
           created_at?: string
           description?: string
+          due_date?: string | null
           id?: string
+          submission_status?: string
+          submitted_at?: string | null
           title?: string
         }
         Relationships: []
