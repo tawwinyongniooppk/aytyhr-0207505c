@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Loader2, Users, CalendarDays, Filter, AlertTriangle } from "lucide-react";
+import { Plus, Loader2, Users, CalendarDays, Filter, AlertTriangle, X } from "lucide-react";
 
 interface TaskRow {
   id: string;
@@ -89,6 +89,8 @@ export function AdminTaskDashboard({
   const [form, setForm] = useState({ title: "", description: "", assignee_id: "" });
   const [filterStaff, setFilterStaff] = useState("all");
   const [filterType, setFilterType] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   // Build unified items
   const unifiedItems = useMemo(() => {
@@ -151,9 +153,11 @@ export function AdminTaskDashboard({
     return unifiedItems.filter((item) => {
       if (filterStaff !== "all" && item.staffId !== filterStaff) return false;
       if (filterType !== "all" && item.type !== filterType) return false;
+      if (dateFrom && item.date < dateFrom) return false;
+      if (dateTo && item.date > dateTo) return false;
       return true;
     });
-  }, [unifiedItems, filterStaff, filterType]);
+  }, [unifiedItems, filterStaff, filterType, dateFrom, dateTo]);
 
   // Group by staff
   const byStaff = useMemo(() => {
@@ -309,6 +313,35 @@ export function AdminTaskDashboard({
                 <SelectItem value="holiday">Holidays</SelectItem>
               </SelectContent>
             </Select>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-[150px]"
+              placeholder="From"
+            />
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-[150px]"
+              placeholder="To"
+            />
+            {(filterStaff !== "all" || filterType !== "all" || dateFrom || dateTo) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setFilterStaff("all");
+                  setFilterType("all");
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+                className="gap-1 text-xs"
+              >
+                <X className="h-3 w-3" /> Clear
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
