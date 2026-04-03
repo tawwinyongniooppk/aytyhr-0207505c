@@ -313,6 +313,35 @@ export function AdminTaskDashboard({
                 <SelectItem value="holiday">Holidays</SelectItem>
               </SelectContent>
             </Select>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-[150px]"
+              placeholder="From"
+            />
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-[150px]"
+              placeholder="To"
+            />
+            {(filterStaff !== "all" || filterType !== "all" || dateFrom || dateTo) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setFilterStaff("all");
+                  setFilterType("all");
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+                className="gap-1 text-xs"
+              >
+                <X className="h-3 w-3" /> Clear
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
