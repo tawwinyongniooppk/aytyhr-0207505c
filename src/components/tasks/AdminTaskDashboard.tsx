@@ -89,6 +89,8 @@ export function AdminTaskDashboard({
   const [form, setForm] = useState({ title: "", description: "", assignee_id: "" });
   const [filterStaff, setFilterStaff] = useState("all");
   const [filterType, setFilterType] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   // Build unified items
   const unifiedItems = useMemo(() => {
