@@ -153,9 +153,11 @@ export function AdminTaskDashboard({
     return unifiedItems.filter((item) => {
       if (filterStaff !== "all" && item.staffId !== filterStaff) return false;
       if (filterType !== "all" && item.type !== filterType) return false;
+      if (dateFrom && item.date < dateFrom) return false;
+      if (dateTo && item.date > dateTo) return false;
       return true;
     });
-  }, [unifiedItems, filterStaff, filterType]);
+  }, [unifiedItems, filterStaff, filterType, dateFrom, dateTo]);
 
   // Group by staff
   const byStaff = useMemo(() => {
