@@ -3,12 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Loader2, Users, CalendarDays, Filter, AlertTriangle, X, CheckCircle2, Clock, Send } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Loader2, Users, CalendarDays, Filter, AlertTriangle, X, CheckCircle2, Clock, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -63,7 +61,7 @@ interface UnifiedItem {
   dueDate?: string | null;
   staffId: string;
   staffName: string;
-  status: "pending" | "submitted" | "approved" | "overdue";
+  status: "not_started" | "in_progress" | "submitted" | "approved" | "overdue";
   source: "task" | "calendar";
   sourceId: string;
   assignmentId?: string;
@@ -77,21 +75,24 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-destructive/10 text-destructive",
+  not_started: "bg-muted text-muted-foreground",
+  in_progress: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   overdue: "bg-destructive text-destructive-foreground",
   submitted: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-  approved: "bg-accent/10 text-accent",
+  approved: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
 };
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
-  pending: null,
+  not_started: <Eye className="h-3 w-3 mr-1" />,
+  in_progress: <Clock className="h-3 w-3 mr-1" />,
   overdue: <AlertTriangle className="h-3 w-3 mr-1" />,
   submitted: <Clock className="h-3 w-3 mr-1" />,
   approved: <CheckCircle2 className="h-3 w-3 mr-1" />,
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: "Pending",
+  not_started: "Not Started",
+  in_progress: "In Progress",
   overdue: "Overdue",
   submitted: "Submitted",
   approved: "Approved",
@@ -114,13 +115,9 @@ export function AdminTaskDashboard({
   eventAssignments,
   staffList,
   staffNames,
-  onAssignTask,
-  submitting,
   onRefresh,
 }: AdminTaskDashboardProps) {
   const { user } = useAuth();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", assignee_id: "", due_date: "" });
   const [filterStaff, setFilterStaff] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -133,8 +130,15 @@ export function AdminTaskDashboard({
   function getItemStatus(submissionStatus: string, dueDate?: string | null): UnifiedItem["status"] {
     if (submissionStatus === "approved") return "approved";
     if (submissionStatus === "submitted") return "submitted";
+    if (submissionStatus === "in_progress") return "in_progress";
     if (dueDate && dueDate < nowDate) return "overdue";
-    return "pending";
+    return "not_started";
+  }
+
+  function getDeadlinePriority(dueDate?: string | null): number {
+    if (!dueDate) return 999999;
+    const diff = new Date(dueDate).getTime() - new Date(nowDate).getTime();
+    return diff;
   }
 
   const unifiedItems = useMemo(() => {
@@ -200,8 +204,19 @@ export function AdminTaskDashboard({
     return items;
   }, [tasks, calendarEvents, eventAssignments, staffList, staffNames, nowDate]);
 
+  // Sort by deadline priority: overdue first, then nearest deadline
+  function sortByPriority(items: UnifiedItem[]): UnifiedItem[] {
+    return [...items].sort((a, b) => {
+      const statusOrder: Record<string, number> = { overdue: 0, not_started: 1, in_progress: 2, submitted: 3, approved: 4 };
+      const sa = statusOrder[a.status] ?? 1;
+      const sb = statusOrder[b.status] ?? 1;
+      if (sa !== sb) return sa - sb;
+      return getDeadlinePriority(a.dueDate) - getDeadlinePriority(b.dueDate);
+    });
+  }
+
   const filtered = useMemo(() => {
-    return unifiedItems.filter((item) => {
+    const f = unifiedItems.filter((item) => {
       if (filterStaff !== "all" && item.staffId !== filterStaff) return false;
       if (filterType !== "all" && item.type !== filterType) return false;
       if (filterStatus !== "all" && item.status !== filterStatus) return false;
@@ -209,6 +224,7 @@ export function AdminTaskDashboard({
       if (dateTo && item.date > dateTo) return false;
       return true;
     });
+    return sortByPriority(f);
   }, [unifiedItems, filterStaff, filterType, filterStatus, dateFrom, dateTo]);
 
   const byStaff = useMemo(() => {
@@ -223,19 +239,29 @@ export function AdminTaskDashboard({
   const byDate = useMemo(() => {
     const map: Record<string, UnifiedItem[]> = {};
     filtered.forEach((item) => {
-      if (!map[item.date]) map[item.date] = [];
-      map[item.date].push(item);
+      const key = item.dueDate || item.date;
+      if (!map[key]) map[key] = [];
+      map[key].push(item);
     });
-    return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
+    return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtered]);
 
-  const pendingTasks = unifiedItems.filter(i => i.status === "pending" || i.status === "overdue").length;
-  const submittedTasks = unifiedItems.filter(i => i.status === "submitted").length;
-  const approvedTasks = unifiedItems.filter(i => i.status === "approved").length;
+  const notStartedCount = unifiedItems.filter(i => i.status === "not_started" || i.status === "overdue").length;
+  const inProgressCount = unifiedItems.filter(i => i.status === "in_progress").length;
+  const submittedCount = unifiedItems.filter(i => i.status === "submitted").length;
+  const approvedCount = unifiedItems.filter(i => i.status === "approved").length;
 
   const incompleteByStaff = useMemo(() => {
     const map: Record<string, number> = {};
-    unifiedItems.filter(i => i.status === "pending" || i.status === "overdue").forEach(i => {
+    unifiedItems.filter(i => i.status === "not_started" || i.status === "overdue").forEach(i => {
+      map[i.staffId] = (map[i.staffId] || 0) + 1;
+    });
+    return map;
+  }, [unifiedItems]);
+
+  const notAcceptedByStaff = useMemo(() => {
+    const map: Record<string, number> = {};
+    unifiedItems.filter(i => i.status === "not_started").forEach(i => {
       map[i.staffId] = (map[i.staffId] || 0) + 1;
     });
     return map;
@@ -267,63 +293,17 @@ export function AdminTaskDashboard({
     }
   }
 
-  async function handleAdd() {
-    if (!form.title || !form.assignee_id) return;
-    await onAssignTask({ ...form });
-    setForm({ title: "", description: "", assignee_id: "", due_date: "" });
-    setOpen(false);
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold font-display">Task Monitor</h1>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <Badge variant="secondary" className="bg-destructive/10 text-destructive text-xs">{pendingTasks} pending</Badge>
-            <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs">{submittedTasks} submitted</Badge>
-            <Badge variant="secondary" className="bg-accent/10 text-accent text-xs">{approvedTasks} approved</Badge>
-          </div>
+      <div>
+        <h1 className="text-2xl font-bold font-display">Task Monitor</h1>
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          <Badge variant="secondary" className="bg-muted text-muted-foreground text-xs">{notStartedCount} not started</Badge>
+          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">{inProgressCount} in progress</Badge>
+          <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs">{submittedCount} submitted</Badge>
+          <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs">{approvedCount} approved</Badge>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" /> Assign Task</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="font-display">Assign Task</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-2">
-              <div>
-                <Label>Task Title</Label>
-                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Task title" />
-              </div>
-              <div>
-                <Label>Instructions / What to do</Label>
-                <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe what needs to be done..." rows={3} />
-              </div>
-              <div>
-                <Label>Due Date</Label>
-                <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
-              </div>
-              <div>
-                <Label>Assign To</Label>
-                <Select value={form.assignee_id} onValueChange={(v) => setForm({ ...form, assignee_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select staff member" /></SelectTrigger>
-                  <SelectContent>
-                    {staffList.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.full_name || "Unnamed"}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={handleAdd} disabled={submitting || !form.title || !form.assignee_id} className="w-full">
-                {submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Assigning...</> : "Assign"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Filters */}
@@ -349,10 +329,11 @@ export function AdminTaskDashboard({
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[140px]"><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="not_started">Not Started</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
                 <SelectItem value="overdue">Overdue</SelectItem>
                 <SelectItem value="submitted">Submitted</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
@@ -384,17 +365,24 @@ export function AdminTaskDashboard({
                   <CardHeader className="pb-2 pt-4 px-4">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base font-semibold">{staffNames[staffId] || "Unknown"}</CardTitle>
-                      {incompleteByStaff[staffId] ? (
-                        <Badge variant="secondary" className="bg-destructive/10 text-destructive text-xs gap-1">
-                          <AlertTriangle className="h-3 w-3" />{incompleteByStaff[staffId]} incomplete
-                        </Badge>
-                      ) : null}
+                      <div className="flex items-center gap-2">
+                        {notAcceptedByStaff[staffId] ? (
+                          <Badge variant="secondary" className="bg-muted text-muted-foreground text-xs gap-1">
+                            <Eye className="h-3 w-3" />{notAcceptedByStaff[staffId]} not accepted
+                          </Badge>
+                        ) : null}
+                        {incompleteByStaff[staffId] ? (
+                          <Badge variant="secondary" className="bg-destructive/10 text-destructive text-xs gap-1">
+                            <AlertTriangle className="h-3 w-3" />{incompleteByStaff[staffId]} incomplete
+                          </Badge>
+                        ) : null}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
                     <div className="space-y-1">
                       {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} />
+                        <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} />
                       ))}
                     </div>
                   </CardContent>
@@ -417,7 +405,7 @@ export function AdminTaskDashboard({
                   <CardContent className="p-4 pt-0">
                     <div className="space-y-1">
                       {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} />
+                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} />
                       ))}
                     </div>
                   </CardContent>
@@ -431,16 +419,22 @@ export function AdminTaskDashboard({
   );
 }
 
-function ItemRow({ item, showStaff, approvingId, onApprove }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void }) {
+function getRowBg(item: { status: string; dueDate?: string | null }, nowDate: string) {
+  if (item.status === "approved") return "bg-blue-50 dark:bg-blue-950/20";
+  if (item.status === "submitted") return "bg-orange-50 dark:bg-orange-950/20";
+  if (item.status === "in_progress") return "bg-green-50 dark:bg-green-950/20 border-l-2 border-l-green-500";
+  if (item.status === "overdue") return "bg-destructive/10 border-l-2 border-l-destructive";
+  // not_started — check if deadline is near
+  if (item.dueDate) {
+    const diff = Math.ceil((new Date(item.dueDate).getTime() - new Date(nowDate).getTime()) / 86400000);
+    if (diff <= 2) return "bg-destructive/10 border-l-2 border-l-destructive";
+  }
+  return "bg-muted/30 border-l-2 border-l-muted-foreground/30";
+}
+
+function ItemRow({ item, showStaff, approvingId, onApprove, nowDate }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; nowDate: string }) {
   return (
-    <div
-      className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${
-        item.status === "approved" ? "bg-accent/5"
-        : item.status === "submitted" ? "bg-orange-50 dark:bg-orange-950/20"
-        : item.status === "overdue" ? "bg-destructive/10 border-l-2 border-l-destructive"
-        : "bg-destructive/5 border-l-2 border-l-destructive"
-      }`}
-    >
+    <div className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(item, nowDate)}`}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className={`text-sm font-medium ${item.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{item.title}</p>
@@ -449,11 +443,13 @@ function ItemRow({ item, showStaff, approvingId, onApprove }: { item: UnifiedIte
         {item.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>}
         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
           {showStaff && <span>👤 {item.staffName}</span>}
-          <span>📅 {item.date}</span>
           {item.dueDate && <span>⏰ Due: {item.dueDate}</span>}
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
+        {item.status === "in_progress" && (
+          <Progress value={50} className="w-16 h-2" />
+        )}
         <Badge variant="secondary" className={`text-xs ${STATUS_COLORS[item.status] || ""}`}>
           {STATUS_ICONS[item.status]}{STATUS_LABELS[item.status]}
         </Badge>
