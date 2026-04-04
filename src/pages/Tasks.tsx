@@ -15,6 +15,11 @@ interface TaskRow {
   assigned_by: string;
   completed: boolean;
   created_at: string;
+  due_date?: string | null;
+  submission_status: string;
+  submitted_at?: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
 }
 
 interface StaffMember {
@@ -34,8 +39,13 @@ interface CalEvent {
 }
 
 interface EventAssignment {
+  id: string;
   event_id: string;
   user_id: string;
+  submission_status: string;
+  submitted_at: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
 }
 
 export default function Tasks() {
@@ -69,7 +79,7 @@ export default function Tasks() {
       if (isAdmin) {
         const [evRes, assRes] = await Promise.all([
           supabase.from("calendar_events").select("*").order("start_date", { ascending: false }),
-          supabase.from("calendar_event_assignments").select("event_id, user_id"),
+          supabase.from("calendar_event_assignments").select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by"),
         ]);
         if (evRes.data) eventsData = evRes.data as CalEvent[];
         if (assRes.data) assignmentsData = assRes.data as EventAssignment[];
@@ -102,16 +112,19 @@ export default function Tasks() {
     }
   }
 
-  async function handleAssignTask(form: { title: string; description: string; assignee_id: string }) {
+  async function handleAssignTask(form: { title: string; description: string; assignee_id: string; due_date?: string }) {
     if (!form.title || !form.assignee_id || !user) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("tasks").insert({
+      const insertData: any = {
         title: form.title,
         description: form.description,
         assignee_id: form.assignee_id,
         assigned_by: user.id,
-      });
+      };
+      if (form.due_date) insertData.due_date = form.due_date;
+      
+      const { error } = await supabase.from("tasks").insert(insertData);
       if (error) {
         toast.error("Failed to assign task");
         return;
@@ -161,6 +174,7 @@ export default function Tasks() {
       staffNames={staffNames}
       onAssignTask={handleAssignTask}
       submitting={submitting}
+      onRefresh={loadData}
     />
   );
 }
