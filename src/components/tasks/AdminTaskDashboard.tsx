@@ -8,7 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Loader2, Users, CalendarDays, Filter, AlertTriangle, X } from "lucide-react";
+import { Plus, Loader2, Users, CalendarDays, Filter, AlertTriangle, X, CheckCircle2, Clock, Send } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 interface TaskRow {
   id: string;
@@ -18,6 +21,11 @@ interface TaskRow {
   assigned_by: string;
   completed: boolean;
   created_at: string;
+  due_date?: string | null;
+  submission_status: string;
+  submitted_at?: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
 }
 
 interface CalEvent {
@@ -34,6 +42,11 @@ interface CalEvent {
 interface EventAssignment {
   event_id: string;
   user_id: string;
+  submission_status?: string;
+  submitted_at?: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
+  id?: string;
 }
 
 interface StaffMember {
@@ -41,29 +54,47 @@ interface StaffMember {
   full_name: string;
 }
 
-// Unified item for display
 interface UnifiedItem {
   id: string;
   title: string;
   description: string;
   type: "task" | "meeting" | "event" | "holiday";
   date: string;
+  dueDate?: string | null;
   staffId: string;
   staffName: string;
-  status: "pending" | "submitted" | "approved";
+  status: "pending" | "submitted" | "approved" | "overdue";
+  source: "task" | "calendar";
+  sourceId: string;
+  assignmentId?: string;
 }
 
 const TYPE_COLORS: Record<string, string> = {
   task: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
   meeting: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   event: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  holiday: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  holiday: "bg-destructive/10 text-destructive",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-destructive/10 text-destructive",
+  overdue: "bg-destructive text-destructive-foreground",
   submitted: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
   approved: "bg-accent/10 text-accent",
+};
+
+const STATUS_ICONS: Record<string, React.ReactNode> = {
+  pending: null,
+  overdue: <AlertTriangle className="h-3 w-3 mr-1" />,
+  submitted: <Clock className="h-3 w-3 mr-1" />,
+  approved: <CheckCircle2 className="h-3 w-3 mr-1" />,
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: "Pending",
+  overdue: "Overdue",
+  submitted: "Submitted",
+  approved: "Approved",
 };
 
 interface AdminTaskDashboardProps {
@@ -72,8 +103,9 @@ interface AdminTaskDashboardProps {
   eventAssignments: EventAssignment[];
   staffList: StaffMember[];
   staffNames: Record<string, string>;
-  onAssignTask: (form: { title: string; description: string; assignee_id: string }) => Promise<void>;
+  onAssignTask: (form: { title: string; description: string; assignee_id: string; due_date?: string }) => Promise<void>;
   submitting: boolean;
+  onRefresh: () => void;
 }
 
 export function AdminTaskDashboard({
@@ -84,19 +116,30 @@ export function AdminTaskDashboard({
   staffNames,
   onAssignTask,
   submitting,
+  onRefresh,
 }: AdminTaskDashboardProps) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", assignee_id: "" });
+  const [form, setForm] = useState({ title: "", description: "", assignee_id: "", due_date: "" });
   const [filterStaff, setFilterStaff] = useState("all");
   const [filterType, setFilterType] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
-  // Build unified items
+  const nowDate = new Date().toISOString().split("T")[0];
+
+  function getItemStatus(submissionStatus: string, dueDate?: string | null): UnifiedItem["status"] {
+    if (submissionStatus === "approved") return "approved";
+    if (submissionStatus === "submitted") return "submitted";
+    if (dueDate && dueDate < nowDate) return "overdue";
+    return "pending";
+  }
+
   const unifiedItems = useMemo(() => {
     const items: UnifiedItem[] = [];
 
-    // Tasks
     tasks.forEach((t) => {
       items.push({
         id: t.id,
@@ -104,31 +147,36 @@ export function AdminTaskDashboard({
         description: t.description,
         type: "task",
         date: t.created_at.split("T")[0],
+        dueDate: t.due_date,
         staffId: t.assignee_id,
         staffName: staffNames[t.assignee_id] || "Unknown",
-        status: t.completed ? "approved" : "pending",
+        status: getItemStatus(t.submission_status || "not_submitted", t.due_date),
+        source: "task",
+        sourceId: t.id,
       });
     });
 
-    // Calendar events → map to assigned staff
     calendarEvents.forEach((ev) => {
       const evType = (ev.event_type === "task" ? "task" : ev.event_type) as UnifiedItem["type"];
       if (ev.visibility === "public") {
-        // Show once per staff member
         staffList.forEach((s) => {
+          const assignment = eventAssignments.find(a => a.event_id === ev.id && a.user_id === s.id);
           items.push({
             id: `${ev.id}-${s.id}`,
             title: ev.title,
             description: ev.description,
             type: evType === "task" ? "event" : evType,
             date: ev.start_date,
+            dueDate: ev.end_date,
             staffId: s.id,
             staffName: s.full_name || "Unknown",
-            status: "pending",
+            status: getItemStatus(assignment?.submission_status || "not_submitted", ev.end_date),
+            source: "calendar",
+            sourceId: ev.id,
+            assignmentId: assignment?.id,
           });
         });
       } else {
-        // Private: only assigned staff
         const assigned = eventAssignments.filter((a) => a.event_id === ev.id);
         assigned.forEach((a) => {
           items.push({
@@ -137,43 +185,41 @@ export function AdminTaskDashboard({
             description: ev.description,
             type: evType === "task" ? "event" : evType,
             date: ev.start_date,
+            dueDate: ev.end_date,
             staffId: a.user_id,
             staffName: staffNames[a.user_id] || "Unknown",
-            status: "pending",
+            status: getItemStatus(a.submission_status || "not_submitted", ev.end_date),
+            source: "calendar",
+            sourceId: ev.id,
+            assignmentId: a.id,
           });
         });
       }
     });
 
     return items;
-  }, [tasks, calendarEvents, eventAssignments, staffList, staffNames]);
+  }, [tasks, calendarEvents, eventAssignments, staffList, staffNames, nowDate]);
 
-  // Filter
   const filtered = useMemo(() => {
     return unifiedItems.filter((item) => {
       if (filterStaff !== "all" && item.staffId !== filterStaff) return false;
       if (filterType !== "all" && item.type !== filterType) return false;
+      if (filterStatus !== "all" && item.status !== filterStatus) return false;
       if (dateFrom && item.date < dateFrom) return false;
       if (dateTo && item.date > dateTo) return false;
       return true;
     });
-  }, [unifiedItems, filterStaff, filterType, dateFrom, dateTo]);
+  }, [unifiedItems, filterStaff, filterType, filterStatus, dateFrom, dateTo]);
 
-  // Group by staff
   const byStaff = useMemo(() => {
     const map: Record<string, UnifiedItem[]> = {};
     filtered.forEach((item) => {
       if (!map[item.staffId]) map[item.staffId] = [];
       map[item.staffId].push(item);
     });
-    return Object.entries(map).sort((a, b) => {
-      const nameA = staffNames[a[0]] || "";
-      const nameB = staffNames[b[0]] || "";
-      return nameA.localeCompare(nameB);
-    });
+    return Object.entries(map).sort((a, b) => (staffNames[a[0]] || "").localeCompare(staffNames[b[0]] || ""));
   }, [filtered, staffNames]);
 
-  // Group by date
   const byDate = useMemo(() => {
     const map: Record<string, UnifiedItem[]> = {};
     filtered.forEach((item) => {
@@ -183,24 +229,48 @@ export function AdminTaskDashboard({
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
   }, [filtered]);
 
-  // Stats
-  const pendingTasks = tasks.filter((t) => !t.completed).length;
-  const completedTasks = tasks.filter((t) => t.completed).length;
-  const totalEvents = calendarEvents.length;
+  const pendingTasks = unifiedItems.filter(i => i.status === "pending" || i.status === "overdue").length;
+  const submittedTasks = unifiedItems.filter(i => i.status === "submitted").length;
+  const approvedTasks = unifiedItems.filter(i => i.status === "approved").length;
 
-  // Incomplete tasks per staff
   const incompleteByStaff = useMemo(() => {
     const map: Record<string, number> = {};
-    tasks.filter((t) => !t.completed).forEach((t) => {
-      map[t.assignee_id] = (map[t.assignee_id] || 0) + 1;
+    unifiedItems.filter(i => i.status === "pending" || i.status === "overdue").forEach(i => {
+      map[i.staffId] = (map[i.staffId] || 0) + 1;
     });
     return map;
-  }, [tasks]);
+  }, [unifiedItems]);
+
+  async function handleApprove(item: UnifiedItem) {
+    if (!user) return;
+    setApprovingId(item.id);
+    try {
+      if (item.source === "task") {
+        const { error } = await supabase
+          .from("tasks")
+          .update({ submission_status: "approved", approved_at: new Date().toISOString(), approved_by: user.id })
+          .eq("id", item.sourceId);
+        if (error) throw error;
+      } else if (item.assignmentId) {
+        const { error } = await supabase
+          .from("calendar_event_assignments")
+          .update({ submission_status: "approved", approved_at: new Date().toISOString(), approved_by: user.id })
+          .eq("id", item.assignmentId);
+        if (error) throw error;
+      }
+      toast.success("Approved successfully");
+      onRefresh();
+    } catch {
+      toast.error("Failed to approve");
+    } finally {
+      setApprovingId(null);
+    }
+  }
 
   async function handleAdd() {
     if (!form.title || !form.assignee_id) return;
-    await onAssignTask(form);
-    setForm({ title: "", description: "", assignee_id: "" });
+    await onAssignTask({ ...form });
+    setForm({ title: "", description: "", assignee_id: "", due_date: "" });
     setOpen(false);
   }
 
@@ -211,22 +281,14 @@ export function AdminTaskDashboard({
         <div>
           <h1 className="text-2xl font-bold font-display">Task Monitor</h1>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <Badge variant="secondary" className="bg-destructive/10 text-destructive text-xs">
-              {pendingTasks} pending tasks
-            </Badge>
-            <Badge variant="secondary" className="bg-accent/10 text-accent text-xs">
-              {completedTasks} completed
-            </Badge>
-            <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
-              {totalEvents} events
-            </Badge>
+            <Badge variant="secondary" className="bg-destructive/10 text-destructive text-xs">{pendingTasks} pending</Badge>
+            <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs">{submittedTasks} submitted</Badge>
+            <Badge variant="secondary" className="bg-accent/10 text-accent text-xs">{approvedTasks} approved</Badge>
           </div>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" /> Assign Task
-            </Button>
+            <Button><Plus className="h-4 w-4 mr-2" /> Assign Task</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -235,48 +297,29 @@ export function AdminTaskDashboard({
             <div className="space-y-4 mt-2">
               <div>
                 <Label>Task Title</Label>
-                <Input
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder="Task title"
-                />
+                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Task title" />
               </div>
               <div>
                 <Label>Instructions / What to do</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="Describe what needs to be done..."
-                  rows={3}
-                />
+                <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe what needs to be done..." rows={3} />
+              </div>
+              <div>
+                <Label>Due Date</Label>
+                <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
               </div>
               <div>
                 <Label>Assign To</Label>
                 <Select value={form.assignee_id} onValueChange={(v) => setForm({ ...form, assignee_id: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select staff member" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select staff member" /></SelectTrigger>
                   <SelectContent>
                     {staffList.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.full_name || "Unnamed"}
-                      </SelectItem>
+                      <SelectItem key={s.id} value={s.id}>{s.full_name || "Unnamed"}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <Button
-                onClick={handleAdd}
-                disabled={submitting || !form.title || !form.assignee_id}
-                className="w-full"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Assigning...
-                  </>
-                ) : (
-                  "Assign"
-                )}
+              <Button onClick={handleAdd} disabled={submitting || !form.title || !form.assignee_id} className="w-full">
+                {submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Assigning...</> : "Assign"}
               </Button>
             </div>
           </DialogContent>
@@ -289,22 +332,14 @@ export function AdminTaskDashboard({
           <div className="flex items-center gap-2 flex-wrap">
             <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
             <Select value={filterStaff} onValueChange={setFilterStaff}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Staff" />
-              </SelectTrigger>
+              <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Staff" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Staff</SelectItem>
-                {staffList.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.full_name || "Unnamed"}
-                  </SelectItem>
-                ))}
+                {staffList.map((s) => (<SelectItem key={s.id} value={s.id}>{s.full_name || "Unnamed"}</SelectItem>))}
               </SelectContent>
             </Select>
             <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
+              <SelectTrigger className="w-[140px]"><SelectValue placeholder="All Types" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="task">Tasks</SelectItem>
@@ -313,32 +348,20 @@ export function AdminTaskDashboard({
                 <SelectItem value="holiday">Holidays</SelectItem>
               </SelectContent>
             </Select>
-            <Input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-[150px]"
-              placeholder="From"
-            />
-            <Input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-[150px]"
-              placeholder="To"
-            />
-            {(filterStaff !== "all" || filterType !== "all" || dateFrom || dateTo) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setFilterStaff("all");
-                  setFilterType("all");
-                  setDateFrom("");
-                  setDateTo("");
-                }}
-                className="gap-1 text-xs"
-              >
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[140px]"><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
+                <SelectItem value="submitted">Submitted</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[150px]" />
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[150px]" />
+            {(filterStaff !== "all" || filterType !== "all" || filterStatus !== "all" || dateFrom || dateTo) && (
+              <Button variant="ghost" size="sm" onClick={() => { setFilterStaff("all"); setFilterType("all"); setFilterStatus("all"); setDateFrom(""); setDateTo(""); }} className="gap-1 text-xs">
                 <X className="h-3 w-3" /> Clear
               </Button>
             )}
@@ -346,34 +369,24 @@ export function AdminTaskDashboard({
         </CardContent>
       </Card>
 
-      {/* Tabs: By Staff / By Date */}
+      {/* Tabs */}
       <Tabs defaultValue="by-staff" className="w-full">
         <TabsList className="w-full grid grid-cols-2">
-          <TabsTrigger value="by-staff" className="gap-1">
-            <Users className="h-4 w-4" /> By Staff
-          </TabsTrigger>
-          <TabsTrigger value="by-date" className="gap-1">
-            <CalendarDays className="h-4 w-4" /> By Date
-          </TabsTrigger>
+          <TabsTrigger value="by-staff" className="gap-1"><Users className="h-4 w-4" /> By Staff</TabsTrigger>
+          <TabsTrigger value="by-date" className="gap-1"><CalendarDays className="h-4 w-4" /> By Date</TabsTrigger>
         </TabsList>
 
-        {/* By Staff */}
         <TabsContent value="by-staff">
-          {byStaff.length === 0 ? (
-            <EmptyState />
-          ) : (
+          {byStaff.length === 0 ? <EmptyState /> : (
             <div className="space-y-4">
               {byStaff.map(([staffId, items]) => (
                 <Card key={staffId} className="border border-border shadow-sm">
                   <CardHeader className="pb-2 pt-4 px-4">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base font-semibold">
-                        {staffNames[staffId] || "Unknown"}
-                      </CardTitle>
+                      <CardTitle className="text-base font-semibold">{staffNames[staffId] || "Unknown"}</CardTitle>
                       {incompleteByStaff[staffId] ? (
                         <Badge variant="secondary" className="bg-destructive/10 text-destructive text-xs gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          {incompleteByStaff[staffId]} incomplete
+                          <AlertTriangle className="h-3 w-3" />{incompleteByStaff[staffId]} incomplete
                         </Badge>
                       ) : null}
                     </div>
@@ -381,7 +394,7 @@ export function AdminTaskDashboard({
                   <CardContent className="p-4 pt-0">
                     <div className="space-y-1">
                       {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff={false} />
+                        <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} />
                       ))}
                     </div>
                   </CardContent>
@@ -391,28 +404,20 @@ export function AdminTaskDashboard({
           )}
         </TabsContent>
 
-        {/* By Date */}
         <TabsContent value="by-date">
-          {byDate.length === 0 ? (
-            <EmptyState />
-          ) : (
+          {byDate.length === 0 ? <EmptyState /> : (
             <div className="space-y-4">
               {byDate.map(([date, items]) => (
                 <Card key={date} className="border border-border shadow-sm">
                   <CardHeader className="pb-2 pt-4 px-4">
                     <CardTitle className="text-base font-semibold">
-                      {new Date(date + "T00:00:00").toLocaleDateString("en-US", {
-                        weekday: "short",
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "short", day: "numeric" })}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
                     <div className="space-y-1">
                       {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff />
+                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} />
                       ))}
                     </div>
                   </CardContent>
@@ -426,37 +431,45 @@ export function AdminTaskDashboard({
   );
 }
 
-function ItemRow({ item, showStaff }: { item: UnifiedItem; showStaff: boolean }) {
+function ItemRow({ item, showStaff, approvingId, onApprove }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void }) {
   return (
     <div
       className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${
-        item.status === "approved"
-          ? "bg-accent/5"
-          : item.status === "submitted"
-          ? "bg-orange-50 dark:bg-orange-950/20"
-          : "bg-destructive/5 border-l-2 border-l-destructive"
+        item.status === "approved" ? "bg-accent/5"
+        : item.status === "submitted" ? "bg-orange-50 dark:bg-orange-950/20"
+        : item.status === "overdue" ? "bg-destructive/10 border-l-2 border-l-destructive"
+        : "bg-destructive/5 border-l-2 border-l-destructive"
       }`}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className={`text-sm font-medium ${item.status === "approved" ? "line-through text-muted-foreground" : ""}`}>
-            {item.title}
-          </p>
-          <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[item.type] || ""}`}>
-            {item.type}
-          </Badge>
+          <p className={`text-sm font-medium ${item.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{item.title}</p>
+          <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[item.type] || ""}`}>{item.type}</Badge>
         </div>
-        {item.description && (
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>
-        )}
+        {item.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>}
         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
           {showStaff && <span>👤 {item.staffName}</span>}
           <span>📅 {item.date}</span>
+          {item.dueDate && <span>⏰ Due: {item.dueDate}</span>}
         </div>
       </div>
-      <Badge variant="secondary" className={`text-xs shrink-0 ${STATUS_COLORS[item.status] || ""}`}>
-        {item.status === "approved" ? "Done" : item.status === "submitted" ? "Submitted" : "Pending"}
-      </Badge>
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge variant="secondary" className={`text-xs ${STATUS_COLORS[item.status] || ""}`}>
+          {STATUS_ICONS[item.status]}{STATUS_LABELS[item.status]}
+        </Badge>
+        {item.status === "submitted" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs gap-1 border-accent text-accent hover:bg-accent/10"
+            disabled={approvingId === item.id}
+            onClick={() => onApprove(item)}
+          >
+            {approvingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+            Approve
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
