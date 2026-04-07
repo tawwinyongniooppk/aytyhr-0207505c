@@ -253,7 +253,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
                   <div className="flex items-center gap-2 shrink-0">
                     {task.status === "in_progress" && <Progress value={50} className="w-16 h-2" />}
                     {getStatusBadge(task.status)}
-                    {task.submission_status === "not_submitted" && (
+                    {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && (
                       <Button
                         size="sm"
                         className="text-xs gap-1"
