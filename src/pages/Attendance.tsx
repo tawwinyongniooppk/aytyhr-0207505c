@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogIn, LogOut, Clock, AlertTriangle, DollarSign, Wallet, MapPin, ShieldCheck, ShieldX, RefreshCw, Loader2 } from "lucide-react";
+import { LogIn, LogOut, Clock, AlertTriangle, DollarSign, Wallet, MapPin, ShieldCheck, ShieldX, RefreshCw, Loader2, Volume2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -84,6 +84,24 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function playAlertSound() {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    oscillator.frequency.value = 800;
+    oscillator.type = "sine";
+    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+    oscillator.start(audioCtx.currentTime);
+    oscillator.stop(audioCtx.currentTime + 0.5);
+  } catch (e) {
+    console.warn("Audio playback failed:", e);
+  }
+}
+
 export default function Attendance() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -96,6 +114,7 @@ export default function Attendance() {
   const [showSalaryModal, setShowSalaryModal] = useState(false);
   const [lastDeduction, setLastDeduction] = useState(0);
   const [userRole, setUserRole] = useState<string>("staff");
+  const [salaryNotification, setSalaryNotification] = useState<{ remaining: number; deduction: number } | null>(null);
   const [location, setLocation] = useState<LocationState>({
     status: "idle",
     lat: null,
@@ -147,7 +166,7 @@ export default function Attendance() {
         },
         (err) => {
           console.warn("Geolocation denied:", err.message);
-          const msg = err.code === 1 ? "Location permission denied" : err.code === 3 ? "Location request timed out" : "Unable to get location";
+          const msg = err.code === 1 ? "Location permission is required. Please enable location access in your browser settings." : err.code === 3 ? "Location request timed out" : "Unable to get location";
           setLocation({ status: "denied", lat: null, lng: null, distance: null, isInside: null, errorMessage: msg });
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
@@ -157,6 +176,38 @@ export default function Attendance() {
       setLocation({ status: "error", lat: null, lng: null, distance: null, isInside: null, errorMessage: "Unable to verify location, please try again" });
     }
   }, [settings.school_latitude, settings.school_longitude, settings.allowed_radius_meters]);
+
+  const requestLocationPermission = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        setLocation(prev => ({ ...prev, status: "error", errorMessage: "Geolocation not supported" }));
+        resolve(false);
+        return;
+      }
+      setLocation(prev => ({ ...prev, status: "loading", errorMessage: null }));
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const schoolConfigured = settings.school_latitude !== 0 || settings.school_longitude !== 0;
+          let distance: number | null = null;
+          let isInside: boolean | null = null;
+          if (schoolConfigured) {
+            distance = Math.round(haversineDistance(lat, lng, settings.school_latitude, settings.school_longitude));
+            isInside = distance <= settings.allowed_radius_meters;
+          }
+          setLocation({ status: "granted", lat, lng, distance, isInside, errorMessage: null });
+          resolve(true);
+        },
+        (err) => {
+          const msg = err.code === 1 ? "Location permission is required. Please enable location access in your browser settings." : "Unable to get location";
+          setLocation({ status: "denied", lat: null, lng: null, distance: null, isInside: null, errorMessage: msg });
+          resolve(false);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    });
+  };
 
   const loadData = async () => {
     try {
@@ -226,12 +277,11 @@ export default function Attendance() {
   const geoError = location.status === "error";
   const geoLoading = location.status === "loading";
 
-  // Admin can override geo-blocking when location is denied or errored
   const canCheckIn = (() => {
-    if (record?.check_in_time) return false; // already checked in
-    if (!schoolConfigured) return true; // no geo-fence
-    if (location.isInside === true) return true; // inside
-    if ((geoDenied || geoError) && isAdmin) return true; // admin override
+    if (record?.check_in_time) return false;
+    if (!schoolConfigured) return true;
+    if (location.isInside === true) return true;
+    if ((geoDenied || geoError) && isAdmin) return true;
     return false;
   })();
 
@@ -245,21 +295,39 @@ export default function Attendance() {
     return "unknown";
   };
 
+  const showSalaryNotification = (remaining: number, deduction: number) => {
+    setSalaryNotification({ remaining, deduction });
+    playAlertSound();
+    setTimeout(() => setSalaryNotification(null), 8000);
+  };
+
   const handleCheckIn = async () => {
     if (!user || checkingIn) return;
 
     try {
       setCheckingIn(true);
 
-      // Block non-admin if outside
-      if (schoolConfigured && geoBlocked && !isAdmin) {
-        toast({ title: "Outside school area", description: `You are ${location.distance}m away. Move closer to check in.`, variant: "destructive" });
+      // Always request location permission on check-in
+      if (schoolConfigured && location.status !== "granted") {
+        const granted = await requestLocationPermission();
+        if (!granted && !isAdmin) {
+          toast({ title: "Location permission is required", description: "Please enable location access to check in.", variant: "destructive" });
+          setCheckingIn(false);
+          return;
+        }
+      }
+
+      // Re-check after location request
+      const currentLocation = location;
+      if (schoolConfigured && currentLocation.isInside === false && !isAdmin) {
+        toast({ title: "Outside school area", description: `You are ${currentLocation.distance}m away. Move closer to check in.`, variant: "destructive" });
+        setCheckingIn(false);
         return;
       }
 
-      // Block if location denied and not admin
-      if (schoolConfigured && (geoDenied || geoError) && !isAdmin) {
-        toast({ title: "Location required", description: "Please enable location access for attendance", variant: "destructive" });
+      if (schoolConfigured && (currentLocation.status === "denied" || currentLocation.status === "error") && !isAdmin) {
+        toast({ title: "Location permission is required", description: "Please enable location access for attendance", variant: "destructive" });
+        setCheckingIn(false);
         return;
       }
 
@@ -295,6 +363,10 @@ export default function Attendance() {
 
         const overrideNote = (geoDenied || geoError) && isAdmin ? " (Admin override)" : "";
         toast({ title: lateMin > 0 ? `Checked in (${lateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}` });
+
+        // Show salary notification after check-in
+        const estimatedDeduction = lateMin * settings.deduction_rate_per_minute;
+        showSalaryNotification(sal.current_salary, estimatedDeduction);
       }
     } catch (e) {
       console.error("handleCheckIn error:", e);
@@ -309,6 +381,12 @@ export default function Attendance() {
 
     try {
       setCheckingOut(true);
+
+      // Request location for check-out too
+      if (schoolConfigured && location.status !== "granted") {
+        await requestLocationPermission();
+      }
+
       const now = new Date();
       const earlyMin = calcEarlyMinutes(now, settings.end_time);
       const today = now.toISOString().split("T")[0];
@@ -334,6 +412,8 @@ export default function Attendance() {
       const hasApprovedLeave = approvedTypes.includes("leave");
       const hasApprovedLateExcuse = approvedTypes.includes("late_excuse");
 
+      let finalDeduction = 0;
+
       if (!updatedRecord.deduction_applied) {
         const effectiveLateMin = hasApprovedLeave || hasApprovedLateExcuse ? 0 : (updatedRecord.late_minutes ?? 0);
         const effectiveEarlyMin = hasApprovedLeave ? 0 : earlyMin;
@@ -350,11 +430,14 @@ export default function Attendance() {
           setRecord({ ...updatedRecord, deduction_applied: true });
           setSalary({ ...sal, current_salary: newCurrent, total_deductions: newDeductions });
           setLastDeduction(deduction);
+          finalDeduction = deduction;
+          showSalaryNotification(newCurrent, deduction);
         } else {
           await supabase.from("attendance").update({ deduction_applied: true } as any).eq("id", record.id);
           setRecord({ ...updatedRecord, deduction_applied: true });
           setSalary(sal);
           setLastDeduction(0);
+          showSalaryNotification(sal.current_salary, 0);
         }
         setShowSalaryModal(true);
       }
@@ -399,6 +482,24 @@ export default function Attendance() {
         <p className="text-muted-foreground text-sm mt-1">Mark your attendance for today</p>
       </div>
 
+      {/* Salary Notification Banner */}
+      {salaryNotification && (
+        <Card className="border-2 border-secondary shadow-md bg-secondary/5 animate-in fade-in slide-in-from-top-2 duration-300">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <Volume2 className="h-5 w-5 text-secondary" />
+              <span className="font-display font-semibold text-sm text-secondary">Salary Notification</span>
+            </div>
+            <p className="text-sm">
+              ယခုလအတွက် သင့်ရဲ့ လစာလက်ကျန်မှာ <span className="font-bold text-secondary">{salaryNotification.remaining.toLocaleString()} MMK</span> ဖြစ်ပါသည်။
+            </p>
+            <p className="text-sm">
+              ယနေ့အတွက် သင့်လစာဖြတ်ခံရသည့် ပမာဏမှာ <span className="font-bold text-destructive">{salaryNotification.deduction.toLocaleString()} MMK</span> ဖြစ်ပါသည်။
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Location Status Card */}
       {schoolConfigured && (
         <Card className={`border shadow-none ${
@@ -423,7 +524,7 @@ export default function Attendance() {
                   <div className="flex-1">
                     <p className="text-sm font-semibold font-display">Location permission denied</p>
                     <p className="text-xs text-muted-foreground">
-                      {isAdmin ? "Admin override available — check-in allowed without location" : "Location is required for check-in. Please enable it in your browser settings."}
+                      {isAdmin ? "Admin override available — check-in allowed without location" : "Location permission is required. Please enable it in your browser settings."}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -539,7 +640,7 @@ export default function Attendance() {
           {schoolConfigured && !canCheckIn && !checkedIn && !geoLoading && (
             <p className="text-xs text-destructive">
               {geoBlocked ? "Move inside school area to check in" :
-               (geoDenied || geoError) && !isAdmin ? "Enable location access to check in" :
+               (geoDenied || geoError) && !isAdmin ? "Location permission is required to check in" :
                ""}
             </p>
           )}
@@ -639,6 +740,10 @@ export default function Attendance() {
               <p className="text-2xl font-bold font-display text-secondary">
                 {(salary?.current_salary ?? 0).toLocaleString()} kyats
               </p>
+            </div>
+            <div className="pt-2 text-xs text-muted-foreground space-y-1">
+              <p>ယခုလအတွက် သင့်ရဲ့ လစာလက်ကျန်မှာ <span className="font-semibold">{(salary?.current_salary ?? 0).toLocaleString()} MMK</span> ဖြစ်ပါသည်။</p>
+              <p>ယနေ့အတွက် သင့်လစာဖြတ်ခံရသည့် ပမာဏမှာ <span className="font-semibold">{lastDeduction.toLocaleString()} MMK</span> ဖြစ်ပါသည်။</p>
             </div>
             <Button onClick={() => setShowSalaryModal(false)} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90">
               Done
