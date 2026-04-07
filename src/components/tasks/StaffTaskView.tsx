@@ -186,7 +186,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
   const pendingTasks = sortedTasks.filter(t => t.status === "not_started" || t.status === "overdue" || t.status === "in_progress").length;
   const submittedTasks = sortedTasks.filter(t => t.status === "submitted").length;
   const approvedTasks = sortedTasks.filter(t => t.status === "approved").length;
-  const pendingAssignments = sortedAssignments.filter(a => a.status === "not_submitted" || a.status === "overdue" || a.status === "in_progress").length;
+  const pendingAssignments = sortedAssignments.filter(a => a.status === "not_started" || a.status === "overdue" || a.status === "in_progress").length;
 
   function getStatusBadge(status: string) {
     if (status === "approved") return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs shrink-0"><CheckCircle2 className="h-3 w-3 mr-1" />Approved</Badge>;
