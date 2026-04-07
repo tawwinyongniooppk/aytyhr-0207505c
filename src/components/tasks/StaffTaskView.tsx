@@ -211,7 +211,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
   return (
     <div className="space-y-6">
       {/* Notification banner */}
-      {hasNewTasks && localTasks.some(t => t.submission_status === "not_submitted") && (
+      {hasNewTasks && localTasks.some(t => t.submission_status === "not_started" || t.submission_status === "not_submitted") && (
         <Card className="border-2 border-primary shadow-sm bg-primary/5">
           <CardContent className="p-4 flex items-center gap-3">
             <ThumbsUp className="h-5 w-5 text-primary shrink-0" />
