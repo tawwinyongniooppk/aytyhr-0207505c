@@ -168,7 +168,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
       : t.submission_status === "submitted" ? "submitted"
       : t.submission_status === "in_progress" ? "in_progress"
       : (t.due_date && t.due_date < now) ? "overdue"
-      : "not_submitted",
+      : "not_started",
   }));
   const sortedTasks = sortByDeadline(normalizedTasks);
 
