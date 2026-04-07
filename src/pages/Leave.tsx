@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { FileText, CheckCircle, XCircle, Clock, Filter, Loader2, Inbox } from "lucide-react";
+import { FileText, CheckCircle, XCircle, Clock, Filter, Loader2, Inbox, Users } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -40,17 +41,17 @@ export default function Leave() {
   const [submitting, setSubmitting] = useState(false);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
-  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
+  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("pending");
+  const [filterStaff, setFilterStaff] = useState("all");
+  const [staffList, setStaffList] = useState<{ id: string; full_name: string }[]>([]);
 
   const canManage = isAdmin || isAssistant;
   const canSubmitLeave = isStaff || isAssistant;
-  const showMyRequests = canSubmitLeave;
-  const showManageRequests = canManage;
 
   useEffect(() => {
     if (!user) return;
     loadData();
-  }, [user]);
+  }, [user, isAdmin, isAssistant, isStaff]);
 
   const loadData = async () => {
     setLoading(true);
@@ -63,9 +64,17 @@ export default function Leave() {
       ? supabase.from("leave_requests").select("*").order("created_at", { ascending: false }).then(r => r)
       : Promise.resolve({ data: [] as any[] });
 
-    const [myRes, allRes] = await Promise.all([myPromise, allPromise]);
+    const staffPromise = canManage
+      ? supabase.from("profiles").select("id, full_name, role").in("role", ["staff", "assistant"]).then(r => r)
+      : Promise.resolve({ data: [] as any[] });
+
+    const [myRes, allRes, staffRes] = await Promise.all([myPromise, allPromise, staffPromise]);
 
     if (myRes.data) setMyRequests(myRes.data as unknown as LeaveRequest[]);
+
+    if (staffRes.data) {
+      setStaffList((staffRes.data as any[]).map((p: any) => ({ id: p.id, full_name: p.full_name })));
+    }
 
     if (canManage && allRes.data) {
       const all = allRes.data as any[];
@@ -162,8 +171,11 @@ export default function Leave() {
     );
   };
 
-  const filteredAdminRequests =
-    filter === "all" ? allRequests : allRequests.filter((r) => r.status === filter);
+  const filteredAdminRequests = allRequests.filter((r) => {
+    if (filterStatus !== "all" && r.status !== filterStatus) return false;
+    if (filterStaff !== "all" && r.user_id !== filterStaff) return false;
+    return true;
+  });
 
   if (loading) {
     return (
@@ -178,8 +190,6 @@ export default function Leave() {
       </div>
     );
   }
-
-  const defaultTab = isAdmin ? "manage" : "my";
 
   return (
     <div className="space-y-6">
@@ -205,7 +215,9 @@ export default function Leave() {
 
       {isAdmin && (
         <ManageSection
-          filter={filter} setFilter={setFilter}
+          filterStatus={filterStatus} setFilterStatus={setFilterStatus}
+          filterStaff={filterStaff} setFilterStaff={setFilterStaff}
+          staffList={staffList}
           filteredRequests={filteredAdminRequests}
           statusBadge={statusBadge}
           onSelect={setSelectedRequest}
@@ -230,7 +242,9 @@ export default function Leave() {
           </TabsContent>
           <TabsContent value="manage" className="space-y-6 mt-4">
             <ManageSection
-              filter={filter} setFilter={setFilter}
+              filterStatus={filterStatus} setFilterStatus={setFilterStatus}
+              filterStaff={filterStaff} setFilterStaff={setFilterStaff}
+              staffList={staffList}
               filteredRequests={filteredAdminRequests}
               statusBadge={statusBadge}
               onSelect={setSelectedRequest}
@@ -409,29 +423,44 @@ function MyRequestsList({
 }
 
 function ManageSection({
-  filter, setFilter, filteredRequests, statusBadge, onSelect,
+  filterStatus, setFilterStatus, filterStaff, setFilterStaff, staffList, filteredRequests, statusBadge, onSelect,
 }: {
-  filter: string;
-  setFilter: (f: "all" | "pending" | "approved" | "rejected") => void;
+  filterStatus: string;
+  setFilterStatus: (f: "all" | "pending" | "approved" | "rejected") => void;
+  filterStaff: string;
+  setFilterStaff: (f: string) => void;
+  staffList: { id: string; full_name: string }[];
   filteredRequests: LeaveRequest[];
   statusBadge: (s: string) => React.ReactNode;
   onSelect: (r: LeaveRequest) => void;
 }) {
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Filter className="h-4 w-4 text-muted-foreground" />
         {(["pending", "approved", "rejected", "all"] as const).map((f) => (
           <Button
             key={f}
-            variant={filter === f ? "default" : "outline"}
+            variant={filterStatus === f ? "default" : "outline"}
             size="sm"
-            onClick={() => setFilter(f)}
-            className={filter === f ? "bg-secondary text-secondary-foreground" : ""}
+            onClick={() => setFilterStatus(f)}
+            className={filterStatus === f ? "bg-secondary text-secondary-foreground" : ""}
           >
             {f.charAt(0).toUpperCase() + f.slice(1)}
           </Button>
         ))}
+        <Select value={filterStaff} onValueChange={setFilterStaff}>
+          <SelectTrigger className="w-[180px] h-8">
+            <Users className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+            <SelectValue placeholder="All Staff" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Staff</SelectItem>
+            {staffList.map((s) => (
+              <SelectItem key={s.id} value={s.id}>{s.full_name || "Unnamed"}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <Card className="border border-border shadow-none">
         <CardHeader>
@@ -443,7 +472,7 @@ function ManageSection({
           {filteredRequests.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 gap-2">
               <Inbox className="h-10 w-10 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">No {filter} requests</p>
+              <p className="text-sm text-muted-foreground">No {filterStatus !== "all" ? filterStatus : ""} requests</p>
             </div>
           ) : (
             <div className="space-y-3">
