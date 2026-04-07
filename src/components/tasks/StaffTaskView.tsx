@@ -179,7 +179,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
       : a.submission_status === "submitted" ? "submitted"
       : a.submission_status === "in_progress" ? "in_progress"
       : (a.calendar_events?.end_date && a.calendar_events.end_date < now) ? "overdue"
-      : "not_submitted",
+      : "not_started",
   }));
   const sortedAssignments = sortByDeadline(normalizedAssignments);
 
