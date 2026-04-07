@@ -183,7 +183,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
   }));
   const sortedAssignments = sortByDeadline(normalizedAssignments);
 
-  const pendingTasks = sortedTasks.filter(t => t.status === "not_submitted" || t.status === "overdue" || t.status === "in_progress").length;
+  const pendingTasks = sortedTasks.filter(t => t.status === "not_started" || t.status === "overdue" || t.status === "in_progress").length;
   const submittedTasks = sortedTasks.filter(t => t.status === "submitted").length;
   const approvedTasks = sortedTasks.filter(t => t.status === "approved").length;
   const pendingAssignments = sortedAssignments.filter(a => a.status === "not_submitted" || a.status === "overdue" || a.status === "in_progress").length;
