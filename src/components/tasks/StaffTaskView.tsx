@@ -46,7 +46,7 @@ interface StaffTaskViewProps {
 const nowDate = () => new Date().toISOString().split("T")[0];
 
 function sortByDeadline<T extends { dueDate?: string | null; status: string }>(items: T[]): T[] {
-  const statusOrder: Record<string, number> = { overdue: 0, not_submitted: 1, in_progress: 2, submitted: 3, approved: 4 };
+  const statusOrder: Record<string, number> = { overdue: 0, not_started: 1, in_progress: 2, submitted: 3, approved: 4 };
   return [...items].sort((a, b) => {
     const sa = statusOrder[a.status] ?? 1;
     const sb = statusOrder[b.status] ?? 1;
@@ -70,8 +70,8 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
 
   useEffect(() => {
     // Check for new unacknowledged tasks
-    const newOnes = localTasks.filter(t => t.submission_status === "not_submitted");
-    const newAssignments = calAssignments.filter(a => a.submission_status === "not_submitted");
+    const newOnes = localTasks.filter(t => t.submission_status === "not_started" || t.submission_status === "not_submitted");
+    const newAssignments = calAssignments.filter(a => a.submission_status === "not_started" || a.submission_status === "not_submitted");
     if (newOnes.length > 0 || newAssignments.length > 0) {
       setHasNewTasks(true);
     }
@@ -168,7 +168,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
       : t.submission_status === "submitted" ? "submitted"
       : t.submission_status === "in_progress" ? "in_progress"
       : (t.due_date && t.due_date < now) ? "overdue"
-      : "not_submitted",
+      : "not_started",
   }));
   const sortedTasks = sortByDeadline(normalizedTasks);
 
@@ -179,14 +179,14 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
       : a.submission_status === "submitted" ? "submitted"
       : a.submission_status === "in_progress" ? "in_progress"
       : (a.calendar_events?.end_date && a.calendar_events.end_date < now) ? "overdue"
-      : "not_submitted",
+      : "not_started",
   }));
   const sortedAssignments = sortByDeadline(normalizedAssignments);
 
-  const pendingTasks = sortedTasks.filter(t => t.status === "not_submitted" || t.status === "overdue" || t.status === "in_progress").length;
+  const pendingTasks = sortedTasks.filter(t => t.status === "not_started" || t.status === "overdue" || t.status === "in_progress").length;
   const submittedTasks = sortedTasks.filter(t => t.status === "submitted").length;
   const approvedTasks = sortedTasks.filter(t => t.status === "approved").length;
-  const pendingAssignments = sortedAssignments.filter(a => a.status === "not_submitted" || a.status === "overdue" || a.status === "in_progress").length;
+  const pendingAssignments = sortedAssignments.filter(a => a.status === "not_started" || a.status === "overdue" || a.status === "in_progress").length;
 
   function getStatusBadge(status: string) {
     if (status === "approved") return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs shrink-0"><CheckCircle2 className="h-3 w-3 mr-1" />Approved</Badge>;
@@ -211,7 +211,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
   return (
     <div className="space-y-6">
       {/* Notification banner */}
-      {hasNewTasks && localTasks.some(t => t.submission_status === "not_submitted") && (
+      {hasNewTasks && localTasks.some(t => t.submission_status === "not_started" || t.submission_status === "not_submitted") && (
         <Card className="border-2 border-primary shadow-sm bg-primary/5">
           <CardContent className="p-4 flex items-center gap-3">
             <ThumbsUp className="h-5 w-5 text-primary shrink-0" />
@@ -253,7 +253,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
                   <div className="flex items-center gap-2 shrink-0">
                     {task.status === "in_progress" && <Progress value={50} className="w-16 h-2" />}
                     {getStatusBadge(task.status)}
-                    {task.submission_status === "not_submitted" && (
+                    {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && (
                       <Button
                         size="sm"
                         className="text-xs gap-1"
@@ -308,7 +308,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
                     <div className="flex items-center gap-2 shrink-0">
                       {a.status === "in_progress" && <Progress value={50} className="w-16 h-2" />}
                       {getStatusBadge(a.status)}
-                      {a.submission_status === "not_submitted" && (
+                      {(a.submission_status === "not_started" || a.submission_status === "not_submitted") && (
                         <Button
                           size="sm"
                           className="text-xs gap-1"
