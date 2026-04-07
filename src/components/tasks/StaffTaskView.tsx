@@ -70,8 +70,8 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
 
   useEffect(() => {
     // Check for new unacknowledged tasks
-    const newOnes = localTasks.filter(t => t.submission_status === "not_submitted");
-    const newAssignments = calAssignments.filter(a => a.submission_status === "not_submitted");
+    const newOnes = localTasks.filter(t => t.submission_status === "not_started" || t.submission_status === "not_submitted");
+    const newAssignments = calAssignments.filter(a => a.submission_status === "not_started" || a.submission_status === "not_submitted");
     if (newOnes.length > 0 || newAssignments.length > 0) {
       setHasNewTasks(true);
     }
