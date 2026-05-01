@@ -261,7 +261,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
                         onClick={() => handleAcknowledgeTask(task.id)}
                       >
                         {acknowledgingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ThumbsUp className="h-3 w-3" />}
-                        I understand
+                        I understand, I will do it
                       </Button>
                     )}
                     {task.submission_status === "in_progress" && (
@@ -273,7 +273,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
                         onClick={() => handleSubmitTask(task.id)}
                       >
                         {submittingTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Submit
+                        Mark as Completed
                       </Button>
                     )}
                   </div>
@@ -315,8 +315,8 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
                           disabled={acknowledgingId === a.id}
                           onClick={() => handleAcknowledgeAssignment(a.id)}
                         >
-                          {acknowledgingId === a.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ThumbsUp className="h-3 w-3" />}
-                          I understand
+                        {acknowledgingId === a.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ThumbsUp className="h-3 w-3" />}
+                          I understand, I will do it
                         </Button>
                       )}
                       {a.submission_status === "in_progress" && (
@@ -328,7 +328,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
                           onClick={() => handleSubmitAssignment(a.id)}
                         >
                           {submittingId === a.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                          Submit
+                          Mark as Completed
                         </Button>
                       )}
                     </div>
