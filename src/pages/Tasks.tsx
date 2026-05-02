@@ -63,7 +63,25 @@ export default function Tasks() {
   useEffect(() => {
     if (!user) return;
     loadData();
-  }, [user]);
+  }, [user, isAdmin, isStaff]);
+
+  // Realtime subscription so Task Monitor refreshes automatically
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("tasks-monitor-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
+        loadData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_event_assignments" }, () => {
+        loadData();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isAdmin]);
 
   async function loadData() {
     setLoading(true);
@@ -72,6 +90,9 @@ export default function Tasks() {
       const profilesQuery = supabase.from("profiles").select("id, full_name, role");
 
       const [tasksRes, profilesRes] = await Promise.all([tasksQuery, profilesQuery]);
+
+      if (tasksRes.error) console.error("[Tasks] tasks fetch error:", tasksRes.error);
+      if (profilesRes.error) console.error("[Tasks] profiles fetch error:", profilesRes.error);
 
       let eventsData: CalEvent[] = [];
       let assignmentsData: EventAssignment[] = [];
@@ -85,10 +106,10 @@ export default function Tasks() {
         if (assRes.data) assignmentsData = assRes.data as EventAssignment[];
       }
 
+      const names: Record<string, string> = {};
       if (profilesRes.data) {
         const staff = profilesRes.data.filter((p: any) => p.role === "staff");
         setStaffList(staff);
-        const names: Record<string, string> = {};
         profilesRes.data.forEach((p: any) => {
           names[p.id] = p.full_name || "Unknown";
         });
@@ -100,12 +121,14 @@ export default function Tasks() {
         if (isStaff && user) {
           filtered = filtered.filter((t) => t.assignee_id === user.id);
         }
+        console.log("[Tasks] role:", { isAdmin, isStaff }, "fetched tasks:", filtered.length, "assignee IDs:", filtered.map(t => t.assignee_id));
         setTasks(filtered);
       }
 
       setCalendarEvents(eventsData);
       setEventAssignments(assignmentsData);
-    } catch {
+    } catch (e) {
+      console.error("[Tasks] loadData exception:", e);
       toast.error("Failed to load tasks");
     } finally {
       setLoading(false);
