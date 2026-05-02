@@ -126,13 +126,20 @@ export default function CalendarPage() {
         .single();
       if (error) throw error;
 
-      // Insert assignments for private events
-      if (form.visibility === "private" && ev) {
+      // Insert assignments for private events OR for tasks (tasks must always be assigned to staff)
+      if (ev && (form.visibility === "private" || form.event_type === "task")) {
         const ids = form.allStaff ? staffList.map((s) => s.id) : form.assignedIds;
+        console.log("[CalendarPage] Created event:", ev.id, "type:", form.event_type, "assigning to:", ids);
         if (ids.length > 0) {
-          await supabase.from("calendar_event_assignments").insert(
-            ids.map((uid) => ({ event_id: ev.id, user_id: uid }))
+          const { error: assignErr } = await supabase.from("calendar_event_assignments").insert(
+            ids.map((uid) => ({ event_id: ev.id, user_id: uid, submission_status: "not_started" }))
           );
+          if (assignErr) {
+            console.error("[CalendarPage] Failed to insert assignments:", assignErr);
+            throw assignErr;
+          }
+        } else {
+          console.warn("[CalendarPage] Task created with no assignees");
         }
       }
 
