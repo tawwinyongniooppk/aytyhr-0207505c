@@ -63,7 +63,25 @@ export default function Tasks() {
   useEffect(() => {
     if (!user) return;
     loadData();
-  }, [user]);
+  }, [user, isAdmin, isStaff]);
+
+  // Realtime subscription so Task Monitor refreshes automatically
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("tasks-monitor-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
+        loadData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_event_assignments" }, () => {
+        loadData();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isAdmin]);
 
   async function loadData() {
     setLoading(true);
