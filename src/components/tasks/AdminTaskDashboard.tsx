@@ -161,7 +161,7 @@ export function AdminTaskDashboard({
     });
 
     calendarEvents.forEach((ev) => {
-      const evType = (ev.event_type === "task" ? "task" : ev.event_type) as UnifiedItem["type"];
+      const evType = (ev.event_type as UnifiedItem["type"]) || "event";
       if (ev.visibility === "public") {
         staffList.forEach((s) => {
           const assignment = eventAssignments.find(a => a.event_id === ev.id && a.user_id === s.id);
@@ -169,12 +169,12 @@ export function AdminTaskDashboard({
             id: `${ev.id}-${s.id}`,
             title: ev.title,
             description: ev.description,
-            type: evType === "task" ? "event" : evType,
+            type: evType,
             date: ev.start_date,
             dueDate: ev.end_date,
             staffId: s.id,
             staffName: s.full_name || "Unknown",
-            status: getItemStatus(assignment?.submission_status || "not_submitted", ev.end_date),
+            status: getItemStatus(assignment?.submission_status || "not_started", ev.end_date),
             source: "calendar",
             sourceId: ev.id,
             assignmentId: assignment?.id,
@@ -187,12 +187,12 @@ export function AdminTaskDashboard({
             id: `${ev.id}-${a.user_id}`,
             title: ev.title,
             description: ev.description,
-            type: evType === "task" ? "event" : evType,
+            type: evType,
             date: ev.start_date,
             dueDate: ev.end_date,
             staffId: a.user_id,
             staffName: staffNames[a.user_id] || "Unknown",
-            status: getItemStatus(a.submission_status || "not_submitted", ev.end_date),
+            status: getItemStatus(a.submission_status || "not_started", ev.end_date),
             source: "calendar",
             sourceId: ev.id,
             assignmentId: a.id,
@@ -200,6 +200,8 @@ export function AdminTaskDashboard({
         });
       }
     });
+
+    console.log("[AdminTaskDashboard] unifiedItems:", items.length, "from", tasks.length, "tasks +", calendarEvents.length, "events (", calendarEvents.filter(e => e.event_type === "task").length, "of type=task) +", eventAssignments.length, "assignments");
 
     return items;
   }, [tasks, calendarEvents, eventAssignments, staffList, staffNames, nowDate]);
