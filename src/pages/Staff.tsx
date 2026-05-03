@@ -93,6 +93,8 @@ export default function Staff() {
         role: form.role,
         phone: form.phone,
         join_date: form.join_date || null,
+        check_in_time: form.check_in_time || "09:00",
+        check_out_time: form.check_out_time || "16:00",
       };
       // Only admin can update salary
       if (isAdminRole) {
