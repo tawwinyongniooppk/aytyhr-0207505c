@@ -9,6 +9,8 @@ interface Profile {
   base_salary: number;
   phone: string | null;
   join_date: string | null;
+  check_in_time: string;
+  check_out_time: string;
 }
 
 export function useProfile() {
