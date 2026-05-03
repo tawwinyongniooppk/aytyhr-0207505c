@@ -302,6 +302,16 @@ export default function Staff() {
               <Label>Join Date</Label>
               <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Check-in Time</Label>
+                <Input type="time" value={form.check_in_time} onChange={(e) => setForm({ ...form, check_in_time: e.target.value })} />
+              </div>
+              <div>
+                <Label>Check-out Time</Label>
+                <Input type="time" value={form.check_out_time} onChange={(e) => setForm({ ...form, check_out_time: e.target.value })} />
+              </div>
+            </div>
 
             {isAdminRole && editId && salaryMap[editId] && (
               <Card className="border border-primary/30 bg-primary/5 shadow-none">
