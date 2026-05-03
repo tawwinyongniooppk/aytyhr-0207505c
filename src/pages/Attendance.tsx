@@ -221,12 +221,17 @@ export default function Attendance() {
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("*"),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
-        supabase.from("profiles").select("role").eq("id", user!.id).single(),
+        supabase.from("profiles").select("role, work_day, check_in_time").eq("id", user!.id).single(),
       ]);
 
       if (attRes.data) setRecord(attRes.data as unknown as AttendanceRecord);
       if (salRes.data) setSalary(salRes.data as unknown as SalaryRecord);
-      if (profileRes.data) setUserRole((profileRes.data as any).role ?? "staff");
+      if (profileRes.data) {
+        const p = profileRes.data as any;
+        setUserRole(p.role ?? "staff");
+        setStaffWorkDay(p.work_day ?? "");
+        setStaffCheckInTime(p.check_in_time ?? "");
+      }
 
       if (settRes.data) {
         const map: Record<string, string> = {};
