@@ -18,6 +18,8 @@ interface StaffProfile {
   base_salary: number;
   phone: string;
   join_date: string;
+  check_in_time: string;
+  check_out_time: string;
 }
 
 interface SalaryRecord {
