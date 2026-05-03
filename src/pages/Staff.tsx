@@ -20,7 +20,10 @@ interface StaffProfile {
   join_date: string;
   check_in_time: string;
   check_out_time: string;
+  work_day: string;
 }
+
+const WORK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 interface SalaryRecord {
   base_salary: number;
