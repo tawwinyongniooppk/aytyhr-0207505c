@@ -111,7 +111,7 @@ export default function Staff() {
       toast({ title: "Staff updated" });
     }
 
-    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "" });
+    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00" });
     setEditId(null);
     setOpen(false);
     loadData();
@@ -262,7 +262,7 @@ export default function Staff() {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "" }); } }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00" }); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="font-display">Edit Staff</DialogTitle>
