@@ -165,6 +165,8 @@ export default function Staff() {
       base_salary: String(member.base_salary),
       phone: member.phone || "",
       join_date: member.join_date || "",
+      check_in_time: member.check_in_time || "09:00",
+      check_out_time: member.check_out_time || "16:00",
     });
     setOpen(true);
   };
