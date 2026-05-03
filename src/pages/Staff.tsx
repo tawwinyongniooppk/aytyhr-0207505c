@@ -18,6 +18,8 @@ interface StaffProfile {
   base_salary: number;
   phone: string;
   join_date: string;
+  check_in_time: string;
+  check_out_time: string;
 }
 
 interface SalaryRecord {
@@ -42,7 +44,7 @@ export default function Staff() {
   const [open, setOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "" });
+  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00" });
   const [addForm, setAddForm] = useState({ full_name: "", email: "", password: "", role: "staff", base_salary: "300000", phone: "" });
   const [addLoading, setAddLoading] = useState(false);
 
@@ -91,6 +93,8 @@ export default function Staff() {
         role: form.role,
         phone: form.phone,
         join_date: form.join_date || null,
+        check_in_time: form.check_in_time || "09:00",
+        check_out_time: form.check_out_time || "16:00",
       };
       // Only admin can update salary
       if (isAdminRole) {
@@ -109,7 +113,7 @@ export default function Staff() {
       toast({ title: "Staff updated" });
     }
 
-    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "" });
+    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00" });
     setEditId(null);
     setOpen(false);
     loadData();
@@ -161,6 +165,8 @@ export default function Staff() {
       base_salary: String(member.base_salary),
       phone: member.phone || "",
       join_date: member.join_date || "",
+      check_in_time: member.check_in_time || "09:00",
+      check_out_time: member.check_out_time || "16:00",
     });
     setOpen(true);
   };
@@ -260,7 +266,7 @@ export default function Staff() {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "" }); } }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00" }); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="font-display">Edit Staff</DialogTitle>
@@ -295,6 +301,16 @@ export default function Staff() {
             <div>
               <Label>Join Date</Label>
               <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Check-in Time</Label>
+                <Input type="time" value={form.check_in_time} onChange={(e) => setForm({ ...form, check_in_time: e.target.value })} />
+              </div>
+              <div>
+                <Label>Check-out Time</Label>
+                <Input type="time" value={form.check_out_time} onChange={(e) => setForm({ ...form, check_out_time: e.target.value })} />
+              </div>
             </div>
 
             {isAdminRole && editId && salaryMap[editId] && (

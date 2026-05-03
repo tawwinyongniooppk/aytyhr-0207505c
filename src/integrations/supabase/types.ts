@@ -193,6 +193,8 @@ export type Database = {
       profiles: {
         Row: {
           base_salary: number
+          check_in_time: string
+          check_out_time: string
           created_at: string
           full_name: string
           id: string
@@ -202,6 +204,8 @@ export type Database = {
         }
         Insert: {
           base_salary?: number
+          check_in_time?: string
+          check_out_time?: string
           created_at?: string
           full_name?: string
           id: string
@@ -211,6 +215,8 @@ export type Database = {
         }
         Update: {
           base_salary?: number
+          check_in_time?: string
+          check_out_time?: string
           created_at?: string
           full_name?: string
           id?: string
