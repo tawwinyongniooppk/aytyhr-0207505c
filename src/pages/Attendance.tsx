@@ -339,7 +339,10 @@ export default function Attendance() {
       }
 
       const now = new Date();
-      const lateMin = calcLateMinutes(now, settings.start_time, settings.grace_period_minutes);
+      const todayName = now.toLocaleDateString("en-US", { weekday: "long" });
+      const isSpecialDay = staffWorkDay && staffWorkDay === todayName;
+      const effectiveStartTime = isSpecialDay && staffCheckInTime ? staffCheckInTime : settings.start_time;
+      const lateMin = calcLateMinutes(now, effectiveStartTime, settings.grace_period_minutes);
       const today = now.toISOString().split("T")[0];
       const locationStatus = getLocationStatusLabel();
 
