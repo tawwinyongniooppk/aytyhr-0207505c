@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS check_in_time text NOT NULL DEFAULT '09:00', ADD COLUMN IF NOT EXISTS check_out_time text NOT NULL DEFAULT '16:00';
