@@ -114,6 +114,8 @@ export default function Attendance() {
   const [showSalaryModal, setShowSalaryModal] = useState(false);
   const [lastDeduction, setLastDeduction] = useState(0);
   const [userRole, setUserRole] = useState<string>("staff");
+  const [staffWorkDay, setStaffWorkDay] = useState<string>("");
+  const [staffCheckInTime, setStaffCheckInTime] = useState<string>("");
   const [salaryNotification, setSalaryNotification] = useState<{ remaining: number; deduction: number } | null>(null);
   const [location, setLocation] = useState<LocationState>({
     status: "idle",
@@ -219,12 +221,17 @@ export default function Attendance() {
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("*"),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
-        supabase.from("profiles").select("role").eq("id", user!.id).single(),
+        supabase.from("profiles").select("role, work_day, check_in_time").eq("id", user!.id).single(),
       ]);
 
       if (attRes.data) setRecord(attRes.data as unknown as AttendanceRecord);
       if (salRes.data) setSalary(salRes.data as unknown as SalaryRecord);
-      if (profileRes.data) setUserRole((profileRes.data as any).role ?? "staff");
+      if (profileRes.data) {
+        const p = profileRes.data as any;
+        setUserRole(p.role ?? "staff");
+        setStaffWorkDay(p.work_day ?? "");
+        setStaffCheckInTime(p.check_in_time ?? "");
+      }
 
       if (settRes.data) {
         const map: Record<string, string> = {};
@@ -332,7 +339,10 @@ export default function Attendance() {
       }
 
       const now = new Date();
-      const lateMin = calcLateMinutes(now, settings.start_time, settings.grace_period_minutes);
+      const todayName = now.toLocaleDateString("en-US", { weekday: "long" });
+      const isSpecialDay = staffWorkDay && staffWorkDay === todayName;
+      const effectiveStartTime = isSpecialDay && staffCheckInTime ? staffCheckInTime : settings.start_time;
+      const lateMin = calcLateMinutes(now, effectiveStartTime, settings.grace_period_minutes);
       const today = now.toISOString().split("T")[0];
       const locationStatus = getLocationStatusLabel();
 
