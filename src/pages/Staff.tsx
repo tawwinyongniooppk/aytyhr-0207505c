@@ -20,7 +20,10 @@ interface StaffProfile {
   join_date: string;
   check_in_time: string;
   check_out_time: string;
+  work_day: string;
 }
+
+const WORK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 interface SalaryRecord {
   base_salary: number;
@@ -44,7 +47,7 @@ export default function Staff() {
   const [open, setOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00" });
+  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday" });
   const [addForm, setAddForm] = useState({ full_name: "", email: "", password: "", role: "staff", base_salary: "300000", phone: "" });
   const [addLoading, setAddLoading] = useState(false);
 
@@ -95,6 +98,7 @@ export default function Staff() {
         join_date: form.join_date || null,
         check_in_time: form.check_in_time || "09:00",
         check_out_time: form.check_out_time || "16:00",
+        work_day: form.work_day || "Monday",
       };
       // Only admin can update salary
       if (isAdminRole) {
@@ -113,7 +117,7 @@ export default function Staff() {
       toast({ title: "Staff updated" });
     }
 
-    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00" });
+    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday" });
     setEditId(null);
     setOpen(false);
     loadData();
@@ -167,6 +171,7 @@ export default function Staff() {
       join_date: member.join_date || "",
       check_in_time: member.check_in_time || "09:00",
       check_out_time: member.check_out_time || "16:00",
+      work_day: member.work_day || "Monday",
     });
     setOpen(true);
   };
@@ -266,7 +271,7 @@ export default function Staff() {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00" }); } }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday" }); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="font-display">Edit Staff</DialogTitle>
@@ -301,6 +306,17 @@ export default function Staff() {
             <div>
               <Label>Join Date</Label>
               <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
+            </div>
+            <div>
+              <Label>Work Day (weekly)</Label>
+              <Select value={form.work_day} onValueChange={(v) => setForm({ ...form, work_day: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {WORK_DAYS.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

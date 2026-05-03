@@ -201,6 +201,7 @@ export type Database = {
           join_date: string | null
           phone: string | null
           role: string
+          work_day: string
         }
         Insert: {
           base_salary?: number
@@ -212,6 +213,7 @@ export type Database = {
           join_date?: string | null
           phone?: string | null
           role?: string
+          work_day?: string
         }
         Update: {
           base_salary?: number
@@ -223,6 +225,7 @@ export type Database = {
           join_date?: string | null
           phone?: string | null
           role?: string
+          work_day?: string
         }
         Relationships: []
       }
