@@ -307,6 +307,17 @@ export default function Staff() {
               <Label>Join Date</Label>
               <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
             </div>
+            <div>
+              <Label>Work Day (weekly)</Label>
+              <Select value={form.work_day} onValueChange={(v) => setForm({ ...form, work_day: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {WORK_DAYS.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Check-in Time</Label>
