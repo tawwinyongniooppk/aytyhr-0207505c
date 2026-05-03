@@ -11,6 +11,7 @@ interface Profile {
   join_date: string | null;
   check_in_time: string;
   check_out_time: string;
+  work_day: string;
 }
 
 export function useProfile() {
