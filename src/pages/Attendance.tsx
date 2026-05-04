@@ -669,6 +669,35 @@ export default function Attendance() {
               {checkedOut ? "Day Complete ✓" : checkedIn ? "Present ✓" : "Not Checked In"}
             </p>
           </div>
+          {/* Today's expected times (above check-in/out buttons) */}
+          <div className="grid grid-cols-2 gap-3 text-left">
+            <div className="rounded-md border border-border bg-muted/40 p-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Check-in time</p>
+              <p className="text-lg font-bold font-display text-foreground">{expectedCheckInTime}</p>
+              {isSpecialDay && <p className="text-[10px] text-secondary mt-0.5">your scheduled day</p>}
+            </div>
+            <div className="rounded-md border border-border bg-muted/40 p-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Check-out time</p>
+              <p className="text-lg font-bold font-display text-foreground">{expectedCheckOutTime}</p>
+              {isSpecialDay && <p className="text-[10px] text-secondary mt-0.5">your scheduled day</p>}
+            </div>
+          </div>
+
+          {checkInNotice && !checkedOut && (
+            <div className="rounded-md border border-accent/40 bg-accent/10 p-3 text-left">
+              <p className="text-sm font-semibold text-accent">✓ {checkInNotice}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Checked in at {formatTime(record?.check_in_time ?? null)} · stays until you check out
+              </p>
+            </div>
+          )}
+
+          {checkOutNotice && checkedOut && (
+            <div className="rounded-md border border-secondary/40 bg-secondary/10 p-3 text-left">
+              <p className="text-sm font-semibold text-secondary">✓ {checkOutNotice}</p>
+            </div>
+          )}
+
           <div className="flex gap-3 justify-center">
             <Button
               onClick={handleCheckIn}
