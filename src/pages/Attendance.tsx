@@ -223,7 +223,7 @@ export default function Attendance() {
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("*"),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
-        supabase.from("profiles").select("role, work_day, check_in_time").eq("id", user!.id).maybeSingle(),
+        supabase.from("profiles").select("role, work_day, check_in_time, check_out_time").eq("id", user!.id).maybeSingle(),
       ]);
 
       if (attRes.data) setRecord(attRes.data as unknown as AttendanceRecord);
