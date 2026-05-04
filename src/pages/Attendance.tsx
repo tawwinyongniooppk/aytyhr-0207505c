@@ -226,7 +226,13 @@ export default function Attendance() {
         supabase.from("profiles").select("role, work_day, check_in_time, check_out_time").eq("id", user!.id).maybeSingle(),
       ]);
 
-      if (attRes.data) setRecord(attRes.data as unknown as AttendanceRecord);
+      if (attRes.data) {
+        const rec = attRes.data as unknown as AttendanceRecord;
+        setRecord(rec);
+        if (rec.check_in_time && !rec.check_out_time) {
+          setCheckInNotice("Checked in successfully");
+        }
+      }
       if (salRes.data) setSalary(salRes.data as unknown as SalaryRecord);
       if (profileRes.error) {
         console.error("[Attendance] profile fetch error:", profileRes.error);
