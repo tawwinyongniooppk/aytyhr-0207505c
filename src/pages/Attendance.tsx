@@ -118,6 +118,7 @@ export default function Attendance() {
   const [staffCheckInTime, setStaffCheckInTime] = useState<string>("");
   const [staffCheckOutTime, setStaffCheckOutTime] = useState<string>("");
   const [checkOutNotice, setCheckOutNotice] = useState<string | null>(null);
+  const [checkInNotice, setCheckInNotice] = useState<string | null>(null);
   const [salaryNotification, setSalaryNotification] = useState<{ remaining: number; deduction: number } | null>(null);
   const [location, setLocation] = useState<LocationState>({
     status: "idle",
