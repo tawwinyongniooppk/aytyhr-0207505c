@@ -221,16 +221,24 @@ export default function Attendance() {
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("*"),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
-        supabase.from("profiles").select("role, work_day, check_in_time").eq("id", user!.id).single(),
+        supabase.from("profiles").select("role, work_day, check_in_time").eq("id", user!.id).maybeSingle(),
       ]);
 
       if (attRes.data) setRecord(attRes.data as unknown as AttendanceRecord);
       if (salRes.data) setSalary(salRes.data as unknown as SalaryRecord);
+      if (profileRes.error) {
+        console.error("[Attendance] profile fetch error:", profileRes.error);
+      }
       if (profileRes.data) {
         const p = profileRes.data as any;
         setUserRole(p.role ?? "staff");
         setStaffWorkDay(p.work_day ?? "");
         setStaffCheckInTime(p.check_in_time ?? "");
+        console.log("[Attendance] loaded staff schedule:", {
+          user_id: user!.id,
+          work_day: p.work_day,
+          check_in_time: p.check_in_time,
+        });
       }
 
       if (settRes.data) {
@@ -340,8 +348,24 @@ export default function Attendance() {
 
       const now = new Date();
       const todayName = now.toLocaleDateString("en-US", { weekday: "long" });
-      const isSpecialDay = staffWorkDay && staffWorkDay === todayName;
-      const effectiveStartTime = isSpecialDay && staffCheckInTime ? staffCheckInTime : settings.start_time;
+
+      // Strict rule: ONLY use staff custom time if today is exactly their work_day AND a custom time is saved.
+      // Otherwise always fall back to the global default start time.
+      let effectiveStartTime: string;
+      if (staffWorkDay === todayName && staffCheckInTime) {
+        effectiveStartTime = staffCheckInTime;
+      } else {
+        effectiveStartTime = settings.start_time;
+      }
+
+      console.log("[Attendance] check-in time resolution:", {
+        today: todayName,
+        staffWorkDay,
+        staffCheckInTime,
+        defaultStartTime: settings.start_time,
+        effectiveStartTime,
+      });
+
       const lateMin = calcLateMinutes(now, effectiveStartTime, settings.grace_period_minutes);
       const today = now.toISOString().split("T")[0];
       const locationStatus = getLocationStatusLabel();
