@@ -298,6 +298,8 @@ export default function Attendance() {
   const isSpecialDay = !!staffWorkDay && staffWorkDay === todayName;
   const expectedCheckInTime =
     isSpecialDay && staffCheckInTime ? staffCheckInTime : settings.start_time;
+  const expectedCheckOutTime =
+    isSpecialDay && staffCheckOutTime ? staffCheckOutTime : settings.end_time;
   const geoBlocked = schoolConfigured && location.status === "granted" && location.isInside === false;
   const geoDenied = location.status === "denied";
   const geoError = location.status === "error";
