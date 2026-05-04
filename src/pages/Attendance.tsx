@@ -718,6 +718,7 @@ export default function Attendance() {
             </p>
           </CardContent>
         </Card>
+      </div>
 
       {/* Late / Early */}
       {(record?.late_minutes ?? 0) > 0 || (record?.early_minutes ?? 0) > 0 ? (
