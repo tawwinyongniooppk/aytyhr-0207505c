@@ -491,7 +491,10 @@ export default function Attendance() {
       }
 
       const excuseNote = hasApprovedLeave ? " (Leave approved)" : hasApprovedLateExcuse ? " (Late excused)" : "";
-      toast({ title: earlyMin > 0 ? `Checked out (${earlyMin} min early)${excuseNote}` : `Checked out ✓${excuseNote}` });
+      const checkoutMsg = earlyMin > 0 ? `Checked out (${earlyMin} min early)${excuseNote}` : `Checked out successfully${excuseNote}`;
+      toast({ title: checkoutMsg });
+      setCheckInNotice(null);
+      setCheckOutNotice(checkoutMsg);
     } catch (e) {
       console.error("handleCheckOut error:", e);
       toast({ title: "Check-out failed", description: "An unexpected error occurred. Please try again.", variant: "destructive" });
