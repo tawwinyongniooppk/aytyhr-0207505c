@@ -236,6 +236,7 @@ export default function Attendance() {
         setUserRole(p.role ?? "staff");
         setStaffWorkDay(p.work_day ?? "");
         setStaffCheckInTime(p.check_in_time ?? "");
+        setStaffCheckOutTime(p.check_out_time ?? "");
         console.log("[Attendance] loaded staff schedule:", {
           user_id: user!.id,
           work_day: p.work_day,
