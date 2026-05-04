@@ -116,6 +116,9 @@ export default function Attendance() {
   const [userRole, setUserRole] = useState<string>("staff");
   const [staffWorkDay, setStaffWorkDay] = useState<string>("");
   const [staffCheckInTime, setStaffCheckInTime] = useState<string>("");
+  const [staffCheckOutTime, setStaffCheckOutTime] = useState<string>("");
+  const [checkOutNotice, setCheckOutNotice] = useState<string | null>(null);
+  const [checkInNotice, setCheckInNotice] = useState<string | null>(null);
   const [salaryNotification, setSalaryNotification] = useState<{ remaining: number; deduction: number } | null>(null);
   const [location, setLocation] = useState<LocationState>({
     status: "idle",
@@ -221,10 +224,16 @@ export default function Attendance() {
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("*"),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
-        supabase.from("profiles").select("role, work_day, check_in_time").eq("id", user!.id).maybeSingle(),
+        supabase.from("profiles").select("role, work_day, check_in_time, check_out_time").eq("id", user!.id).maybeSingle(),
       ]);
 
-      if (attRes.data) setRecord(attRes.data as unknown as AttendanceRecord);
+      if (attRes.data) {
+        const rec = attRes.data as unknown as AttendanceRecord;
+        setRecord(rec);
+        if (rec.check_in_time && !rec.check_out_time) {
+          setCheckInNotice("Checked in successfully");
+        }
+      }
       if (salRes.data) setSalary(salRes.data as unknown as SalaryRecord);
       if (profileRes.error) {
         console.error("[Attendance] profile fetch error:", profileRes.error);
@@ -234,6 +243,7 @@ export default function Attendance() {
         setUserRole(p.role ?? "staff");
         setStaffWorkDay(p.work_day ?? "");
         setStaffCheckInTime(p.check_in_time ?? "");
+        setStaffCheckOutTime(p.check_out_time ?? "");
         console.log("[Attendance] loaded staff schedule:", {
           user_id: user!.id,
           work_day: p.work_day,
@@ -295,6 +305,8 @@ export default function Attendance() {
   const isSpecialDay = !!staffWorkDay && staffWorkDay === todayName;
   const expectedCheckInTime =
     isSpecialDay && staffCheckInTime ? staffCheckInTime : settings.start_time;
+  const expectedCheckOutTime =
+    isSpecialDay && staffCheckOutTime ? staffCheckOutTime : settings.end_time;
   const geoBlocked = schoolConfigured && location.status === "granted" && location.isInside === false;
   const geoDenied = location.status === "denied";
   const geoError = location.status === "error";
@@ -392,6 +404,8 @@ export default function Attendance() {
         toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
       } else {
         setRecord(data as unknown as AttendanceRecord);
+        setCheckInNotice("Checked in successfully");
+        setCheckOutNotice(null);
         const sal = await ensureSalaryRecord();
         setSalary(sal);
 
@@ -477,7 +491,10 @@ export default function Attendance() {
       }
 
       const excuseNote = hasApprovedLeave ? " (Leave approved)" : hasApprovedLateExcuse ? " (Late excused)" : "";
-      toast({ title: earlyMin > 0 ? `Checked out (${earlyMin} min early)${excuseNote}` : `Checked out ✓${excuseNote}` });
+      const checkoutMsg = earlyMin > 0 ? `Checked out (${earlyMin} min early)${excuseNote}` : `Checked out successfully${excuseNote}`;
+      toast({ title: checkoutMsg });
+      setCheckInNotice(null);
+      setCheckOutNotice(checkoutMsg);
     } catch (e) {
       console.error("handleCheckOut error:", e);
       toast({ title: "Check-out failed", description: "An unexpected error occurred. Please try again.", variant: "destructive" });
@@ -652,6 +669,35 @@ export default function Attendance() {
               {checkedOut ? "Day Complete ✓" : checkedIn ? "Present ✓" : "Not Checked In"}
             </p>
           </div>
+          {/* Today's expected times (above check-in/out buttons) */}
+          <div className="grid grid-cols-2 gap-3 text-left">
+            <div className="rounded-md border border-border bg-muted/40 p-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Check-in time</p>
+              <p className="text-lg font-bold font-display text-foreground">{expectedCheckInTime}</p>
+              {isSpecialDay && <p className="text-[10px] text-secondary mt-0.5">your scheduled day</p>}
+            </div>
+            <div className="rounded-md border border-border bg-muted/40 p-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Check-out time</p>
+              <p className="text-lg font-bold font-display text-foreground">{expectedCheckOutTime}</p>
+              {isSpecialDay && <p className="text-[10px] text-secondary mt-0.5">your scheduled day</p>}
+            </div>
+          </div>
+
+          {checkInNotice && !checkedOut && (
+            <div className="rounded-md border border-accent/40 bg-accent/10 p-3 text-left">
+              <p className="text-sm font-semibold text-accent">✓ {checkInNotice}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Checked in at {formatTime(record?.check_in_time ?? null)} · stays until you check out
+              </p>
+            </div>
+          )}
+
+          {checkOutNotice && checkedOut && (
+            <div className="rounded-md border border-secondary/40 bg-secondary/10 p-3 text-left">
+              <p className="text-sm font-semibold text-secondary">✓ {checkOutNotice}</p>
+            </div>
+          )}
+
           <div className="flex gap-3 justify-center">
             <Button
               onClick={handleCheckIn}
@@ -696,6 +742,9 @@ export default function Attendance() {
           <CardContent className="p-4 text-center">
             <p className="text-xs text-muted-foreground">Check-out</p>
             <p className="text-lg font-bold font-display mt-1">{formatTime(record?.check_out_time ?? null)}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Expected: {expectedCheckOutTime}{isSpecialDay ? " (your day)" : ""}
+            </p>
           </CardContent>
         </Card>
       </div>
