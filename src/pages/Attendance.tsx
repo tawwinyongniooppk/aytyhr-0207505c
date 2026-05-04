@@ -404,6 +404,8 @@ export default function Attendance() {
         toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
       } else {
         setRecord(data as unknown as AttendanceRecord);
+        setCheckInNotice("Checked in successfully");
+        setCheckOutNotice(null);
         const sal = await ensureSalaryRecord();
         setSalary(sal);
 
