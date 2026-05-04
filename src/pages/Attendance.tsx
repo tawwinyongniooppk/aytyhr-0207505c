@@ -287,6 +287,14 @@ export default function Attendance() {
 
   const schoolConfigured = settings.school_latitude !== 0 || settings.school_longitude !== 0;
   const isAdmin = userRole === "admin";
+
+  // Today's expected check-in time per staff schedule.
+  // Rule: IF today == staff.work_day → use staff's custom check_in_time
+  //       ELSE → use global default (settings.start_time)
+  const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
+  const isSpecialDay = !!staffWorkDay && staffWorkDay === todayName;
+  const expectedCheckInTime =
+    isSpecialDay && staffCheckInTime ? staffCheckInTime : settings.start_time;
   const geoBlocked = schoolConfigured && location.status === "granted" && location.isInside === false;
   const geoDenied = location.status === "denied";
   const geoError = location.status === "error";
@@ -347,22 +355,14 @@ export default function Attendance() {
       }
 
       const now = new Date();
-      const todayName = now.toLocaleDateString("en-US", { weekday: "long" });
-
-      // Strict rule: ONLY use staff custom time if today is exactly their work_day AND a custom time is saved.
-      // Otherwise always fall back to the global default start time.
-      let effectiveStartTime: string;
-      if (staffWorkDay === todayName && staffCheckInTime) {
-        effectiveStartTime = staffCheckInTime;
-      } else {
-        effectiveStartTime = settings.start_time;
-      }
+      const effectiveStartTime = expectedCheckInTime;
 
       console.log("[Attendance] check-in time resolution:", {
         today: todayName,
         staffWorkDay,
         staffCheckInTime,
         defaultStartTime: settings.start_time,
+        isSpecialDay,
         effectiveStartTime,
       });
 
@@ -687,6 +687,9 @@ export default function Attendance() {
           <CardContent className="p-4 text-center">
             <p className="text-xs text-muted-foreground">Check-in</p>
             <p className="text-lg font-bold font-display mt-1">{formatTime(record?.check_in_time ?? null)}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Expected: {expectedCheckInTime}{isSpecialDay ? " (your day)" : ""}
+            </p>
           </CardContent>
         </Card>
         <Card className="border border-border shadow-none">
