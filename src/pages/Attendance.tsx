@@ -355,22 +355,14 @@ export default function Attendance() {
       }
 
       const now = new Date();
-      const todayName = now.toLocaleDateString("en-US", { weekday: "long" });
-
-      // Strict rule: ONLY use staff custom time if today is exactly their work_day AND a custom time is saved.
-      // Otherwise always fall back to the global default start time.
-      let effectiveStartTime: string;
-      if (staffWorkDay === todayName && staffCheckInTime) {
-        effectiveStartTime = staffCheckInTime;
-      } else {
-        effectiveStartTime = settings.start_time;
-      }
+      const effectiveStartTime = expectedCheckInTime;
 
       console.log("[Attendance] check-in time resolution:", {
         today: todayName,
         staffWorkDay,
         staffCheckInTime,
         defaultStartTime: settings.start_time,
+        isSpecialDay,
         effectiveStartTime,
       });
 
