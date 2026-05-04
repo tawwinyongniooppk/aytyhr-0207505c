@@ -687,6 +687,9 @@ export default function Attendance() {
           <CardContent className="p-4 text-center">
             <p className="text-xs text-muted-foreground">Check-in</p>
             <p className="text-lg font-bold font-display mt-1">{formatTime(record?.check_in_time ?? null)}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Expected: {expectedCheckInTime}{isSpecialDay ? " (your day)" : ""}
+            </p>
           </CardContent>
         </Card>
         <Card className="border border-border shadow-none">
