@@ -287,6 +287,14 @@ export default function Attendance() {
 
   const schoolConfigured = settings.school_latitude !== 0 || settings.school_longitude !== 0;
   const isAdmin = userRole === "admin";
+
+  // Today's expected check-in time per staff schedule.
+  // Rule: IF today == staff.work_day → use staff's custom check_in_time
+  //       ELSE → use global default (settings.start_time)
+  const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
+  const isSpecialDay = !!staffWorkDay && staffWorkDay === todayName;
+  const expectedCheckInTime =
+    isSpecialDay && staffCheckInTime ? staffCheckInTime : settings.start_time;
   const geoBlocked = schoolConfigured && location.status === "granted" && location.isInside === false;
   const geoDenied = location.status === "denied";
   const geoError = location.status === "error";
