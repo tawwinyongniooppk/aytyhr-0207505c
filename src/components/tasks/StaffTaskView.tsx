@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ interface TaskRow {
   title: string;
   description: string;
   assignee_id: string;
+  assigned_by?: string;
   completed: boolean;
   created_at: string;
   due_date?: string | null;
@@ -21,26 +22,35 @@ interface TaskRow {
   approved_at?: string | null;
 }
 
-interface CalEventAssignment {
+interface CalEvent {
+  id: string;
+  title: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  event_type: string;
+  visibility: string;
+  created_by: string;
+  assigned_to_all?: boolean;
+}
+
+interface EventAssignment {
   id: string;
   event_id: string;
   user_id: string;
   submission_status: string;
   submitted_at: string | null;
   approved_at: string | null;
-  calendar_events: {
-    title: string;
-    description: string;
-    start_date: string;
-    end_date: string;
-    event_type: string;
-  };
+  approved_by: string | null;
 }
 
 interface StaffTaskViewProps {
   tasks: TaskRow[];
   togglingId: string | null;
   onToggle: (id: string, current: boolean) => void;
+  calendarEvents?: CalEvent[];
+  eventAssignments?: EventAssignment[];
+  staffNames?: Record<string, string>;
 }
 
 const nowDate = () => new Date().toISOString().split("T")[0];
@@ -57,136 +67,113 @@ function sortByDeadline<T extends { dueDate?: string | null; status: string }>(i
   });
 }
 
-export function StaffTaskView({ tasks }: StaffTaskViewProps) {
+export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [], staffNames = {} }: StaffTaskViewProps) {
   const { user } = useAuth();
-  const [calAssignments, setCalAssignments] = useState<CalEventAssignment[]>([]);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [submittingTaskId, setSubmittingTaskId] = useState<string | null>(null);
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
   const [localTasks, setLocalTasks] = useState(tasks);
+  const [localAssignments, setLocalAssignments] = useState<EventAssignment[]>(eventAssignments);
   const [hasNewTasks, setHasNewTasks] = useState(false);
 
   useEffect(() => { setLocalTasks(tasks); }, [tasks]);
+  useEffect(() => { setLocalAssignments(eventAssignments); }, [eventAssignments]);
+
+  // Calendar tasks visible to this staff = task-type events where the user has an assignment
+  const myCalendarTasks = useMemo(() => {
+    if (!user) return [] as Array<{ event: CalEvent; assignment: EventAssignment }>;
+    return calendarEvents
+      .filter((ev) => ev.event_type === "task")
+      .map((ev) => {
+        const assignment = localAssignments.find((a) => a.event_id === ev.id && a.user_id === user.id);
+        return assignment ? { event: ev, assignment } : null;
+      })
+      .filter(Boolean) as Array<{ event: CalEvent; assignment: EventAssignment }>;
+  }, [calendarEvents, localAssignments, user]);
 
   useEffect(() => {
-    // Check for new unacknowledged tasks
     const newOnes = localTasks.filter(t => t.submission_status === "not_started" || t.submission_status === "not_submitted");
-    const newAssignments = calAssignments.filter(a => a.submission_status === "not_started" || a.submission_status === "not_submitted");
-    if (newOnes.length > 0 || newAssignments.length > 0) {
-      setHasNewTasks(true);
-    }
-  }, [localTasks, calAssignments]);
-
-  useEffect(() => {
-    if (!user) return;
-    loadCalendarAssignments();
-  }, [user]);
-
-  async function loadCalendarAssignments() {
-    const { data } = await supabase
-      .from("calendar_event_assignments")
-      .select("id, event_id, user_id, submission_status, submitted_at, approved_at, calendar_events(title, description, start_date, end_date, event_type)")
-      .eq("user_id", user!.id) as any;
-    if (data) setCalAssignments(data);
-  }
+    const newAssignments = myCalendarTasks.filter(({ assignment }) => assignment.submission_status === "not_started" || assignment.submission_status === "not_submitted");
+    if (newOnes.length > 0 || newAssignments.length > 0) setHasNewTasks(true);
+  }, [localTasks, myCalendarTasks]);
 
   async function handleAcknowledgeTask(taskId: string) {
     setAcknowledgingId(taskId);
     try {
-      const { error } = await supabase
-        .from("tasks")
-        .update({ submission_status: "in_progress" })
-        .eq("id", taskId);
+      const { error } = await supabase.from("tasks").update({ submission_status: "in_progress" }).eq("id", taskId);
       if (error) throw error;
       toast.success("Task acknowledged — marked as In Progress");
       setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, submission_status: "in_progress" } : t));
-    } catch {
-      toast.error("Failed to acknowledge task");
-    } finally {
-      setAcknowledgingId(null);
-    }
+    } catch { toast.error("Failed to acknowledge task"); }
+    finally { setAcknowledgingId(null); }
   }
 
   async function handleAcknowledgeAssignment(assignmentId: string) {
     setAcknowledgingId(assignmentId);
     try {
-      const { error } = await supabase
-        .from("calendar_event_assignments")
-        .update({ submission_status: "in_progress" })
-        .eq("id", assignmentId);
+      const { error } = await supabase.from("calendar_event_assignments").update({ submission_status: "in_progress" }).eq("id", assignmentId);
       if (error) throw error;
       toast.success("Task acknowledged — marked as In Progress");
-      setCalAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, submission_status: "in_progress" } : a));
-    } catch {
-      toast.error("Failed to acknowledge");
-    } finally {
-      setAcknowledgingId(null);
-    }
+      setLocalAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, submission_status: "in_progress" } : a));
+    } catch { toast.error("Failed to acknowledge"); }
+    finally { setAcknowledgingId(null); }
   }
 
   async function handleSubmitTask(taskId: string) {
     setSubmittingTaskId(taskId);
     try {
-      const { error } = await supabase
-        .from("tasks")
-        .update({ submission_status: "submitted", submitted_at: new Date().toISOString(), completed: true })
-        .eq("id", taskId);
+      const { error } = await supabase.from("tasks").update({ submission_status: "submitted", submitted_at: new Date().toISOString(), completed: true }).eq("id", taskId);
       if (error) throw error;
       toast.success("Task submitted successfully");
       setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, submission_status: "submitted", completed: true } : t));
-    } catch {
-      toast.error("Failed to submit task");
-    } finally {
-      setSubmittingTaskId(null);
-    }
+    } catch { toast.error("Failed to submit task"); }
+    finally { setSubmittingTaskId(null); }
   }
 
   async function handleSubmitAssignment(assignmentId: string) {
     setSubmittingId(assignmentId);
     try {
-      const { error } = await supabase
-        .from("calendar_event_assignments")
-        .update({ submission_status: "submitted", submitted_at: new Date().toISOString() })
-        .eq("id", assignmentId);
+      const { error } = await supabase.from("calendar_event_assignments").update({ submission_status: "submitted", submitted_at: new Date().toISOString() }).eq("id", assignmentId);
       if (error) throw error;
       toast.success("Submitted successfully");
-      setCalAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, submission_status: "submitted" } : a));
-    } catch {
-      toast.error("Failed to submit");
-    } finally {
-      setSubmittingId(null);
-    }
+      setLocalAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, submission_status: "submitted" } : a));
+    } catch { toast.error("Failed to submit"); }
+    finally { setSubmittingId(null); }
   }
 
   const now = nowDate();
 
-  // Normalize tasks for sorting
   const normalizedTasks = localTasks.map(t => ({
     ...t,
     dueDate: t.due_date,
     status: t.submission_status === "approved" ? "approved"
       : t.submission_status === "submitted" ? "submitted"
       : t.submission_status === "in_progress" ? "in_progress"
-      : (t.due_date && t.due_date < now) ? "overdue"
-      : "not_started",
+      : (t.due_date && t.due_date < now) ? "overdue" : "not_started",
   }));
   const sortedTasks = sortByDeadline(normalizedTasks);
 
-  const normalizedAssignments = calAssignments.map(a => ({
-    ...a,
-    dueDate: a.calendar_events?.end_date,
-    status: a.submission_status === "approved" ? "approved"
-      : a.submission_status === "submitted" ? "submitted"
-      : a.submission_status === "in_progress" ? "in_progress"
-      : (a.calendar_events?.end_date && a.calendar_events.end_date < now) ? "overdue"
-      : "not_started",
+  const normalizedCalTasks = myCalendarTasks.map(({ event, assignment }) => ({
+    id: assignment.id,
+    eventId: event.id,
+    title: event.title,
+    description: event.description,
+    dueDate: event.end_date,
+    startDate: event.start_date,
+    assignedBy: event.created_by,
+    assignedToAll: !!event.assigned_to_all,
+    submission_status: assignment.submission_status,
+    status: assignment.submission_status === "approved" ? "approved"
+      : assignment.submission_status === "submitted" ? "submitted"
+      : assignment.submission_status === "in_progress" ? "in_progress"
+      : (event.end_date && event.end_date < now) ? "overdue" : "not_started",
   }));
-  const sortedAssignments = sortByDeadline(normalizedAssignments);
+  const sortedCalTasks = sortByDeadline(normalizedCalTasks);
 
-  const pendingTasks = sortedTasks.filter(t => t.status === "not_started" || t.status === "overdue" || t.status === "in_progress").length;
-  const submittedTasks = sortedTasks.filter(t => t.status === "submitted").length;
-  const approvedTasks = sortedTasks.filter(t => t.status === "approved").length;
-  const pendingAssignments = sortedAssignments.filter(a => a.status === "not_started" || a.status === "overdue" || a.status === "in_progress").length;
+  const allPending = sortedTasks.filter(t => ["not_started","overdue","in_progress"].includes(t.status)).length
+    + sortedCalTasks.filter(t => ["not_started","overdue","in_progress"].includes(t.status)).length;
+  const submittedCount = sortedTasks.filter(t => t.status === "submitted").length + sortedCalTasks.filter(t => t.status === "submitted").length;
+  const approvedCount = sortedTasks.filter(t => t.status === "approved").length + sortedCalTasks.filter(t => t.status === "approved").length;
 
   function getStatusBadge(status: string) {
     if (status === "approved") return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs shrink-0"><CheckCircle2 className="h-3 w-3 mr-1" />Approved</Badge>;
@@ -210,8 +197,7 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
 
   return (
     <div className="space-y-6">
-      {/* Notification banner */}
-      {hasNewTasks && localTasks.some(t => t.submission_status === "not_started" || t.submission_status === "not_submitted") && (
+      {hasNewTasks && (localTasks.some(t => t.submission_status === "not_started" || t.submission_status === "not_submitted") || myCalendarTasks.some(({ assignment }) => assignment.submission_status === "not_started")) && (
         <Card className="border-2 border-primary shadow-sm bg-primary/5">
           <CardContent className="p-4 flex items-center gap-3">
             <ThumbsUp className="h-5 w-5 text-primary shrink-0" />
@@ -223,17 +209,16 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
       <div>
         <h1 className="text-2xl font-bold font-display">My Tasks</h1>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <Badge variant="secondary" className="bg-destructive/10 text-destructive text-xs">{pendingTasks + pendingAssignments} pending</Badge>
-          {submittedTasks > 0 && <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs">{submittedTasks} submitted</Badge>}
-          <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs">{approvedTasks} approved</Badge>
+          <Badge variant="secondary" className="bg-destructive/10 text-destructive text-xs">{allPending} pending</Badge>
+          {submittedCount > 0 && <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs">{submittedCount} submitted</Badge>}
+          <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs">{approvedCount} approved</Badge>
         </div>
       </div>
 
-      {/* Tasks */}
       <Card className="border border-border shadow-sm">
         <CardContent className="p-4">
           <h3 className="text-sm font-semibold text-muted-foreground mb-3">📝 Assigned Tasks</h3>
-          {sortedTasks.length === 0 ? (
+          {sortedTasks.length === 0 && sortedCalTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 gap-3">
               <ClipboardList className="h-10 w-10 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">No tasks assigned yet</p>
@@ -241,39 +226,59 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
           ) : (
             <div className="space-y-1">
               {sortedTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(task.status, task.due_date)}`}
-                >
+                <div key={task.id} className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(task.status, task.due_date)}`}>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium ${task.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{task.title}</p>
                     {task.description && <p className="text-xs text-muted-foreground mt-1">{task.description}</p>}
-                    {task.due_date && <p className="text-xs text-muted-foreground mt-1">⏰ Due: {task.due_date}</p>}
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
+                      {task.due_date && <span>⏰ Due: {task.due_date}</span>}
+                      {task.assigned_by && <span>👤 Assigned by: {staffNames[task.assigned_by] || "Admin"}</span>}
+                      <span>🎯 Assigned to: You</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {task.status === "in_progress" && <Progress value={50} className="w-16 h-2" />}
                     {getStatusBadge(task.status)}
                     {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && (
-                      <Button
-                        size="sm"
-                        className="text-xs gap-1"
-                        disabled={acknowledgingId === task.id}
-                        onClick={() => handleAcknowledgeTask(task.id)}
-                      >
+                      <Button size="sm" className="text-xs gap-1" disabled={acknowledgingId === task.id} onClick={() => handleAcknowledgeTask(task.id)}>
                         {acknowledgingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ThumbsUp className="h-3 w-3" />}
                         I understand, I will do it
                       </Button>
                     )}
                     {task.submission_status === "in_progress" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs gap-1"
-                        disabled={submittingTaskId === task.id}
-                        onClick={() => handleSubmitTask(task.id)}
-                      >
+                      <Button size="sm" variant="outline" className="text-xs gap-1" disabled={submittingTaskId === task.id} onClick={() => handleSubmitTask(task.id)}>
                         {submittingTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Mark as Completed
+                        Submit
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {sortedCalTasks.map((task) => (
+                <div key={task.id} className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(task.status, task.dueDate)}`}>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${task.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{task.title}</p>
+                    {task.description && <p className="text-xs text-muted-foreground mt-1">{task.description}</p>}
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
+                      {task.dueDate && <span>⏰ Due: {task.dueDate}</span>}
+                      <span>👤 Assigned by: {staffNames[task.assignedBy] || "Admin"}</span>
+                      <span>🎯 Assigned to: {task.assignedToAll ? "All Staff" : "You"}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {task.status === "in_progress" && <Progress value={50} className="w-16 h-2" />}
+                    {getStatusBadge(task.status)}
+                    {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && (
+                      <Button size="sm" className="text-xs gap-1" disabled={acknowledgingId === task.id} onClick={() => handleAcknowledgeAssignment(task.id)}>
+                        {acknowledgingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ThumbsUp className="h-3 w-3" />}
+                        I understand, I will do it
+                      </Button>
+                    )}
+                    {task.submission_status === "in_progress" && (
+                      <Button size="sm" variant="outline" className="text-xs gap-1" disabled={submittingId === task.id} onClick={() => handleSubmitAssignment(task.id)}>
+                        {submittingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                        Submit
                       </Button>
                     )}
                   </div>
@@ -283,62 +288,6 @@ export function StaffTaskView({ tasks }: StaffTaskViewProps) {
           )}
         </CardContent>
       </Card>
-
-      {/* Calendar Assignments */}
-      {sortedAssignments.length > 0 && (
-        <Card className="border border-border shadow-sm">
-          <CardContent className="p-4">
-            <h3 className="text-sm font-semibold text-muted-foreground mb-3">📅 Calendar Assignments</h3>
-            <div className="space-y-1">
-              {sortedAssignments.map((a) => {
-                const ev = a.calendar_events;
-                return (
-                  <div
-                    key={a.id}
-                    className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(a.status, ev?.end_date)}`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className={`text-sm font-medium ${a.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{ev?.title}</p>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{ev?.event_type}</Badge>
-                      </div>
-                      {ev?.description && <p className="text-xs text-muted-foreground mt-1">{ev.description}</p>}
-                      <p className="text-xs text-muted-foreground mt-1">⏰ {ev?.start_date}{ev?.start_date !== ev?.end_date ? ` → ${ev?.end_date}` : ""}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {a.status === "in_progress" && <Progress value={50} className="w-16 h-2" />}
-                      {getStatusBadge(a.status)}
-                      {(a.submission_status === "not_started" || a.submission_status === "not_submitted") && (
-                        <Button
-                          size="sm"
-                          className="text-xs gap-1"
-                          disabled={acknowledgingId === a.id}
-                          onClick={() => handleAcknowledgeAssignment(a.id)}
-                        >
-                        {acknowledgingId === a.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ThumbsUp className="h-3 w-3" />}
-                          I understand, I will do it
-                        </Button>
-                      )}
-                      {a.submission_status === "in_progress" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs gap-1"
-                          disabled={submittingId === a.id}
-                          onClick={() => handleSubmitAssignment(a.id)}
-                        >
-                          {submittingId === a.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                          Mark as Completed
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
