@@ -111,6 +111,9 @@ export default function CalendarPage() {
     if (!form.title || !form.start_date || !form.end_date || !user) return;
     setSubmitting(true);
     try {
+      const needsAssignments = form.visibility === "private" || form.event_type === "task";
+      const isAllStaff = needsAssignments && form.allStaff;
+
       const { data: ev, error } = await supabase
         .from("calendar_events")
         .insert({
@@ -121,13 +124,14 @@ export default function CalendarPage() {
           event_type: form.event_type,
           visibility: form.visibility,
           created_by: user.id,
-        })
+          assigned_to_all: isAllStaff,
+        } as any)
         .select()
         .single();
       if (error) throw error;
 
       // Insert assignments for private events OR for tasks (tasks must always be assigned to staff)
-      if (ev && (form.visibility === "private" || form.event_type === "task")) {
+      if (ev && needsAssignments) {
         const ids = form.allStaff ? staffList.map((s) => s.id) : form.assignedIds;
         console.log("[CalendarPage] Created event:", ev.id, "type:", form.event_type, "assigning to:", ids);
         if (ids.length > 0) {
@@ -247,7 +251,7 @@ export default function CalendarPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                {form.visibility === "private" && (
+                {(form.visibility === "private" || form.event_type === "task") && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <Switch checked={form.allStaff} onCheckedChange={(c) => setForm({ ...form, allStaff: c })} />

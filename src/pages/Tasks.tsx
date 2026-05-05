@@ -36,6 +36,7 @@ interface CalEvent {
   event_type: string;
   visibility: string;
   created_by: string;
+  assigned_to_all?: boolean;
 }
 
 interface EventAssignment {
@@ -46,6 +47,24 @@ interface EventAssignment {
   submitted_at: string | null;
   approved_at: string | null;
   approved_by: string | null;
+}
+
+// Lightweight cleanup: delete tasks/attendance older than 32 days. Runs once per browser session.
+async function runRetentionCleanup() {
+  try {
+    if (sessionStorage.getItem("retention_cleanup_done") === "1") return;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 32);
+    const cutoffIso = cutoff.toISOString();
+    const cutoffDate = cutoffIso.split("T")[0];
+    await Promise.all([
+      supabase.from("tasks").delete().lt("created_at", cutoffIso),
+      supabase.from("attendance").delete().lt("date", cutoffDate),
+    ]);
+    sessionStorage.setItem("retention_cleanup_done", "1");
+  } catch (e) {
+    console.warn("[Tasks] retention cleanup skipped:", e);
+  }
 }
 
 export default function Tasks() {
@@ -62,6 +81,7 @@ export default function Tasks() {
 
   useEffect(() => {
     if (!user) return;
+    runRetentionCleanup();
     loadData();
   }, [user, isAdmin, isStaff]);
 
@@ -70,63 +90,43 @@ export default function Tasks() {
     if (!user) return;
     const channel = supabase
       .channel("tasks-monitor-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
-        loadData();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_event_assignments" }, () => {
-        loadData();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_event_assignments" }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events" }, () => loadData())
       .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isAdmin]);
 
   async function loadData() {
     setLoading(true);
     try {
-      const tasksQuery = supabase.from("tasks").select("*").order("created_at", { ascending: false });
-      const profilesQuery = supabase.from("profiles").select("id, full_name, role");
-
-      const [tasksRes, profilesRes] = await Promise.all([tasksQuery, profilesQuery]);
+      const [tasksRes, profilesRes, evRes, assRes] = await Promise.all([
+        supabase.from("tasks").select("*").order("created_at", { ascending: false }),
+        supabase.from("profiles").select("id, full_name, role"),
+        supabase.from("calendar_events").select("*").order("start_date", { ascending: false }),
+        supabase.from("calendar_event_assignments").select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by"),
+      ]);
 
       if (tasksRes.error) console.error("[Tasks] tasks fetch error:", tasksRes.error);
       if (profilesRes.error) console.error("[Tasks] profiles fetch error:", profilesRes.error);
-
-      let eventsData: CalEvent[] = [];
-      let assignmentsData: EventAssignment[] = [];
-
-      if (isAdmin) {
-        const [evRes, assRes] = await Promise.all([
-          supabase.from("calendar_events").select("*").order("start_date", { ascending: false }),
-          supabase.from("calendar_event_assignments").select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by"),
-        ]);
-        if (evRes.data) eventsData = evRes.data as CalEvent[];
-        if (assRes.data) assignmentsData = assRes.data as EventAssignment[];
-      }
 
       const names: Record<string, string> = {};
       if (profilesRes.data) {
         const staff = profilesRes.data.filter((p: any) => p.role === "staff");
         setStaffList(staff);
-        profilesRes.data.forEach((p: any) => {
-          names[p.id] = p.full_name || "Unknown";
-        });
+        profilesRes.data.forEach((p: any) => { names[p.id] = p.full_name || "Unknown"; });
         setStaffNames(names);
       }
 
       if (tasksRes.data) {
         let filtered = tasksRes.data as TaskRow[];
-        if (isStaff && user) {
-          filtered = filtered.filter((t) => t.assignee_id === user.id);
-        }
-        console.log("[Tasks] role:", { isAdmin, isStaff }, "fetched tasks:", filtered.length, "assignee IDs:", filtered.map(t => t.assignee_id));
+        if (isStaff && user) filtered = filtered.filter((t) => t.assignee_id === user.id);
         setTasks(filtered);
       }
 
-      setCalendarEvents(eventsData);
-      setEventAssignments(assignmentsData);
+      setCalendarEvents((evRes.data as CalEvent[]) || []);
+      setEventAssignments((assRes.data as EventAssignment[]) || []);
     } catch (e) {
       console.error("[Tasks] loadData exception:", e);
       toast.error("Failed to load tasks");
@@ -146,12 +146,8 @@ export default function Tasks() {
         assigned_by: user.id,
       };
       if (form.due_date) insertData.due_date = form.due_date;
-      
       const { error } = await supabase.from("tasks").insert(insertData);
-      if (error) {
-        toast.error("Failed to assign task");
-        return;
-      }
+      if (error) { toast.error("Failed to assign task"); return; }
       toast.success("Task assigned successfully");
       loadData();
     } finally {
@@ -163,10 +159,7 @@ export default function Tasks() {
     setTogglingId(id);
     try {
       const { error } = await supabase.from("tasks").update({ completed: !currentValue }).eq("id", id);
-      if (error) {
-        toast.error("Failed to update task");
-        return;
-      }
+      if (error) { toast.error("Failed to update task"); return; }
       const newStatus = !currentValue;
       toast.success(newStatus ? "Task marked as completed" : "Task marked as pending");
       setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: newStatus } : t)));
@@ -185,7 +178,16 @@ export default function Tasks() {
   }
 
   if (isStaff) {
-    return <StaffTaskView tasks={tasks} togglingId={togglingId} onToggle={toggleTask} />;
+    return (
+      <StaffTaskView
+        tasks={tasks}
+        togglingId={togglingId}
+        onToggle={toggleTask}
+        calendarEvents={calendarEvents}
+        eventAssignments={eventAssignments}
+        staffNames={staffNames}
+      />
+    );
   }
 
   return (
