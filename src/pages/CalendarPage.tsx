@@ -251,7 +251,7 @@ export default function CalendarPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                {form.visibility === "private" && (
+                {(form.visibility === "private" || form.event_type === "task") && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <Switch checked={form.allStaff} onCheckedChange={(c) => setForm({ ...form, allStaff: c })} />
