@@ -69,4 +69,48 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
   }
+
+  /* Global interactive polish: smooth transitions for clickable elements */
+  button,
+  a,
+  [role="button"],
+  [role="menuitem"],
+  [role="tab"],
+  [role="option"],
+  summary,
+  label[for],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    transition: transform 0.2s ease, box-shadow 0.25s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  }
+
+  /* Subtle lift on hover for buttons & links — skip disabled and ghost-y states */
+  button:not(:disabled):not([data-no-lift]):hover,
+  [role="button"]:not([aria-disabled="true"]):not([data-no-lift]):hover,
+  a:not([data-no-lift]):hover {
+    transform: translateY(-1px);
+  }
+
+  button:not(:disabled):not([data-no-lift]):active,
+  [role="button"]:not([aria-disabled="true"]):not([data-no-lift]):active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  /* Soft shadow lift for solid/elevated buttons */
+  button.bg-primary:not(:disabled):hover,
+  button.bg-secondary:not(:disabled):hover,
+  button.bg-destructive:not(:disabled):hover,
+  button.bg-accent:not(:disabled):hover {
+    box-shadow: 0 6px 16px -8px hsl(var(--foreground) / 0.25);
+  }
+
+  /* Cards / interactive containers opt-in via .interactive */
+  .interactive {
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+  }
+  .interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -12px hsl(var(--foreground) / 0.18);
+  }
 }
