@@ -120,6 +120,7 @@ export type Database = {
       }
       calendar_events: {
         Row: {
+          assigned_to_all: boolean
           created_at: string
           created_by: string
           description: string
@@ -131,6 +132,7 @@ export type Database = {
           visibility: string
         }
         Insert: {
+          assigned_to_all?: boolean
           created_at?: string
           created_by: string
           description?: string
@@ -142,6 +144,7 @@ export type Database = {
           visibility?: string
         }
         Update: {
+          assigned_to_all?: boolean
           created_at?: string
           created_by?: string
           description?: string
