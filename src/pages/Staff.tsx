@@ -96,7 +96,6 @@ export default function Staff() {
     if (editId) {
       const updateData: any = {
         full_name: form.full_name,
-        role: form.role,
         phone: form.phone,
         join_date: form.join_date || null,
         check_in_time: form.check_in_time || "09:00",
@@ -117,10 +116,40 @@ export default function Staff() {
         toast({ title: "Update failed", description: error.message, variant: "destructive" });
         return;
       }
+
+      // Admin: upsert monthly salary financial fields (bonus, manual deduction, reason)
+      if (isAdminRole) {
+        const monthStart = getMonthStart();
+        const bonus = Number(form.bonus) || 0;
+        const manualDeduction = Number(form.manual_deduction) || 0;
+        const baseSalary = Number(form.base_salary) || 300000;
+        const existing = salaryMap[editId];
+        const autoDeductions = existing?.total_deductions ?? 0;
+        // Recompute current_salary preserving attendance-driven deductions
+        const current = Math.max(0, baseSalary + bonus - autoDeductions - manualDeduction);
+
+        const payload: any = {
+          user_id: editId,
+          month: monthStart,
+          base_salary: baseSalary,
+          bonus,
+          manual_deduction: manualDeduction,
+          deduction_reason: form.deduction_reason,
+          total_deductions: autoDeductions,
+          current_salary: current,
+          last_updated: new Date().toISOString(),
+        };
+        if (existing) {
+          await supabase.from("salaries").update(payload).eq("user_id", editId).eq("month", monthStart);
+        } else {
+          await supabase.from("salaries").insert(payload);
+        }
+      }
+
       toast({ title: "Staff updated" });
     }
 
-    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday" });
+    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday", bonus: "0", manual_deduction: "0", deduction_reason: "" });
     setEditId(null);
     setOpen(false);
     loadData();
