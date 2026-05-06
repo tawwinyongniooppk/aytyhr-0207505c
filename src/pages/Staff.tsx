@@ -283,14 +283,8 @@ export default function Staff() {
             </div>
             <div>
               <Label>Role</Label>
-              <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="assistant">Assistant Admin</SelectItem>
-                  <SelectItem value="staff">Staff</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input value={form.role.replace("_", " ")} disabled className="capitalize" />
+              <p className="text-xs text-muted-foreground mt-1">Only the IT Manager can change roles.</p>
             </div>
             {/* Only admin can see/edit salary */}
             {isAdminRole && (
