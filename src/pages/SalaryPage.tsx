@@ -8,6 +8,9 @@ interface SalaryData {
   base_salary: number;
   current_salary: number;
   total_deductions: number;
+  bonus: number;
+  manual_deduction: number;
+  deduction_reason: string;
 }
 
 interface AttendanceEntry {
