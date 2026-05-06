@@ -42,6 +42,7 @@ interface TopDeduction {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { canViewSalary } = useProfile();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRow[]>([]);
   const [monthAttendance, setMonthAttendance] = useState<AttendanceRow[]>([]);
