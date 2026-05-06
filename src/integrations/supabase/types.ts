@@ -235,27 +235,36 @@ export type Database = {
       salaries: {
         Row: {
           base_salary: number
+          bonus: number
           current_salary: number
+          deduction_reason: string
           id: string
           last_updated: string
+          manual_deduction: number
           month: string
           total_deductions: number
           user_id: string
         }
         Insert: {
           base_salary?: number
+          bonus?: number
           current_salary?: number
+          deduction_reason?: string
           id?: string
           last_updated?: string
+          manual_deduction?: number
           month: string
           total_deductions?: number
           user_id: string
         }
         Update: {
           base_salary?: number
+          bonus?: number
           current_salary?: number
+          deduction_reason?: string
           id?: string
           last_updated?: string
+          manual_deduction?: number
           month?: string
           total_deductions?: number
           user_id?: string
