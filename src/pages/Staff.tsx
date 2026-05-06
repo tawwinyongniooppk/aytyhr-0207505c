@@ -195,6 +195,7 @@ export default function Staff() {
 
   const openEdit = (member: StaffProfile) => {
     setEditId(member.id);
+    const sal = salaryMap[member.id];
     setForm({
       full_name: member.full_name,
       role: member.role,
@@ -204,6 +205,9 @@ export default function Staff() {
       check_in_time: member.check_in_time || "09:00",
       check_out_time: member.check_out_time || "16:00",
       work_day: member.work_day || "Monday",
+      bonus: String(sal?.bonus ?? 0),
+      manual_deduction: String(sal?.manual_deduction ?? 0),
+      deduction_reason: sal?.deduction_reason ?? "",
     });
     setOpen(true);
   };
