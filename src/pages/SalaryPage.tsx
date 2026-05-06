@@ -80,23 +80,23 @@ export default function SalaryPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="border border-border shadow-none">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
               <DollarSign className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">Base Salary</span>
             </div>
-            <p className="text-xl font-bold font-display">{(salary?.base_salary ?? 0).toLocaleString()} <span className="text-sm font-normal text-muted-foreground">kyats</span></p>
+            <p className="text-lg font-bold font-display">{(salary?.base_salary ?? 0).toLocaleString()} <span className="text-xs font-normal text-muted-foreground">Ks</span></p>
           </CardContent>
         </Card>
-        <Card className="border border-secondary/30 shadow-none bg-secondary/5">
+        <Card className="border border-accent/30 shadow-none bg-accent/5">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
-              <Wallet className="h-4 w-4 text-secondary" />
-              <span className="text-xs text-muted-foreground">Remaining</span>
+              <DollarSign className="h-4 w-4 text-accent" />
+              <span className="text-xs text-muted-foreground">Bonus</span>
             </div>
-            <p className="text-xl font-bold font-display text-secondary">{(salary?.current_salary ?? 0).toLocaleString()} <span className="text-sm font-normal text-muted-foreground">kyats</span></p>
+            <p className="text-lg font-bold font-display text-accent">+{(salary?.bonus ?? 0).toLocaleString()} <span className="text-xs font-normal text-muted-foreground">Ks</span></p>
           </CardContent>
         </Card>
         <Card className="border border-destructive/30 shadow-none">
@@ -105,7 +105,24 @@ export default function SalaryPage() {
               <TrendingDown className="h-4 w-4 text-destructive" />
               <span className="text-xs text-muted-foreground">Deductions</span>
             </div>
-            <p className="text-xl font-bold font-display text-destructive">{(salary?.total_deductions ?? 0).toLocaleString()} <span className="text-sm font-normal text-muted-foreground">kyats</span></p>
+            <p className="text-lg font-bold font-display text-destructive">
+              -{((salary?.total_deductions ?? 0) + (salary?.manual_deduction ?? 0)).toLocaleString()} <span className="text-xs font-normal text-muted-foreground">Ks</span>
+            </p>
+            {salary?.manual_deduction ? (
+              <p className="text-[10px] text-muted-foreground mt-1 truncate">incl. manual: {salary.manual_deduction.toLocaleString()}{salary.deduction_reason ? ` (${salary.deduction_reason})` : ""}</p>
+            ) : null}
+          </CardContent>
+        </Card>
+        <Card className="border border-secondary/30 shadow-none bg-secondary/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Wallet className="h-4 w-4 text-secondary" />
+              <span className="text-xs text-muted-foreground">Final Salary</span>
+            </div>
+            <p className="text-lg font-bold font-display text-secondary">
+              {Math.max(0, (salary?.base_salary ?? 0) + (salary?.bonus ?? 0) - (salary?.total_deductions ?? 0) - (salary?.manual_deduction ?? 0)).toLocaleString()}
+              <span className="text-xs font-normal text-muted-foreground"> Ks</span>
+            </p>
           </CardContent>
         </Card>
       </div>
