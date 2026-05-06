@@ -254,37 +254,39 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Salary Impact */}
-        <Card className="border border-border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-muted-foreground" />
-              Salary Impact — Today
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 rounded-lg bg-destructive/5 border border-destructive/20">
-              <p className="text-xs text-muted-foreground">Total Deductions Today</p>
-              <p className="text-2xl font-bold text-destructive">{todayDeductions.toLocaleString()} Ks</p>
-            </div>
-            {topDeductions.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">Top deductions this month</p>
-                <div className="space-y-2">
-                  {topDeductions.map((d, i) => (
-                    <div key={d.name} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}.</span>
-                        <span className="text-sm font-medium">{d.name}</span>
-                      </div>
-                      <span className="text-sm font-semibold text-destructive">{d.total.toLocaleString()} Ks</span>
-                    </div>
-                  ))}
-                </div>
+        {/* Salary Impact - Admin only */}
+        {canViewSalary && (
+          <Card className="border border-border shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-display flex items-center gap-2">
+                <TrendingDown className="h-4 w-4 text-muted-foreground" />
+                Salary Impact — Today
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 rounded-lg bg-destructive/5 border border-destructive/20">
+                <p className="text-xs text-muted-foreground">Total Deductions Today</p>
+                <p className="text-2xl font-bold text-destructive">{todayDeductions.toLocaleString()} Ks</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              {topDeductions.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Top deductions this month</p>
+                  <div className="space-y-2">
+                    {topDeductions.map((d, i) => (
+                      <div key={d.name} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}.</span>
+                          <span className="text-sm font-medium">{d.name}</span>
+                        </div>
+                        <span className="text-sm font-semibold text-destructive">{d.total.toLocaleString()} Ks</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Monthly Report */}
         <Card className="border border-border shadow-sm">
@@ -304,10 +306,12 @@ export default function Dashboard() {
                 <span className="text-sm text-muted-foreground">Late Cases</span>
                 <span className="text-sm font-bold text-destructive">{totalLateCases}</span>
               </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-muted-foreground">Total Deductions</span>
-                <span className="text-sm font-bold text-destructive">{monthDeductions.toLocaleString()} Ks</span>
-              </div>
+              {canViewSalary && (
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-muted-foreground">Total Deductions</span>
+                  <span className="text-sm font-bold text-destructive">{monthDeductions.toLocaleString()} Ks</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
