@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { cn } from "@/lib/utils";
 
 interface Profile {
