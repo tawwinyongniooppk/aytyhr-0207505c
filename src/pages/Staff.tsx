@@ -29,6 +29,9 @@ interface SalaryRecord {
   base_salary: number;
   current_salary: number;
   total_deductions: number;
+  bonus: number;
+  manual_deduction: number;
+  deduction_reason: string;
 }
 
 function getMonthStart(): string {
@@ -47,7 +50,7 @@ export default function Staff() {
   const [open, setOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday" });
+  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday", bonus: "0", manual_deduction: "0", deduction_reason: "" });
   const [addForm, setAddForm] = useState({ full_name: "", email: "", password: "", role: "staff", base_salary: "300000", phone: "" });
   const [addLoading, setAddLoading] = useState(false);
 
@@ -93,7 +96,6 @@ export default function Staff() {
     if (editId) {
       const updateData: any = {
         full_name: form.full_name,
-        role: form.role,
         phone: form.phone,
         join_date: form.join_date || null,
         check_in_time: form.check_in_time || "09:00",
@@ -114,10 +116,40 @@ export default function Staff() {
         toast({ title: "Update failed", description: error.message, variant: "destructive" });
         return;
       }
+
+      // Admin: upsert monthly salary financial fields (bonus, manual deduction, reason)
+      if (isAdminRole) {
+        const monthStart = getMonthStart();
+        const bonus = Number(form.bonus) || 0;
+        const manualDeduction = Number(form.manual_deduction) || 0;
+        const baseSalary = Number(form.base_salary) || 300000;
+        const existing = salaryMap[editId];
+        const autoDeductions = existing?.total_deductions ?? 0;
+        // Recompute current_salary preserving attendance-driven deductions
+        const current = Math.max(0, baseSalary + bonus - autoDeductions - manualDeduction);
+
+        const payload: any = {
+          user_id: editId,
+          month: monthStart,
+          base_salary: baseSalary,
+          bonus,
+          manual_deduction: manualDeduction,
+          deduction_reason: form.deduction_reason,
+          total_deductions: autoDeductions,
+          current_salary: current,
+          last_updated: new Date().toISOString(),
+        };
+        if (existing) {
+          await supabase.from("salaries").update(payload).eq("user_id", editId).eq("month", monthStart);
+        } else {
+          await supabase.from("salaries").insert(payload);
+        }
+      }
+
       toast({ title: "Staff updated" });
     }
 
-    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday" });
+    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday", bonus: "0", manual_deduction: "0", deduction_reason: "" });
     setEditId(null);
     setOpen(false);
     loadData();
@@ -163,6 +195,7 @@ export default function Staff() {
 
   const openEdit = (member: StaffProfile) => {
     setEditId(member.id);
+    const sal = salaryMap[member.id];
     setForm({
       full_name: member.full_name,
       role: member.role,
@@ -172,6 +205,9 @@ export default function Staff() {
       check_in_time: member.check_in_time || "09:00",
       check_out_time: member.check_out_time || "16:00",
       work_day: member.work_day || "Monday",
+      bonus: String(sal?.bonus ?? 0),
+      manual_deduction: String(sal?.manual_deduction ?? 0),
+      deduction_reason: sal?.deduction_reason ?? "",
     });
     setOpen(true);
   };
@@ -271,7 +307,7 @@ export default function Staff() {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday" }); } }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday", bonus: "0", manual_deduction: "0", deduction_reason: "" }); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="font-display">Edit Staff</DialogTitle>
@@ -283,14 +319,8 @@ export default function Staff() {
             </div>
             <div>
               <Label>Role</Label>
-              <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="assistant">Assistant Admin</SelectItem>
-                  <SelectItem value="staff">Staff</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input value={form.role.replace("_", " ")} disabled className="capitalize" />
+              <p className="text-xs text-muted-foreground mt-1">Only the IT Manager can change roles.</p>
             </div>
             {/* Only admin can see/edit salary */}
             {isAdminRole && (
@@ -329,7 +359,27 @@ export default function Staff() {
               </div>
             </div>
 
-            {isAdminRole && editId && salaryMap[editId] && (
+            {isAdminRole && (
+              <div className="space-y-3 border-t border-border pt-3">
+                <p className="text-xs font-semibold text-primary">Financial Adjustments (this month)</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Bonus (kyats)</Label>
+                    <Input type="number" value={form.bonus} onChange={(e) => setForm({ ...form, bonus: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Manual Deduction</Label>
+                    <Input type="number" value={form.manual_deduction} onChange={(e) => setForm({ ...form, manual_deduction: e.target.value })} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Deduction Reason</Label>
+                  <Input value={form.deduction_reason} onChange={(e) => setForm({ ...form, deduction_reason: e.target.value })} placeholder="e.g. Equipment damage" />
+                </div>
+              </div>
+            )}
+
+            {isAdminRole && editId && (
               <Card className="border border-primary/30 bg-primary/5 shadow-none">
                 <CardContent className="p-3 space-y-1">
                   <p className="text-xs font-semibold text-primary">Salary Preview (this month)</p>
@@ -338,13 +388,21 @@ export default function Staff() {
                     <span>{Number(form.base_salary).toLocaleString()} kyats</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Deductions</span>
-                    <span className="text-destructive">-{salaryMap[editId].total_deductions.toLocaleString()} kyats</span>
+                    <span className="text-muted-foreground">+ Bonus</span>
+                    <span className="text-accent">+{(Number(form.bonus) || 0).toLocaleString()} kyats</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">- Auto Deductions</span>
+                    <span className="text-destructive">-{(salaryMap[editId]?.total_deductions ?? 0).toLocaleString()} kyats</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">- Manual Deduction</span>
+                    <span className="text-destructive">-{(Number(form.manual_deduction) || 0).toLocaleString()} kyats</span>
                   </div>
                   <div className="flex justify-between text-sm font-bold pt-1 border-t border-border">
-                    <span>Remaining</span>
+                    <span>Final Salary</span>
                     <span className="text-primary">
-                      {Math.max(0, Number(form.base_salary) - salaryMap[editId].total_deductions).toLocaleString()} kyats
+                      {Math.max(0, Number(form.base_salary) + (Number(form.bonus) || 0) - (salaryMap[editId]?.total_deductions ?? 0) - (Number(form.manual_deduction) || 0)).toLocaleString()} kyats
                     </span>
                   </div>
                 </CardContent>
