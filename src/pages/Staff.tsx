@@ -67,7 +67,7 @@ export default function Staff() {
     const monthStart = getMonthStart();
 
     const [profilesRes, salariesRes, settRes] = await Promise.all([
-      supabase.from("profiles").select("*").order("created_at", { ascending: true }),
+      supabase.rpc("admin_list_profiles"),
       supabase.from("salaries").select("*").eq("month", monthStart),
       supabase.from("app_settings").select("*").eq("key", "deduction_rate_per_minute").maybeSingle(),
     ]);
