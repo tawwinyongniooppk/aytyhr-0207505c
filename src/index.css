@@ -108,10 +108,7 @@
   }
 
   /* Soft shadow lift for solid/elevated buttons */
-  button.bg-primary:not(:disabled):hover,
-  button.bg-secondary:not(:disabled):hover,
-  button.bg-destructive:not(:disabled):hover,
-  button.bg-accent:not(:disabled):hover {
+  button:not(:disabled):hover {
     box-shadow: 0 6px 16px -8px hsl(var(--foreground) / 0.25);
   }
 
