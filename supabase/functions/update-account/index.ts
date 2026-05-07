@@ -41,9 +41,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Prevent IT Manager from modifying their own account (no self-elevation)
-    if (user_id === caller.id) {
-      return new Response(JSON.stringify({ error: "Cannot modify your own account" }), {
+    // Prevent IT Manager from changing their own role (no self-demotion/elevation)
+    if (user_id === caller.id && role && role !== "it_manager") {
+      return new Response(JSON.stringify({ error: "Cannot change your own role" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
