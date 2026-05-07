@@ -282,13 +282,9 @@ export default function Attendance() {
       const { data: profile } = await supabase
         .from("profiles").select("base_salary").eq("id", user!.id).single();
       const baseSalary = (profile as any)?.base_salary ?? 300000;
-
-      const { data: newRec } = await supabase
-        .from("salaries")
-        .insert({ user_id: user!.id, month: monthStart, base_salary: baseSalary, current_salary: baseSalary, total_deductions: 0 } as any)
-        .select().single();
-
-      return (newRec as unknown as SalaryRecord) ?? { base_salary: baseSalary, current_salary: baseSalary, total_deductions: 0 };
+      // Staff cannot insert salary rows directly anymore — server-side
+      // edge function (apply-attendance-deduction) creates the row when needed.
+      return { base_salary: baseSalary, current_salary: baseSalary, total_deductions: 0 };
     } catch (e) {
       console.error("ensureSalaryRecord error:", e);
       return { base_salary: 300000, current_salary: 300000, total_deductions: 0 };
