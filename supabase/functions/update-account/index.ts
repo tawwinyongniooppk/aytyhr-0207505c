@@ -48,11 +48,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Restrict role assignment to non-admin roles only
-    const ALLOWED_ROLES = ["staff", "assistant", "it_manager"];
+    // Prevent elevating a non-admin user to admin. Allow keeping an existing admin as admin.
+    if (role === "admin") {
+      const { data: targetProfile } = await callerClient.from("profiles").select("role").eq("id", user_id).single();
+      if (!targetProfile || targetProfile.role !== "admin") {
+        return new Response(JSON.stringify({ error: "Cannot elevate user to admin via this endpoint." }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+    const ALLOWED_ROLES = ["staff", "assistant", "it_manager", "admin"];
     if (role && !ALLOWED_ROLES.includes(role)) {
-      return new Response(JSON.stringify({ error: "Invalid role. Admin role cannot be assigned via this endpoint." }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "Invalid role." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
