@@ -95,7 +95,6 @@ export default function Staff() {
 
     if (editId) {
       const updateData: any = {
-        full_name: form.full_name,
         phone: form.phone,
         join_date: form.join_date || null,
         check_in_time: form.check_in_time || "09:00",
@@ -315,7 +314,8 @@ export default function Staff() {
           <div className="space-y-4 mt-2">
             <div>
               <Label>Full Name</Label>
-              <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+              <Input value={form.full_name} disabled readOnly />
+              <p className="text-xs text-muted-foreground mt-1">Only the IT Manager can change the staff name.</p>
             </div>
             <div>
               <Label>Role</Label>
