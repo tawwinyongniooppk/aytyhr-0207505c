@@ -41,6 +41,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Prevent IT Manager from modifying their own account (no self-elevation)
+    if (user_id === caller.id) {
+      return new Response(JSON.stringify({ error: "Cannot modify your own account" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Restrict role assignment to non-admin roles only
+    const ALLOWED_ROLES = ["staff", "assistant", "it_manager"];
+    if (role && !ALLOWED_ROLES.includes(role)) {
+      return new Response(JSON.stringify({ error: "Invalid role. Admin role cannot be assigned via this endpoint." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (email && !email.endsWith("@ayty.com")) {
       return new Response(JSON.stringify({ error: "Only @ayty.com emails are allowed" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
