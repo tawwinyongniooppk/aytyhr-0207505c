@@ -321,7 +321,56 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      admin_list_profiles: {
+        Args: never
+        Returns: {
+          base_salary: number
+          check_in_time: string
+          check_out_time: string
+          created_at: string
+          full_name: string
+          id: string
+          join_date: string | null
+          phone: string | null
+          role: string
+          work_day: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_profile_full: {
+        Args: { p_id: string }
+        Returns: {
+          base_salary: number
+          check_in_time: string
+          check_out_time: string
+          created_at: string
+          full_name: string
+          id: string
+          join_date: string | null
+          phone: string | null
+          role: string
+          work_day: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      list_public_profiles: {
+        Args: never
+        Returns: {
+          full_name: string
+          id: string
+          role: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

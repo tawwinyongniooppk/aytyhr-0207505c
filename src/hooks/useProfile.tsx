@@ -35,21 +35,19 @@ export function useProfile() {
       try {
         setError(null);
         const { data, error: fetchError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user!.id)
-          .maybeSingle();
+          .rpc("get_profile_full", { p_id: user!.id });
 
         if (cancelled) return;
 
+        const row = Array.isArray(data) ? data[0] : data;
         if (fetchError) {
           setError("Failed to load profile. Please try again.");
           setProfile(null);
-        } else if (!data) {
+        } else if (!row) {
           setError("No profile found for this account. Contact an administrator.");
           setProfile(null);
         } else {
-          setProfile(data);
+          setProfile(row as Profile);
         }
       } catch {
         if (!cancelled) setError("Unexpected error loading profile.");

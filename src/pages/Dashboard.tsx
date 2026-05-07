@@ -62,7 +62,7 @@ export default function Dashboard() {
   async function loadData() {
     setLoading(true);
     const [profilesRes, todayAttRes, monthAttRes, leaveRes, settingsRes] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, role, base_salary"),
+      supabase.rpc("admin_list_profiles"),
       supabase.from("attendance").select("*").eq("date", today),
       supabase.from("attendance").select("*").gte("date", monthStart).lte("date", monthEnd),
       supabase.from("leave_requests").select("*").gte("date", monthStart).lte("date", monthEnd),

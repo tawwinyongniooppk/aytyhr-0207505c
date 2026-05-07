@@ -282,13 +282,9 @@ export default function Attendance() {
       const { data: profile } = await supabase
         .from("profiles").select("base_salary").eq("id", user!.id).single();
       const baseSalary = (profile as any)?.base_salary ?? 300000;
-
-      const { data: newRec } = await supabase
-        .from("salaries")
-        .insert({ user_id: user!.id, month: monthStart, base_salary: baseSalary, current_salary: baseSalary, total_deductions: 0 } as any)
-        .select().single();
-
-      return (newRec as unknown as SalaryRecord) ?? { base_salary: baseSalary, current_salary: baseSalary, total_deductions: 0 };
+      // Staff cannot insert salary rows directly anymore — server-side
+      // edge function (apply-attendance-deduction) creates the row when needed.
+      return { base_salary: baseSalary, current_salary: baseSalary, total_deductions: 0 };
     } catch (e) {
       console.error("ensureSalaryRecord error:", e);
       return { base_salary: 300000, current_salary: 300000, total_deductions: 0 };
@@ -463,29 +459,18 @@ export default function Attendance() {
       let finalDeduction = 0;
 
       if (!updatedRecord.deduction_applied) {
-        const effectiveLateMin = hasApprovedLeave || hasApprovedLateExcuse ? 0 : (updatedRecord.late_minutes ?? 0);
-        const effectiveEarlyMin = hasApprovedLeave ? 0 : earlyMin;
-        const totalMinutes = effectiveLateMin + effectiveEarlyMin;
-        const deduction = totalMinutes * settings.deduction_rate_per_minute;
-        const sal = await ensureSalaryRecord();
-
-        if (deduction > 0) {
-          const newCurrent = Math.max(0, sal.current_salary - deduction);
-          const newDeductions = sal.total_deductions + deduction;
-          await supabase.from("salaries").update({ current_salary: newCurrent, total_deductions: newDeductions, last_updated: new Date().toISOString() } as any)
-            .eq("user_id", user.id).eq("month", getMonthStart());
-          await supabase.from("attendance").update({ deduction_applied: true } as any).eq("id", record.id);
+        const { data: result, error: fnErr } = await supabase.functions.invoke("apply-attendance-deduction");
+        if (fnErr) {
+          console.error("apply-attendance-deduction error:", fnErr);
+        } else if (result?.ok) {
+          const newCurrent = result.current_salary ?? 0;
+          const newDeductions = result.total_deductions ?? 0;
+          const baseSalary = result.base_salary ?? 0;
+          finalDeduction = result.deduction ?? 0;
           setRecord({ ...updatedRecord, deduction_applied: true });
-          setSalary({ ...sal, current_salary: newCurrent, total_deductions: newDeductions });
-          setLastDeduction(deduction);
-          finalDeduction = deduction;
-          showSalaryNotification(newCurrent, deduction);
-        } else {
-          await supabase.from("attendance").update({ deduction_applied: true } as any).eq("id", record.id);
-          setRecord({ ...updatedRecord, deduction_applied: true });
-          setSalary(sal);
-          setLastDeduction(0);
-          showSalaryNotification(sal.current_salary, 0);
+          setSalary({ base_salary: baseSalary, current_salary: newCurrent, total_deductions: newDeductions });
+          setLastDeduction(finalDeduction);
+          showSalaryNotification(newCurrent, finalDeduction);
         }
         setShowSalaryModal(true);
       }
