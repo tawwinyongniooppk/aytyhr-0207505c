@@ -195,6 +195,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           base_salary: number
           check_in_time: string
           check_out_time: string
@@ -204,9 +205,11 @@ export type Database = {
           join_date: string | null
           phone: string | null
           role: string
+          sequence: number
           work_day: string
         }
         Insert: {
+          avatar_url?: string | null
           base_salary?: number
           check_in_time?: string
           check_out_time?: string
@@ -216,9 +219,11 @@ export type Database = {
           join_date?: string | null
           phone?: string | null
           role?: string
+          sequence?: number
           work_day?: string
         }
         Update: {
+          avatar_url?: string | null
           base_salary?: number
           check_in_time?: string
           check_out_time?: string
@@ -228,6 +233,7 @@ export type Database = {
           join_date?: string | null
           phone?: string | null
           role?: string
+          sequence?: number
           work_day?: string
         }
         Relationships: []
@@ -324,6 +330,7 @@ export type Database = {
       admin_list_profiles: {
         Args: never
         Returns: {
+          avatar_url: string | null
           base_salary: number
           check_in_time: string
           check_out_time: string
@@ -333,6 +340,7 @@ export type Database = {
           join_date: string | null
           phone: string | null
           role: string
+          sequence: number
           work_day: string
         }[]
         SetofOptions: {
@@ -345,6 +353,7 @@ export type Database = {
       get_profile_full: {
         Args: { p_id: string }
         Returns: {
+          avatar_url: string | null
           base_salary: number
           check_in_time: string
           check_out_time: string
@@ -354,6 +363,7 @@ export type Database = {
           join_date: string | null
           phone: string | null
           role: string
+          sequence: number
           work_day: string
         }[]
         SetofOptions: {

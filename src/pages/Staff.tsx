@@ -21,6 +21,8 @@ interface StaffProfile {
   check_in_time: string;
   check_out_time: string;
   work_day: string;
+  avatar_url?: string | null;
+  sequence?: number;
 }
 
 const WORK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -253,8 +255,12 @@ export default function Staff() {
             >
               <CardContent className="p-5 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold shrink-0">
-                    {member.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold shrink-0 overflow-hidden">
+                    {member.avatar_url ? (
+                      <img src={member.avatar_url} alt={member.full_name} className="h-full w-full object-cover" />
+                    ) : (
+                      member.full_name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm truncate">{member.full_name || "Unnamed"}</h3>
