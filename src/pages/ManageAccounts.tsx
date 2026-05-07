@@ -352,8 +352,8 @@ export default function ManageAccounts() {
         <DialogContent>
           <DialogHeader><DialogTitle className="font-display">Edit Account</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
-            {/* Avatar upload (staff only) */}
-            {editAccount?.role === "staff" && (
+            {/* Avatar upload (all roles) */}
+            {editAccount && (
               <div className="space-y-2">
                 <Label>Profile Photo</Label>
                 <div className="flex items-center gap-3">
