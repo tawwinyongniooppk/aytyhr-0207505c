@@ -37,16 +37,18 @@ export default function ManageAccounts() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
-  const [createForm, setCreateForm] = useState({ full_name: "", email: "", password: "", role: "staff" });
+  const [createForm, setCreateForm] = useState({ full_name: "", emailPrefix: "", password: "", role: "staff" });
 
   const [editOpen, setEditOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [editAccount, setEditAccount] = useState<Account | null>(null);
-  const [editForm, setEditForm] = useState({ full_name: "", email: "", password: "", role: "staff", sequence: 100 });
+  const [editForm, setEditForm] = useState({ full_name: "", emailPrefix: "", password: "", role: "staff", sequence: 100 });
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
