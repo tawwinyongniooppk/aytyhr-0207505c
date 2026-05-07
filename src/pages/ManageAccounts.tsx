@@ -68,22 +68,22 @@ export default function ManageAccounts() {
   };
 
   const handleCreate = async () => {
-    const emailErr = validateEmail(createForm.email);
-    if (emailErr) { toast({ title: "Invalid email", description: emailErr, variant: "destructive" }); return; }
+    const emailErr = validateEmailPrefix(createForm.emailPrefix);
+    if (emailErr) { toast({ title: "Invalid username", description: emailErr, variant: "destructive" }); return; }
     if (!createForm.full_name) { toast({ title: "Missing name", variant: "destructive" }); return; }
     if (createForm.password.length < 6) { toast({ title: "Password too short", description: "Minimum 6 characters.", variant: "destructive" }); return; }
 
     setCreateLoading(true);
     try {
       const res = await supabase.functions.invoke("create-staff", {
-        body: { email: createForm.email, password: createForm.password, full_name: createForm.full_name, role: createForm.role },
+        body: { email: createForm.emailPrefix + DOMAIN, password: createForm.password, full_name: createForm.full_name, role: createForm.role },
       });
       if (res.error || res.data?.error) {
         toast({ title: "Failed", description: res.data?.error || res.error?.message, variant: "destructive" });
       } else {
         toast({ title: "Account created!", description: `${createForm.full_name} can now log in.` });
         setCreateOpen(false);
-        setCreateForm({ full_name: "", email: "", password: "", role: "staff" });
+        setCreateForm({ full_name: "", emailPrefix: "", password: "", role: "staff" });
         loadAccounts();
       }
     } catch (err: any) {
@@ -94,7 +94,7 @@ export default function ManageAccounts() {
 
   const openEdit = (account: Account) => {
     setEditAccount(account);
-    setEditForm({ full_name: account.full_name, email: "", password: "", role: account.role, sequence: account.sequence ?? 100 });
+    setEditForm({ full_name: account.full_name, emailPrefix: "", password: "", role: account.role, sequence: account.sequence ?? 100 });
     setAvatarPreview(account.avatar_url);
     setAvatarFile(null);
     setEditOpen(true);
@@ -148,8 +148,8 @@ export default function ManageAccounts() {
   const handleEdit = async () => {
     if (!editAccount) return;
     if (!editForm.full_name) { toast({ title: "Name required", variant: "destructive" }); return; }
-    if (editForm.email && validateEmail(editForm.email)) {
-      toast({ title: "Invalid email", description: validateEmail(editForm.email)!, variant: "destructive" }); return;
+    if (editForm.emailPrefix && validateEmailPrefix(editForm.emailPrefix)) {
+      toast({ title: "Invalid username", description: validateEmailPrefix(editForm.emailPrefix)!, variant: "destructive" }); return;
     }
     if (editForm.password && editForm.password.length < 6) {
       toast({ title: "Password too short", description: "Min 6 characters.", variant: "destructive" }); return;
@@ -166,7 +166,7 @@ export default function ManageAccounts() {
           user_id: editAccount.id,
           full_name: editForm.full_name,
           role: editForm.role,
-          email: editForm.email || undefined,
+          email: editForm.emailPrefix ? editForm.emailPrefix + DOMAIN : undefined,
           password: editForm.password || undefined,
         },
       });
@@ -298,8 +298,37 @@ export default function ManageAccounts() {
           <DialogHeader><DialogTitle className="font-display">Create New Account</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
             <div><Label>Full Name *</Label><Input value={createForm.full_name} onChange={(e) => setCreateForm({ ...createForm, full_name: e.target.value })} placeholder="Jane Doe" /></div>
-            <div><Label>Email *</Label><Input type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder={`user${DOMAIN}`} /></div>
-            <div><Label>Password *</Label><Input type="password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} placeholder="Min 6 characters" /></div>
+            <div>
+              <Label>Username *</Label>
+              <div className="flex items-center rounded-md border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                <Input
+                  className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none flex-1 min-w-0"
+                  value={createForm.emailPrefix}
+                  onChange={(e) => setCreateForm({ ...createForm, emailPrefix: e.target.value })}
+                  placeholder="john.doe"
+                />
+                <span className="px-3 py-2 text-sm text-muted-foreground bg-muted border-l border-input shrink-0 whitespace-nowrap">@ayty.com</span>
+              </div>
+            </div>
+            <div>
+              <Label>Password *</Label>
+              <div className="relative">
+                <Input
+                  type={showCreatePassword ? "text" : "password"}
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                  placeholder="Min 6 characters"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCreatePassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showCreatePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
             <div>
               <Label>Role</Label>
               <Select value={createForm.role} onValueChange={(v) => setCreateForm({ ...createForm, role: v })}>
@@ -358,8 +387,37 @@ export default function ManageAccounts() {
             )}
 
             <div><Label>Full Name *</Label><Input value={editForm.full_name} onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })} /></div>
-            <div><Label>New Email (leave blank to keep current)</Label><Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} placeholder={`user${DOMAIN}`} /></div>
-            <div><Label>New Password (leave blank to keep current)</Label><Input type="password" value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} placeholder="Min 6 characters" /></div>
+            <div>
+              <Label>New Email (leave blank to keep current)</Label>
+              <div className="flex items-center rounded-md border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                <Input
+                  className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none flex-1 min-w-0"
+                  value={editForm.emailPrefix}
+                  onChange={(e) => setEditForm({ ...editForm, emailPrefix: e.target.value })}
+                  placeholder="john.doe"
+                />
+                <span className="px-3 py-2 text-sm text-muted-foreground bg-muted border-l border-input shrink-0 whitespace-nowrap">@ayty.com</span>
+              </div>
+            </div>
+            <div>
+              <Label>New Password (leave blank to keep current)</Label>
+              <div className="relative">
+                <Input
+                  type={showEditPassword ? "text" : "password"}
+                  value={editForm.password}
+                  onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                  placeholder="Min 6 characters"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
             <div>
               <Label>Role</Label>
               <Select value={editForm.role} onValueChange={(v) => setEditForm({ ...editForm, role: v })}>
