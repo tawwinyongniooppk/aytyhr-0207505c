@@ -23,9 +23,10 @@ const DOMAIN = "@ayty.com";
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB
 const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/jpg", "image/png"];
 
-function validateEmail(email: string): string | null {
-  if (!email) return "Email is required";
-  if (!email.endsWith(DOMAIN)) return `Only ${DOMAIN} emails are allowed`;
+function validateEmailPrefix(prefix: string): string | null {
+  if (!prefix) return "Username is required";
+  if (prefix.includes("@")) return "Username should not contain @";
+  if (prefix.includes(" ")) return "Username should not contain spaces";
   return null;
 }
 
