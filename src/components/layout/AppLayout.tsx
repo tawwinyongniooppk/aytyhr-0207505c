@@ -1,5 +1,6 @@
 import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
+import { AppHeader } from "./AppHeader";
 import { DesktopSidebar } from "./DesktopSidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
