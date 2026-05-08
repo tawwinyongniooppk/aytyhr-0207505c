@@ -131,12 +131,16 @@ export default function Staff() {
     if (!form.full_name || !user) return;
 
     if (editId) {
+      // Derive legacy single-day fields from the first active day for back-compat
+      const firstActive = WORK_DAYS.find((d) => schedule[d]?.active) || "Monday";
+      const legacyDay = schedule[firstActive] || { active: true, check_in: "09:00", check_out: "16:00" };
       const updateData: any = {
         phone: form.phone,
         join_date: form.join_date || null,
-        check_in_time: form.check_in_time || "09:00",
-        check_out_time: form.check_out_time || "16:00",
-        work_day: form.work_day || "Monday",
+        check_in_time: legacyDay.check_in,
+        check_out_time: legacyDay.check_out,
+        work_day: firstActive,
+        work_schedule: schedule,
       };
       // Only admin can update salary
       if (isAdminRole) {
