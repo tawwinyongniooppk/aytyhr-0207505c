@@ -273,6 +273,12 @@ export default function Staff() {
                   </div>
                 </div>
 
+                <div className="text-xs text-muted-foreground border-t border-border pt-2">
+                  <div className="flex justify-between"><span>Work day</span><span className="font-medium text-foreground">{member.work_day || "Monday"}</span></div>
+                  <div className="flex justify-between"><span>Check-in</span><span className="font-medium text-foreground">{member.check_in_time || "09:00"}</span></div>
+                  <div className="flex justify-between"><span>Check-out</span><span className="font-medium text-foreground">{member.check_out_time || "16:00"}</span></div>
+                </div>
+
                 {/* Only show salary info to admin */}
                 {canViewSalary && (
                   <div className="border-t border-border pt-3 space-y-1.5">

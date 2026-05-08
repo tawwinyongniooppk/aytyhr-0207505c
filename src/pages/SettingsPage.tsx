@@ -9,8 +9,6 @@ import { MapPin } from "lucide-react";
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("16:00");
   const [gracePeriod, setGracePeriod] = useState("10");
   const [deductionRate, setDeductionRate] = useState("200");
   const [schoolLat, setSchoolLat] = useState("0");
@@ -27,8 +25,6 @@ export default function SettingsPage() {
     if (data) {
       const map: Record<string, string> = {};
       (data as unknown as { key: string; value: string }[]).forEach((r) => (map[r.key] = r.value));
-      if (map.start_time) setStartTime(map.start_time);
-      if (map.end_time) setEndTime(map.end_time);
       if (map.grace_period_minutes) setGracePeriod(map.grace_period_minutes);
       if (map.deduction_rate_per_minute) setDeductionRate(map.deduction_rate_per_minute);
       if (map.school_latitude) setSchoolLat(map.school_latitude);
@@ -40,8 +36,6 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     const entries = [
-      { key: "start_time", value: startTime },
-      { key: "end_time", value: endTime },
       { key: "grace_period_minutes", value: gracePeriod },
       { key: "deduction_rate_per_minute", value: deductionRate },
       { key: "school_latitude", value: schoolLat },
@@ -86,14 +80,9 @@ export default function SettingsPage() {
         <Card className="border border-border shadow-none">
           <CardHeader><CardTitle className="text-base font-display">Attendance Settings</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label>Official Start Time</Label>
-              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-            </div>
-            <div>
-              <Label>Official End Time</Label>
-              <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Per-staff check-in and check-out times are set in Staff Management.
+            </p>
             <div>
               <Label>Grace Period (minutes)</Label>
               <Input type="number" value={gracePeriod} onChange={(e) => setGracePeriod(e.target.value)} />
