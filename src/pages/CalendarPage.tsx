@@ -29,7 +29,10 @@ interface CalEvent {
 interface StaffProfile {
   id: string;
   full_name: string;
+  work_schedule?: any;
 }
+
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const EVENT_COLORS: Record<string, string> = {
   holiday: "bg-destructive text-destructive-foreground",
@@ -56,6 +59,7 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [staffList, setStaffList] = useState<StaffProfile[]>([]);
+  const [mySchedule, setMySchedule] = useState<Record<string, { active: boolean }> | null>(null);
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [filterType, setFilterType] = useState("all");
@@ -79,8 +83,38 @@ export default function CalendarPage() {
 
   useEffect(() => {
     loadEvents();
+    loadMySchedule();
     if (!isStaff) loadStaff();
   }, [user, isStaff]);
+
+  // Realtime: refresh schedule when profile work_schedule changes
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("profile-schedule-sync")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
+        (payload: any) => {
+          const ws = payload?.new?.work_schedule;
+          if (ws) setMySchedule(ws);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
+  async function loadMySchedule() {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("work_schedule")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (data?.work_schedule) setMySchedule(data.work_schedule as any);
+    } catch { /* ignore */ }
+  }
 
   async function loadEvents() {
     try {
@@ -106,6 +140,7 @@ export default function CalendarPage() {
       setStaffList(data || []);
     } catch { /* ignore */ }
   }
+
 
   async function handleCreate() {
     if (!form.title || !form.start_date || !form.end_date || !user) return;
@@ -322,18 +357,24 @@ export default function CalendarPage() {
               const dayEvents = getEventsForDay(day);
               const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
               const isSelected = selectedDate === dateStr;
+              const weekdayName = WEEKDAY_NAMES[new Date(year, month, day).getDay()];
+              const isOffDay = !!mySchedule && mySchedule[weekdayName] && mySchedule[weekdayName].active === false;
 
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDate(dateStr)}
                   className={`h-12 md:h-16 flex flex-col items-center justify-start pt-1 rounded-md text-sm transition-colors
+                    ${isOffDay ? "bg-destructive/15 text-destructive" : ""}
                     ${isSelected ? "ring-2 ring-secondary bg-secondary/10" : ""}
                     ${isToday && !isSelected ? "bg-accent" : ""}
                     hover:bg-accent/50`}
                 >
                   <span className={`${isToday ? "font-bold text-secondary" : ""}`}>{day}</span>
                   <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
+                    {isOffDay && (
+                      <div className="h-1.5 w-1.5 rounded-full bg-destructive" title="Day off" />
+                    )}
                     {dayEvents.slice(0, 3).map((e) => (
                       <div key={e.id} className={`h-1.5 w-1.5 rounded-full ${EVENT_DOT_COLORS[e.event_type] || "bg-muted-foreground"}`} title={e.title} />
                     ))}
@@ -355,27 +396,41 @@ export default function CalendarPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {selectedDayEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No events on this date</p>
-            ) : (
-              <div className="space-y-3">
-                {selectedDayEvents.map((e) => (
-                  <div key={e.id} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card">
-                    <Badge className={`${EVENT_COLORS[e.event_type] || "bg-muted"} shrink-0 mt-0.5`}>
-                      {e.event_type}
-                    </Badge>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm">{e.title}</p>
-                      {e.description && <p className="text-xs text-muted-foreground mt-1">{e.description}</p>}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {e.start_date === e.end_date ? e.start_date : `${e.start_date} → ${e.end_date}`}
-                        {e.visibility === "private" && " • 🔒 Private"}
-                      </p>
+            {(() => {
+              const weekdayName = WEEKDAY_NAMES[new Date(selectedDate + "T00:00:00").getDay()];
+              const isOffDay = !!mySchedule && mySchedule[weekdayName] && mySchedule[weekdayName].active === false;
+              return (
+                <div className="space-y-3">
+                  {isOffDay && (
+                    <div className="flex items-start gap-3 p-3 rounded-lg border border-destructive/40 bg-destructive/10">
+                      <Badge className="bg-destructive text-destructive-foreground shrink-0 mt-0.5">holiday</Badge>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm">Day off</p>
+                        <p className="text-xs text-muted-foreground mt-1">{weekdayName} is set as a non-working day in your schedule.</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  )}
+                  {selectedDayEvents.map((e) => (
+                    <div key={e.id} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card">
+                      <Badge className={`${EVENT_COLORS[e.event_type] || "bg-muted"} shrink-0 mt-0.5`}>
+                        {e.event_type}
+                      </Badge>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm">{e.title}</p>
+                        {e.description && <p className="text-xs text-muted-foreground mt-1">{e.description}</p>}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {e.start_date === e.end_date ? e.start_date : `${e.start_date} → ${e.end_date}`}
+                          {e.visibility === "private" && " • 🔒 Private"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {!isOffDay && selectedDayEvents.length === 0 && (
+                    <p className="text-sm text-muted-foreground py-4 text-center">No events on this date</p>
+                  )}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       )}
