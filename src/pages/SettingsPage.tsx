@@ -9,8 +9,6 @@ import { MapPin } from "lucide-react";
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("16:00");
   const [gracePeriod, setGracePeriod] = useState("10");
   const [deductionRate, setDeductionRate] = useState("200");
   const [schoolLat, setSchoolLat] = useState("0");
