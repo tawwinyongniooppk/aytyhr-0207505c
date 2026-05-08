@@ -12,6 +12,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 
+interface DaySchedule {
+  active: boolean;
+  check_in: string;
+  check_out: string;
+}
+type WeekSchedule = Record<string, DaySchedule>;
+
 interface StaffProfile {
   id: string;
   full_name: string;
@@ -22,11 +29,37 @@ interface StaffProfile {
   check_in_time: string;
   check_out_time: string;
   work_day: string;
+  work_schedule?: WeekSchedule | null;
   avatar_url?: string | null;
   sequence?: number;
 }
 
 const WORK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+const defaultSchedule = (): WeekSchedule => {
+  const sched: WeekSchedule = {} as WeekSchedule;
+  WORK_DAYS.forEach((d) => {
+    const weekend = d === "Saturday" || d === "Sunday";
+    sched[d] = { active: !weekend, check_in: "09:00", check_out: "16:00" };
+  });
+  return sched;
+};
+
+const normalizeSchedule = (s: any): WeekSchedule => {
+  const base = defaultSchedule();
+  if (s && typeof s === "object") {
+    WORK_DAYS.forEach((d) => {
+      if (s[d]) {
+        base[d] = {
+          active: !!s[d].active,
+          check_in: s[d].check_in || "09:00",
+          check_out: s[d].check_out || "16:00",
+        };
+      }
+    });
+  }
+  return base;
+};
 
 interface SalaryRecord {
   base_salary: number;
