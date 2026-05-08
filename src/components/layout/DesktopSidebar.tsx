@@ -29,18 +29,6 @@ export function DesktopSidebar() {
     return true;
   });
 
-  const roleBadgeColor = profile?.role === "admin"
-    ? "bg-primary/20 text-primary-foreground"
-    : profile?.role === "assistant"
-      ? "bg-warning/20 text-sidebar-foreground"
-      : profile?.role === "it_manager"
-        ? "bg-blue-500/20 text-sidebar-foreground"
-        : "bg-accent/20 text-sidebar-foreground";
-
-  const roleLabel = profile?.role === "assistant" ? "Assistant Admin"
-    : profile?.role === "it_manager" ? "IT Manager"
-    : profile?.role;
-
   return (
     <aside className="w-60 bg-secondary text-secondary-foreground flex flex-col min-h-screen">
       <div className="p-5 flex items-center gap-3 border-b border-sidebar-border">
@@ -53,9 +41,6 @@ export function DesktopSidebar() {
       {profile && (
         <div className="px-5 py-3 border-b border-sidebar-border">
           <p className="text-sm font-medium truncate">{profile.full_name || "User"}</p>
-          <Badge className={cn("mt-1 text-[10px] uppercase border-0", roleBadgeColor)}>
-            {roleLabel}
-          </Badge>
         </div>
       )}
 
