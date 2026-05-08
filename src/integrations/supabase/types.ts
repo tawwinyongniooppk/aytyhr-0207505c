@@ -207,6 +207,7 @@ export type Database = {
           role: string
           sequence: number
           work_day: string
+          work_schedule: Json
         }
         Insert: {
           avatar_url?: string | null
@@ -221,6 +222,7 @@ export type Database = {
           role?: string
           sequence?: number
           work_day?: string
+          work_schedule?: Json
         }
         Update: {
           avatar_url?: string | null
@@ -235,6 +237,7 @@ export type Database = {
           role?: string
           sequence?: number
           work_day?: string
+          work_schedule?: Json
         }
         Relationships: []
       }
@@ -342,6 +345,7 @@ export type Database = {
           role: string
           sequence: number
           work_day: string
+          work_schedule: Json
         }[]
         SetofOptions: {
           from: "*"
@@ -365,6 +369,7 @@ export type Database = {
           role: string
           sequence: number
           work_day: string
+          work_schedule: Json
         }[]
         SetofOptions: {
           from: "*"

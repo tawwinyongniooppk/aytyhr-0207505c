@@ -5,11 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { Phone, Wallet, TrendingDown, DollarSign, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
+
+interface DaySchedule {
+  active: boolean;
+  check_in: string;
+  check_out: string;
+}
+type WeekSchedule = Record<string, DaySchedule>;
 
 interface StaffProfile {
   id: string;
@@ -21,11 +29,37 @@ interface StaffProfile {
   check_in_time: string;
   check_out_time: string;
   work_day: string;
+  work_schedule?: WeekSchedule | null;
   avatar_url?: string | null;
   sequence?: number;
 }
 
 const WORK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+const defaultSchedule = (): WeekSchedule => {
+  const sched: WeekSchedule = {} as WeekSchedule;
+  WORK_DAYS.forEach((d) => {
+    const weekend = d === "Saturday" || d === "Sunday";
+    sched[d] = { active: !weekend, check_in: "09:00", check_out: "16:00" };
+  });
+  return sched;
+};
+
+const normalizeSchedule = (s: any): WeekSchedule => {
+  const base = defaultSchedule();
+  if (s && typeof s === "object") {
+    WORK_DAYS.forEach((d) => {
+      if (s[d]) {
+        base[d] = {
+          active: !!s[d].active,
+          check_in: s[d].check_in || "09:00",
+          check_out: s[d].check_out || "16:00",
+        };
+      }
+    });
+  }
+  return base;
+};
 
 interface SalaryRecord {
   base_salary: number;
@@ -52,7 +86,8 @@ export default function Staff() {
   const [open, setOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday", bonus: "0", manual_deduction: "0", deduction_reason: "" });
+  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "" });
+  const [schedule, setSchedule] = useState<WeekSchedule>(defaultSchedule());
   const [addForm, setAddForm] = useState({ full_name: "", email: "", password: "", role: "staff", base_salary: "300000", phone: "" });
   const [addLoading, setAddLoading] = useState(false);
 
@@ -96,12 +131,16 @@ export default function Staff() {
     if (!form.full_name || !user) return;
 
     if (editId) {
+      // Derive legacy single-day fields from the first active day for back-compat
+      const firstActive = WORK_DAYS.find((d) => schedule[d]?.active) || "Monday";
+      const legacyDay = schedule[firstActive] || { active: true, check_in: "09:00", check_out: "16:00" };
       const updateData: any = {
         phone: form.phone,
         join_date: form.join_date || null,
-        check_in_time: form.check_in_time || "09:00",
-        check_out_time: form.check_out_time || "16:00",
-        work_day: form.work_day || "Monday",
+        check_in_time: legacyDay.check_in,
+        check_out_time: legacyDay.check_out,
+        work_day: firstActive,
+        work_schedule: schedule,
       };
       // Only admin can update salary
       if (isAdminRole) {
@@ -150,7 +189,8 @@ export default function Staff() {
       toast({ title: "Staff updated" });
     }
 
-    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday", bonus: "0", manual_deduction: "0", deduction_reason: "" });
+    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "" });
+    setSchedule(defaultSchedule());
     setEditId(null);
     setOpen(false);
     loadData();
@@ -203,13 +243,11 @@ export default function Staff() {
       base_salary: String(member.base_salary),
       phone: member.phone || "",
       join_date: member.join_date || "",
-      check_in_time: member.check_in_time || "09:00",
-      check_out_time: member.check_out_time || "16:00",
-      work_day: member.work_day || "Monday",
       bonus: String(sal?.bonus ?? 0),
       manual_deduction: String(sal?.manual_deduction ?? 0),
       deduction_reason: sal?.deduction_reason ?? "",
     });
+    setSchedule(normalizeSchedule(member.work_schedule));
     setOpen(true);
   };
 
@@ -272,10 +310,28 @@ export default function Staff() {
                   </div>
                 </div>
 
-                <div className="text-xs text-muted-foreground border-t border-border pt-2">
-                  <div className="flex justify-between"><span>Work day</span><span className="font-medium text-foreground">{member.work_day || "Monday"}</span></div>
-                  <div className="flex justify-between"><span>Check-in</span><span className="font-medium text-foreground">{member.check_in_time || "09:00"}</span></div>
-                  <div className="flex justify-between"><span>Check-out</span><span className="font-medium text-foreground">{member.check_out_time || "16:00"}</span></div>
+                <div className="text-xs border-t border-border pt-2 space-y-1">
+                  {(() => {
+                    const sched = normalizeSchedule(member.work_schedule);
+                    return WORK_DAYS.map((d) => {
+                      const day = sched[d];
+                      return (
+                        <div
+                          key={d}
+                          className={`flex justify-between items-center px-2 py-1 rounded ${
+                            day.active
+                              ? "bg-accent/10 text-accent-foreground"
+                              : "bg-destructive/10 text-destructive"
+                          }`}
+                        >
+                          <span className="font-medium">{d.slice(0, 3)}</span>
+                          <span>
+                            {day.active ? `${day.check_in} – ${day.check_out}` : "Off"}
+                          </span>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
 
                 {/* Only show salary info to admin */}
@@ -317,7 +373,7 @@ export default function Staff() {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday", bonus: "0", manual_deduction: "0", deduction_reason: "" }); } }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "" }); setSchedule(defaultSchedule()); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="font-display">Edit Staff</DialogTitle>
@@ -348,25 +404,63 @@ export default function Staff() {
               <Label>Join Date</Label>
               <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
             </div>
-            <div>
-              <Label>Work Day (weekly)</Label>
-              <Select value={form.work_day} onValueChange={(v) => setForm({ ...form, work_day: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {WORK_DAYS.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Check-in Time</Label>
-                <Input type="time" value={form.check_in_time} onChange={(e) => setForm({ ...form, check_in_time: e.target.value })} />
-              </div>
-              <div>
-                <Label>Check-out Time</Label>
-                <Input type="time" value={form.check_out_time} onChange={(e) => setForm({ ...form, check_out_time: e.target.value })} />
+            <div className="space-y-2 border-t border-border pt-3">
+              <Label>Weekly Schedule</Label>
+              <p className="text-xs text-muted-foreground">Toggle each day on/off and set check-in / check-out times.</p>
+              <div className="space-y-2">
+                {WORK_DAYS.map((d) => {
+                  const day = schedule[d];
+                  const active = day.active;
+                  return (
+                    <div
+                      key={d}
+                      className={`rounded-lg border p-3 transition-colors ${
+                        active
+                          ? "border-accent/40 bg-accent/10"
+                          : "border-destructive/40 bg-destructive/10"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={active}
+                            onCheckedChange={(v) =>
+                              setSchedule({ ...schedule, [d]: { ...day, active: v } })
+                            }
+                          />
+                          <span className={`text-sm font-medium ${active ? "text-accent-foreground" : "text-destructive"}`}>{d}</span>
+                          <span className={`text-[10px] uppercase font-semibold ${active ? "text-accent" : "text-destructive"}`}>
+                            {active ? "Active" : "Off"}
+                          </span>
+                        </div>
+                      </div>
+                      {active && (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div>
+                            <Label className="text-xs">Check-in</Label>
+                            <Input
+                              type="time"
+                              value={day.check_in}
+                              onChange={(e) =>
+                                setSchedule({ ...schedule, [d]: { ...day, check_in: e.target.value } })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Check-out</Label>
+                            <Input
+                              type="time"
+                              value={day.check_out}
+                              onChange={(e) =>
+                                setSchedule({ ...schedule, [d]: { ...day, check_out: e.target.value } })
+                              }
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
