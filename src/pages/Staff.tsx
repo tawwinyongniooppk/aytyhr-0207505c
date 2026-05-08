@@ -310,10 +310,28 @@ export default function Staff() {
                   </div>
                 </div>
 
-                <div className="text-xs text-muted-foreground border-t border-border pt-2">
-                  <div className="flex justify-between"><span>Work day</span><span className="font-medium text-foreground">{member.work_day || "Monday"}</span></div>
-                  <div className="flex justify-between"><span>Check-in</span><span className="font-medium text-foreground">{member.check_in_time || "09:00"}</span></div>
-                  <div className="flex justify-between"><span>Check-out</span><span className="font-medium text-foreground">{member.check_out_time || "16:00"}</span></div>
+                <div className="text-xs border-t border-border pt-2 space-y-1">
+                  {(() => {
+                    const sched = normalizeSchedule(member.work_schedule);
+                    return WORK_DAYS.map((d) => {
+                      const day = sched[d];
+                      return (
+                        <div
+                          key={d}
+                          className={`flex justify-between items-center px-2 py-1 rounded ${
+                            day.active
+                              ? "bg-accent/10 text-accent-foreground"
+                              : "bg-destructive/10 text-destructive"
+                          }`}
+                        >
+                          <span className="font-medium">{d.slice(0, 3)}</span>
+                          <span>
+                            {day.active ? `${day.check_in} – ${day.check_out}` : "Off"}
+                          </span>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
 
                 {/* Only show salary info to admin */}
