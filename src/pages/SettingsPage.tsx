@@ -36,8 +36,6 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     const entries = [
-      { key: "start_time", value: startTime },
-      { key: "end_time", value: endTime },
       { key: "grace_period_minutes", value: gracePeriod },
       { key: "deduction_rate_per_minute", value: deductionRate },
       { key: "school_latitude", value: schoolLat },
