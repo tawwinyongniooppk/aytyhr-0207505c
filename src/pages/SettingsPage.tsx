@@ -25,8 +25,6 @@ export default function SettingsPage() {
     if (data) {
       const map: Record<string, string> = {};
       (data as unknown as { key: string; value: string }[]).forEach((r) => (map[r.key] = r.value));
-      if (map.start_time) setStartTime(map.start_time);
-      if (map.end_time) setEndTime(map.end_time);
       if (map.grace_period_minutes) setGracePeriod(map.grace_period_minutes);
       if (map.deduction_rate_per_minute) setDeductionRate(map.deduction_rate_per_minute);
       if (map.school_latitude) setSchoolLat(map.school_latitude);
