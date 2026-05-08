@@ -86,7 +86,8 @@ export default function Staff() {
   const [open, setOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday", bonus: "0", manual_deduction: "0", deduction_reason: "" });
+  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "" });
+  const [schedule, setSchedule] = useState<WeekSchedule>(defaultSchedule());
   const [addForm, setAddForm] = useState({ full_name: "", email: "", password: "", role: "staff", base_salary: "300000", phone: "" });
   const [addLoading, setAddLoading] = useState(false);
 
