@@ -92,10 +92,29 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update profile
-    await adminClient.from("profiles").update({ full_name, role: role || "staff" }).eq("id", user_id);
+    // Update profile (only the fields admin endpoint owns)
+    const profileUpdate: Record<string, unknown> = { full_name };
+    if (role) profileUpdate.role = role;
 
-    return new Response(JSON.stringify({ success: true }), {
+    const { data: updated, error: profileErr } = await adminClient
+      .from("profiles")
+      .update(profileUpdate)
+      .eq("id", user_id)
+      .select("id, full_name, role")
+      .maybeSingle();
+
+    if (profileErr) {
+      return new Response(JSON.stringify({ error: profileErr.message }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!updated) {
+      return new Response(JSON.stringify({ error: "Profile not found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ success: true, profile: updated }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
