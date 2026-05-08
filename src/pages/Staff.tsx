@@ -387,25 +387,63 @@ export default function Staff() {
               <Label>Join Date</Label>
               <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
             </div>
-            <div>
-              <Label>Work Day (weekly)</Label>
-              <Select value={form.work_day} onValueChange={(v) => setForm({ ...form, work_day: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {WORK_DAYS.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Check-in Time</Label>
-                <Input type="time" value={form.check_in_time} onChange={(e) => setForm({ ...form, check_in_time: e.target.value })} />
-              </div>
-              <div>
-                <Label>Check-out Time</Label>
-                <Input type="time" value={form.check_out_time} onChange={(e) => setForm({ ...form, check_out_time: e.target.value })} />
+            <div className="space-y-2 border-t border-border pt-3">
+              <Label>Weekly Schedule</Label>
+              <p className="text-xs text-muted-foreground">Toggle each day on/off and set check-in / check-out times.</p>
+              <div className="space-y-2">
+                {WORK_DAYS.map((d) => {
+                  const day = schedule[d];
+                  const active = day.active;
+                  return (
+                    <div
+                      key={d}
+                      className={`rounded-lg border p-3 transition-colors ${
+                        active
+                          ? "border-accent/40 bg-accent/10"
+                          : "border-destructive/40 bg-destructive/10"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={active}
+                            onCheckedChange={(v) =>
+                              setSchedule({ ...schedule, [d]: { ...day, active: v } })
+                            }
+                          />
+                          <span className={`text-sm font-medium ${active ? "text-accent-foreground" : "text-destructive"}`}>{d}</span>
+                          <span className={`text-[10px] uppercase font-semibold ${active ? "text-accent" : "text-destructive"}`}>
+                            {active ? "Active" : "Off"}
+                          </span>
+                        </div>
+                      </div>
+                      {active && (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div>
+                            <Label className="text-xs">Check-in</Label>
+                            <Input
+                              type="time"
+                              value={day.check_in}
+                              onChange={(e) =>
+                                setSchedule({ ...schedule, [d]: { ...day, check_in: e.target.value } })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Check-out</Label>
+                            <Input
+                              type="time"
+                              value={day.check_out}
+                              onChange={(e) =>
+                                setSchedule({ ...schedule, [d]: { ...day, check_out: e.target.value } })
+                              }
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
