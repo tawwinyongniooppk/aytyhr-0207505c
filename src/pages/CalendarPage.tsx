@@ -29,7 +29,10 @@ interface CalEvent {
 interface StaffProfile {
   id: string;
   full_name: string;
+  work_schedule?: any;
 }
+
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const EVENT_COLORS: Record<string, string> = {
   holiday: "bg-destructive text-destructive-foreground",
