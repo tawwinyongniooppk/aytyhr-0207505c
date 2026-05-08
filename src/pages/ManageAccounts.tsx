@@ -222,15 +222,6 @@ export default function ManageAccounts() {
     setDeleteLoading(false);
   };
 
-  const roleBadge = (role: string) => {
-    const colors: Record<string, string> = {
-      admin: "bg-primary/10 text-primary",
-      assistant: "bg-accent/10 text-accent-foreground",
-      staff: "bg-muted text-muted-foreground",
-      it_manager: "bg-secondary/10 text-secondary-foreground",
-    };
-    return <Badge className={`${colors[role] || "bg-muted text-muted-foreground"} capitalize`}>{role.replace("_", " ")}</Badge>;
-  };
 
   return (
     <div className="space-y-6">
