@@ -396,27 +396,41 @@ export default function CalendarPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {selectedDayEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No events on this date</p>
-            ) : (
-              <div className="space-y-3">
-                {selectedDayEvents.map((e) => (
-                  <div key={e.id} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card">
-                    <Badge className={`${EVENT_COLORS[e.event_type] || "bg-muted"} shrink-0 mt-0.5`}>
-                      {e.event_type}
-                    </Badge>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm">{e.title}</p>
-                      {e.description && <p className="text-xs text-muted-foreground mt-1">{e.description}</p>}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {e.start_date === e.end_date ? e.start_date : `${e.start_date} → ${e.end_date}`}
-                        {e.visibility === "private" && " • 🔒 Private"}
-                      </p>
+            {(() => {
+              const weekdayName = WEEKDAY_NAMES[new Date(selectedDate + "T00:00:00").getDay()];
+              const isOffDay = !!mySchedule && mySchedule[weekdayName] && mySchedule[weekdayName].active === false;
+              return (
+                <div className="space-y-3">
+                  {isOffDay && (
+                    <div className="flex items-start gap-3 p-3 rounded-lg border border-destructive/40 bg-destructive/10">
+                      <Badge className="bg-destructive text-destructive-foreground shrink-0 mt-0.5">holiday</Badge>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm">Day off</p>
+                        <p className="text-xs text-muted-foreground mt-1">{weekdayName} is set as a non-working day in your schedule.</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  )}
+                  {selectedDayEvents.map((e) => (
+                    <div key={e.id} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card">
+                      <Badge className={`${EVENT_COLORS[e.event_type] || "bg-muted"} shrink-0 mt-0.5`}>
+                        {e.event_type}
+                      </Badge>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm">{e.title}</p>
+                        {e.description && <p className="text-xs text-muted-foreground mt-1">{e.description}</p>}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {e.start_date === e.end_date ? e.start_date : `${e.start_date} → ${e.end_date}`}
+                          {e.visibility === "private" && " • 🔒 Private"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {!isOffDay && selectedDayEvents.length === 0 && (
+                    <p className="text-sm text-muted-foreground py-4 text-center">No events on this date</p>
+                  )}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       )}
