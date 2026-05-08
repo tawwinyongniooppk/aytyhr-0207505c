@@ -59,6 +59,7 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [staffList, setStaffList] = useState<StaffProfile[]>([]);
+  const [mySchedule, setMySchedule] = useState<Record<string, { active: boolean }> | null>(null);
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [filterType, setFilterType] = useState("all");
@@ -82,8 +83,38 @@ export default function CalendarPage() {
 
   useEffect(() => {
     loadEvents();
+    loadMySchedule();
     if (!isStaff) loadStaff();
   }, [user, isStaff]);
+
+  // Realtime: refresh schedule when profile work_schedule changes
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("profile-schedule-sync")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
+        (payload: any) => {
+          const ws = payload?.new?.work_schedule;
+          if (ws) setMySchedule(ws);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
+  async function loadMySchedule() {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("work_schedule")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (data?.work_schedule) setMySchedule(data.work_schedule as any);
+    } catch { /* ignore */ }
+  }
 
   async function loadEvents() {
     try {
@@ -109,6 +140,7 @@ export default function CalendarPage() {
       setStaffList(data || []);
     } catch { /* ignore */ }
   }
+
 
   async function handleCreate() {
     if (!form.title || !form.start_date || !form.end_date || !user) return;
