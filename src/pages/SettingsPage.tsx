@@ -80,14 +80,9 @@ export default function SettingsPage() {
         <Card className="border border-border shadow-none">
           <CardHeader><CardTitle className="text-base font-display">Attendance Settings</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label>Official Start Time</Label>
-              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-            </div>
-            <div>
-              <Label>Official End Time</Label>
-              <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Per-staff check-in and check-out times are set in Staff Management.
+            </p>
             <div>
               <Label>Grace Period (minutes)</Label>
               <Input type="number" value={gracePeriod} onChange={(e) => setGracePeriod(e.target.value)} />
