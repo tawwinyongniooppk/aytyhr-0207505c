@@ -263,7 +263,6 @@ export default function ManageAccounts() {
                     <div className="min-w-0">
                       <h3 className="font-semibold text-sm truncate">{acc.full_name || "Unnamed"}</h3>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        {roleBadge(acc.role)}
                         <Badge variant="outline" className="text-[10px]">#{acc.sequence ?? 100}</Badge>
                       </div>
                     </div>
