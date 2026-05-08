@@ -374,7 +374,7 @@ export default function Staff() {
 
       {/* Edit Dialog */}
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "" }); setSchedule(defaultSchedule()); } }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">Edit Staff</DialogTitle>
           </DialogHeader>
@@ -523,7 +523,7 @@ export default function Staff() {
 
       {/* Add Staff Dialog (Admin only) */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">Add New Staff</DialogTitle>
           </DialogHeader>
