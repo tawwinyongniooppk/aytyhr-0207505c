@@ -357,18 +357,24 @@ export default function CalendarPage() {
               const dayEvents = getEventsForDay(day);
               const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
               const isSelected = selectedDate === dateStr;
+              const weekdayName = WEEKDAY_NAMES[new Date(year, month, day).getDay()];
+              const isOffDay = !!mySchedule && mySchedule[weekdayName] && mySchedule[weekdayName].active === false;
 
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDate(dateStr)}
                   className={`h-12 md:h-16 flex flex-col items-center justify-start pt-1 rounded-md text-sm transition-colors
+                    ${isOffDay ? "bg-destructive/15 text-destructive" : ""}
                     ${isSelected ? "ring-2 ring-secondary bg-secondary/10" : ""}
                     ${isToday && !isSelected ? "bg-accent" : ""}
                     hover:bg-accent/50`}
                 >
                   <span className={`${isToday ? "font-bold text-secondary" : ""}`}>{day}</span>
                   <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
+                    {isOffDay && (
+                      <div className="h-1.5 w-1.5 rounded-full bg-destructive" title="Day off" />
+                    )}
                     {dayEvents.slice(0, 3).map((e) => (
                       <div key={e.id} className={`h-1.5 w-1.5 rounded-full ${EVENT_DOT_COLORS[e.event_type] || "bg-muted-foreground"}`} title={e.title} />
                     ))}
