@@ -189,7 +189,8 @@ export default function Staff() {
       toast({ title: "Staff updated" });
     }
 
-    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", check_in_time: "09:00", check_out_time: "16:00", work_day: "Monday", bonus: "0", manual_deduction: "0", deduction_reason: "" });
+    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "" });
+    setSchedule(defaultSchedule());
     setEditId(null);
     setOpen(false);
     loadData();
