@@ -550,11 +550,12 @@ function ManageSection({
                 >
                   <div>
                     <p className="text-sm font-medium">{req.profile_name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <p className="text-xs text-muted-foreground">{req.date}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {req.type === "late_excuse" ? "Late Excuse" : "Leave"}
-                      </Badge>
+                      <Badge variant="outline" className="text-xs">{TYPE_LABEL[req.type]}</Badge>
+                      {req.type === "partial_leave" && req.start_time && req.end_time && (
+                        <span className="text-xs text-muted-foreground">{req.start_time.slice(0,5)}–{req.end_time.slice(0,5)}</span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{req.reason}</p>
                   </div>
