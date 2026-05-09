@@ -117,6 +117,7 @@ export default function Attendance() {
   const [staffWorkDay, setStaffWorkDay] = useState<string>("");
   const [staffCheckInTime, setStaffCheckInTime] = useState<string>("");
   const [staffCheckOutTime, setStaffCheckOutTime] = useState<string>("");
+  const [workSchedule, setWorkSchedule] = useState<Record<string, { active: boolean; check_in: string; check_out: string }> | null>(null);
   const [checkOutNotice, setCheckOutNotice] = useState<string | null>(null);
   const [checkInNotice, setCheckInNotice] = useState<string | null>(null);
   const [salaryNotification, setSalaryNotification] = useState<{ remaining: number; deduction: number } | null>(null);
@@ -224,7 +225,7 @@ export default function Attendance() {
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("*"),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
-        supabase.from("profiles").select("role, work_day, check_in_time, check_out_time").eq("id", user!.id).maybeSingle(),
+        supabase.from("profiles").select("role, work_day, check_in_time, check_out_time, work_schedule").eq("id", user!.id).maybeSingle(),
       ]);
 
       if (attRes.data) {
@@ -244,10 +245,12 @@ export default function Attendance() {
         setStaffWorkDay(p.work_day ?? "");
         setStaffCheckInTime(p.check_in_time ?? "");
         setStaffCheckOutTime(p.check_out_time ?? "");
+        setWorkSchedule(p.work_schedule ?? null);
         console.log("[Attendance] loaded staff schedule:", {
           user_id: user!.id,
           work_day: p.work_day,
           check_in_time: p.check_in_time,
+          work_schedule: p.work_schedule,
         });
       }
 
@@ -294,15 +297,27 @@ export default function Attendance() {
   const schoolConfigured = settings.school_latitude !== 0 || settings.school_longitude !== 0;
   const isAdmin = userRole === "admin";
 
-  // Today's expected check-in time per staff schedule.
-  // Rule: IF today == staff.work_day → use staff's custom check_in_time
-  //       ELSE → use global default (settings.start_time)
+  // Today's expected check-in/out time per the staff member's saved schedule.
+  // Source of truth priority:
+  //   1. profiles.work_schedule[today] when present (per-day schedule set by Admin)
+  //   2. legacy profiles.work_day + check_in_time/check_out_time (only if today matches)
+  //   3. global app_settings defaults
   const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
+  const todaySchedule = workSchedule?.[todayName] ?? null;
+  const isWorkingDay = todaySchedule ? !!todaySchedule.active : true;
   const isSpecialDay = !!staffWorkDay && staffWorkDay === todayName;
   const expectedCheckInTime =
-    isSpecialDay && staffCheckInTime ? staffCheckInTime : settings.start_time;
+    todaySchedule?.active && todaySchedule.check_in
+      ? todaySchedule.check_in
+      : isSpecialDay && staffCheckInTime
+        ? staffCheckInTime
+        : settings.start_time;
   const expectedCheckOutTime =
-    isSpecialDay && staffCheckOutTime ? staffCheckOutTime : settings.end_time;
+    todaySchedule?.active && todaySchedule.check_out
+      ? todaySchedule.check_out
+      : isSpecialDay && staffCheckOutTime
+        ? staffCheckOutTime
+        : settings.end_time;
   const geoBlocked = schoolConfigured && location.status === "granted" && location.isInside === false;
   const geoDenied = location.status === "denied";
   const geoError = location.status === "error";
@@ -374,7 +389,9 @@ export default function Attendance() {
         effectiveStartTime,
       });
 
-      const lateMin = calcLateMinutes(now, effectiveStartTime, settings.grace_period_minutes);
+      const lateMin = isWorkingDay
+        ? calcLateMinutes(now, effectiveStartTime, settings.grace_period_minutes)
+        : 0;
       const today = now.toISOString().split("T")[0];
       const locationStatus = getLocationStatusLabel();
 
@@ -432,7 +449,7 @@ export default function Attendance() {
       }
 
       const now = new Date();
-      const earlyMin = calcEarlyMinutes(now, settings.end_time);
+      const earlyMin = isWorkingDay ? calcEarlyMinutes(now, expectedCheckOutTime) : 0;
       const today = now.toISOString().split("T")[0];
 
       const { data, error } = await supabase
