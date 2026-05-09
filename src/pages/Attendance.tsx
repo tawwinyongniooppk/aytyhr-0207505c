@@ -389,7 +389,9 @@ export default function Attendance() {
         effectiveStartTime,
       });
 
-      const lateMin = calcLateMinutes(now, effectiveStartTime, settings.grace_period_minutes);
+      const lateMin = isWorkingDay
+        ? calcLateMinutes(now, effectiveStartTime, settings.grace_period_minutes)
+        : 0;
       const today = now.toISOString().split("T")[0];
       const locationStatus = getLocationStatusLabel();
 
