@@ -117,6 +117,7 @@ export default function Attendance() {
   const [staffWorkDay, setStaffWorkDay] = useState<string>("");
   const [staffCheckInTime, setStaffCheckInTime] = useState<string>("");
   const [staffCheckOutTime, setStaffCheckOutTime] = useState<string>("");
+  const [workSchedule, setWorkSchedule] = useState<Record<string, { active: boolean; check_in: string; check_out: string }> | null>(null);
   const [checkOutNotice, setCheckOutNotice] = useState<string | null>(null);
   const [checkInNotice, setCheckInNotice] = useState<string | null>(null);
   const [salaryNotification, setSalaryNotification] = useState<{ remaining: number; deduction: number } | null>(null);
