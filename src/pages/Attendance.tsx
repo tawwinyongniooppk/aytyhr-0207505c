@@ -225,7 +225,7 @@ export default function Attendance() {
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("*"),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
-        supabase.from("profiles").select("role, work_day, check_in_time, check_out_time").eq("id", user!.id).maybeSingle(),
+        supabase.from("profiles").select("role, work_day, check_in_time, check_out_time, work_schedule").eq("id", user!.id).maybeSingle(),
       ]);
 
       if (attRes.data) {
@@ -245,10 +245,12 @@ export default function Attendance() {
         setStaffWorkDay(p.work_day ?? "");
         setStaffCheckInTime(p.check_in_time ?? "");
         setStaffCheckOutTime(p.check_out_time ?? "");
+        setWorkSchedule(p.work_schedule ?? null);
         console.log("[Attendance] loaded staff schedule:", {
           user_id: user!.id,
           work_day: p.work_day,
           check_in_time: p.check_in_time,
+          work_schedule: p.work_schedule,
         });
       }
 
