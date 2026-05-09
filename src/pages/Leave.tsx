@@ -118,16 +118,24 @@ export default function Leave() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!date || !reason || !user) return;
+    if (type === "partial_leave" && (!startTime || !endTime)) return;
+    if (type === "partial_leave" && startTime >= endTime) {
+      toast({ title: "Invalid time range", description: "End time must be after start time.", variant: "destructive" });
+      return;
+    }
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("leave_requests").insert({
+      const payload: any = {
         user_id: user.id,
         date,
         type,
         reason,
         status: "pending",
-      } as any);
+        start_time: type === "partial_leave" ? startTime : null,
+        end_time: type === "partial_leave" ? endTime : null,
+      };
+      const { error } = await supabase.from("leave_requests").insert(payload);
 
       if (error) {
         toast({ title: "Failed to submit", description: error.message, variant: "destructive" });
@@ -136,6 +144,8 @@ export default function Leave() {
         setDate("");
         setReason("");
         setType("leave");
+        setStartTime("");
+        setEndTime("");
         loadData();
       }
     } finally {
