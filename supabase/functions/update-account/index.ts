@@ -84,6 +84,14 @@ Deno.serve(async (req) => {
     if (password) authUpdate.password = password;
 
     if (Object.keys(authUpdate).length > 0) {
+      // Block IT Manager from resetting credentials of admin accounts (privilege escalation prevention).
+      const { data: targetProfile } = await adminClient
+        .from("profiles").select("role").eq("id", user_id).maybeSingle();
+      if (targetProfile?.role === "admin" && user_id !== caller.id) {
+        return new Response(JSON.stringify({ error: "Cannot modify admin credentials." }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const { error: authErr } = await adminClient.auth.admin.updateUserById(user_id, authUpdate);
       if (authErr) {
         return new Response(JSON.stringify({ error: authErr.message }), {
