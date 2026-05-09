@@ -178,8 +178,39 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_manual_deductions: {
+        Row: {
+          created_at: string
+          created_by: string
+          days: number
+          id: string
+          reason: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          days: number
+          id?: string
+          reason?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          days?: number
+          id?: string
+          reason?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       leave_requests: {
         Row: {
+          balance_deducted: boolean
           created_at: string
           date: string
           end_time: string | null
@@ -193,6 +224,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          balance_deducted?: boolean
           created_at?: string
           date: string
           end_time?: string | null
@@ -206,6 +238,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          balance_deducted?: boolean
           created_at?: string
           date?: string
           end_time?: string | null
