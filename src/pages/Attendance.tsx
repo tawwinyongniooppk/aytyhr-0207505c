@@ -449,7 +449,7 @@ export default function Attendance() {
       }
 
       const now = new Date();
-      const earlyMin = calcEarlyMinutes(now, settings.end_time);
+      const earlyMin = isWorkingDay ? calcEarlyMinutes(now, expectedCheckOutTime) : 0;
       const today = now.toISOString().split("T")[0];
 
       const { data, error } = await supabase
