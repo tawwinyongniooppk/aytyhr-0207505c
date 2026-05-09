@@ -15,6 +15,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
+import { ManualDeductionPanel } from "@/components/ManualDeductionPanel";
 
 type LeaveType = "leave" | "partial_leave" | "late_excuse";
 
