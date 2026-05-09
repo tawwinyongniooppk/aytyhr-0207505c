@@ -28,14 +28,14 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card shadow-lg">
-      <div className="flex items-center justify-around h-16">
+      <div className="flex items-center justify-between gap-0.5 h-16 px-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
               cn(
-                "flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 min-w-[3.5rem]",
+                "flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg text-[10px] font-medium transition-all duration-200 flex-1 min-w-[3rem] shrink-0",
                 isActive
                   ? "text-primary bg-primary/10"
                   : "text-muted-foreground"
@@ -48,7 +48,7 @@ export function BottomNav() {
         ))}
         <button
           onClick={signOut}
-          className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-destructive transition-colors min-w-[3.5rem]"
+          className="flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-destructive transition-colors flex-1 min-w-[3rem] shrink-0"
         >
           <LogOut className="h-5 w-5" />
           <span>Logout</span>

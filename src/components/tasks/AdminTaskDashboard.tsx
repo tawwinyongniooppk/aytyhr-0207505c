@@ -311,17 +311,17 @@ export function AdminTaskDashboard({
       {/* Filters */}
       <Card className="border border-border shadow-sm">
         <CardContent className="p-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2">
+            <Filter className="hidden sm:block h-4 w-4 text-muted-foreground shrink-0" />
             <Select value={filterStaff} onValueChange={setFilterStaff}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Staff" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="All Staff" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Staff</SelectItem>
                 {staffList.map((s) => (<SelectItem key={s.id} value={s.id}>{s.full_name || "Unnamed"}</SelectItem>))}
               </SelectContent>
             </Select>
             <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[140px]"><SelectValue placeholder="All Types" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[140px]"><SelectValue placeholder="All Types" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="task">Tasks</SelectItem>
@@ -331,7 +331,7 @@ export function AdminTaskDashboard({
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[150px]"><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[150px]"><SelectValue placeholder="All Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="not_started">Not Started</SelectItem>
@@ -341,10 +341,10 @@ export function AdminTaskDashboard({
                 <SelectItem value="approved">Approved</SelectItem>
               </SelectContent>
             </Select>
-            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[150px]" />
-            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[150px]" />
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full sm:w-[150px]" />
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full sm:w-[150px]" />
             {(filterStaff !== "all" || filterType !== "all" || filterStatus !== "all" || dateFrom || dateTo) && (
-              <Button variant="ghost" size="sm" onClick={() => { setFilterStaff("all"); setFilterType("all"); setFilterStatus("all"); setDateFrom(""); setDateTo(""); }} className="gap-1 text-xs">
+              <Button variant="ghost" size="sm" onClick={() => { setFilterStaff("all"); setFilterType("all"); setFilterStatus("all"); setDateFrom(""); setDateTo(""); }} className="gap-1 text-xs col-span-2 sm:col-auto">
                 <X className="h-3 w-3" /> Clear
               </Button>
             )}

@@ -520,7 +520,7 @@ function ManageSection({
           </Button>
         ))}
         <Select value={filterStaff} onValueChange={setFilterStaff}>
-          <SelectTrigger className="w-[180px] h-8">
+          <SelectTrigger className="w-full sm:w-[180px] h-8">
             <Users className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
             <SelectValue placeholder="All Staff" />
           </SelectTrigger>
