@@ -57,9 +57,12 @@ async function runRetentionCleanup() {
     cutoff.setDate(cutoff.getDate() - 32);
     const cutoffIso = cutoff.toISOString();
     const cutoffDate = cutoffIso.split("T")[0];
+    // Leave logs/records: retain 1 month + 2 days (~32 days). Current balance
+    // lives in a separate `leave_balances` table and is intentionally NOT touched.
     await Promise.all([
       supabase.from("tasks").delete().lt("created_at", cutoffIso),
       supabase.from("attendance").delete().lt("date", cutoffDate),
+      supabase.from("leave_requests").delete().lt("date", cutoffDate),
     ]);
     sessionStorage.setItem("retention_cleanup_done", "1");
   } catch (e) {
