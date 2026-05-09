@@ -297,14 +297,18 @@ export default function Leave() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Type</span>
-                  <span className="font-medium">
-                    {selectedRequest.type === "late_excuse" ? "Late Excuse" : "Leave"}
-                  </span>
+                  <span className="font-medium">{TYPE_LABEL[selectedRequest.type]}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Date</span>
                   <span className="font-medium">{selectedRequest.date}</span>
                 </div>
+                {selectedRequest.type === "partial_leave" && selectedRequest.start_time && selectedRequest.end_time && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Time</span>
+                    <span className="font-medium">{selectedRequest.start_time.slice(0,5)} – {selectedRequest.end_time.slice(0,5)}</span>
+                  </div>
+                )}
                 <div>
                   <span className="text-muted-foreground">Reason</span>
                   <p className="mt-1 p-2 bg-muted rounded text-sm">{selectedRequest.reason}</p>
