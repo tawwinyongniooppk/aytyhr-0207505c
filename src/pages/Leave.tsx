@@ -242,14 +242,17 @@ export default function Leave() {
       )}
 
       {isAdmin && (
-        <ManageSection
-          filterStatus={filterStatus} setFilterStatus={setFilterStatus}
-          filterStaff={filterStaff} setFilterStaff={setFilterStaff}
-          staffList={staffList}
-          filteredRequests={filteredAdminRequests}
-          statusBadge={statusBadge}
-          onSelect={setSelectedRequest}
-        />
+        <>
+          <ManualDeductionPanel staffList={staffList} />
+          <ManageSection
+            filterStatus={filterStatus} setFilterStatus={setFilterStatus}
+            filterStaff={filterStaff} setFilterStaff={setFilterStaff}
+            staffList={staffList}
+            filteredRequests={filteredAdminRequests}
+            statusBadge={statusBadge}
+            onSelect={setSelectedRequest}
+          />
+        </>
       )}
 
       {isAssistant && (
