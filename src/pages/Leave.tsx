@@ -47,7 +47,9 @@ export default function Leave() {
   const [allRequests, setAllRequests] = useState<LeaveRequest[]>([]);
   const [date, setDate] = useState("");
   const [reason, setReason] = useState("");
-  const [type, setType] = useState<"leave" | "late_excuse">("leave");
+  const [type, setType] = useState<LeaveType>("leave");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
