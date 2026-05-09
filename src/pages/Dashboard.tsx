@@ -159,6 +159,8 @@ export default function Dashboard() {
         <p className="text-muted-foreground text-sm mt-1">Today's overview — {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
       </div>
 
+      <LeaveBalanceCard />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {summaryCards.map((card) => (
