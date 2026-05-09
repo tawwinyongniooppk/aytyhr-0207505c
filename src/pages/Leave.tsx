@@ -16,16 +16,26 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 
+type LeaveType = "leave" | "partial_leave" | "late_excuse";
+
+const TYPE_LABEL: Record<LeaveType, string> = {
+  leave: "Full Leave",
+  partial_leave: "Partial Leave",
+  late_excuse: "Late Excuse",
+};
+
 interface LeaveRequest {
   id: string;
   user_id: string;
   date: string;
-  type: "leave" | "late_excuse";
+  type: LeaveType;
   reason: string;
   status: "pending" | "approved" | "rejected";
   reviewed_by: string | null;
   reviewed_at: string | null;
   created_at: string;
+  start_time: string | null;
+  end_time: string | null;
   profile_name?: string;
 }
 
