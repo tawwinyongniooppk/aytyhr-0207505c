@@ -201,6 +201,8 @@ export default function Leave() {
         </p>
       </div>
 
+      {(isStaff || isAssistant) && <LeaveBalanceCard />}
+
       {isStaff && (
         <>
           <SubmitForm
