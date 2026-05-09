@@ -157,6 +157,27 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_balances: {
+        Row: {
+          balance: number
+          period_start: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          period_start?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          period_start?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       leave_requests: {
         Row: {
           created_at: string
@@ -354,6 +375,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_leave_balance: { Args: { p_user_id: string }; Returns: number }
       get_profile_full: {
         Args: { p_id: string }
         Returns: {

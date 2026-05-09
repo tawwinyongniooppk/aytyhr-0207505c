@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 
 interface LeaveRequest {
   id: string;
@@ -199,6 +200,8 @@ export default function Leave() {
           {canManage ? "Manage leave requests" : "Submit and track your leave requests"}
         </p>
       </div>
+
+      {(isStaff || isAssistant) && <LeaveBalanceCard />}
 
       {isStaff && (
         <>

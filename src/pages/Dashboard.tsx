@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { cn } from "@/lib/utils";
+import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 
 interface Profile {
   id: string;
@@ -157,6 +158,8 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold font-display">Dashboard</h1>
         <p className="text-muted-foreground text-sm mt-1">Today's overview — {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
       </div>
+
+      <LeaveBalanceCard />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
