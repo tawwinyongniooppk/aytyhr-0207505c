@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { cn } from "@/lib/utils";
+import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 
 interface Profile {
   id: string;
