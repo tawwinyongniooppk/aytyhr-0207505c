@@ -128,66 +128,103 @@ export default function Staff() {
   };
 
   const handleSave = async () => {
-    if (!form.full_name || !user) return;
-
-    if (editId) {
-      // Derive legacy single-day fields from the first active day for back-compat
-      const firstActive = WORK_DAYS.find((d) => schedule[d]?.active) || "Monday";
-      const legacyDay = schedule[firstActive] || { active: true, check_in: "09:00", check_out: "16:00" };
-      const updateData: any = {
-        phone: form.phone,
-        join_date: form.join_date || null,
-        check_in_time: legacyDay.check_in,
-        check_out_time: legacyDay.check_out,
-        work_day: firstActive,
-        work_schedule: schedule,
-      };
-      // Only admin can update salary
-      if (isAdminRole) {
-        updateData.base_salary = Number(form.base_salary) || 300000;
-      }
-
-      const { error } = await supabase
-        .from("profiles")
-        .update(updateData)
-        .eq("id", editId);
-
-      if (error) {
-        toast({ title: "Update failed", description: error.message, variant: "destructive" });
-        return;
-      }
-
-      // Admin: upsert monthly salary financial fields (bonus, manual deduction, reason)
-      if (isAdminRole) {
-        const monthStart = getMonthStart();
-        const bonus = Number(form.bonus) || 0;
-        const manualDeduction = Number(form.manual_deduction) || 0;
-        const baseSalary = Number(form.base_salary) || 300000;
-        const existing = salaryMap[editId];
-        const autoDeductions = existing?.total_deductions ?? 0;
-        // Recompute current_salary preserving attendance-driven deductions
-        const current = Math.max(0, baseSalary + bonus - autoDeductions - manualDeduction);
-
-        const payload: any = {
-          user_id: editId,
-          month: monthStart,
-          base_salary: baseSalary,
-          bonus,
-          manual_deduction: manualDeduction,
-          deduction_reason: form.deduction_reason,
-          total_deductions: autoDeductions,
-          current_salary: current,
-          last_updated: new Date().toISOString(),
-        };
-        if (existing) {
-          await supabase.from("salaries").update(payload).eq("user_id", editId).eq("month", monthStart);
-        } else {
-          await supabase.from("salaries").insert(payload);
-        }
-      }
-
-      toast({ title: "Staff updated" });
+    if (!user) return;
+    if (!editId) {
+      toast({ title: "No staff selected", description: "Please reopen the staff card and try again.", variant: "destructive" });
+      return;
     }
+
+    // Derive legacy single-day fields from the first active day for back-compat
+    const firstActive = WORK_DAYS.find((d) => schedule[d]?.active) || "Monday";
+    const legacyDay = schedule[firstActive] || { active: true, check_in: "09:00", check_out: "16:00" };
+    const updateData: any = {
+      phone: form.phone,
+      join_date: form.join_date || null,
+      check_in_time: legacyDay.check_in,
+      check_out_time: legacyDay.check_out,
+      work_day: firstActive,
+      work_schedule: schedule,
+    };
+    // Only admin can update salary
+    if (isAdminRole) {
+      updateData.base_salary = Number(form.base_salary) || 300000;
+    }
+
+    // Update the specific staff member's profile and verify the row was changed
+    const { data: updated, error } = await supabase
+      .from("profiles")
+      .update(updateData)
+      .eq("id", editId)
+      .select("id, work_schedule, check_in_time, check_out_time, work_day")
+      .maybeSingle();
+
+    if (error) {
+      console.error("Profile update failed", error);
+      toast({ title: "Save failed", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (!updated) {
+      toast({
+        title: "Save failed",
+        description: "No staff record was updated. You may not have permission to modify this profile.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Admin: upsert monthly salary financial fields (bonus, manual deduction, reason)
+    if (isAdminRole) {
+      const monthStart = getMonthStart();
+      const bonus = Number(form.bonus) || 0;
+      const manualDeduction = Number(form.manual_deduction) || 0;
+      const baseSalary = Number(form.base_salary) || 300000;
+      const existing = salaryMap[editId];
+      const autoDeductions = existing?.total_deductions ?? 0;
+      const current = Math.max(0, baseSalary + bonus - autoDeductions - manualDeduction);
+
+      const payload: any = {
+        user_id: editId,
+        month: monthStart,
+        base_salary: baseSalary,
+        bonus,
+        manual_deduction: manualDeduction,
+        deduction_reason: form.deduction_reason,
+        total_deductions: autoDeductions,
+        current_salary: current,
+        last_updated: new Date().toISOString(),
+      };
+      const salRes = existing
+        ? await supabase.from("salaries").update(payload).eq("user_id", editId).eq("month", monthStart)
+        : await supabase.from("salaries").insert(payload);
+      if (salRes.error) {
+        console.error("Salary upsert failed", salRes.error);
+        toast({
+          title: "Schedule saved, salary not updated",
+          description: salRes.error.message,
+          variant: "destructive",
+        });
+      }
+    }
+
+    // Optimistically reflect the saved schedule on the selected staff card
+    setStaff((prev) =>
+      prev.map((m) =>
+        m.id === editId
+          ? {
+              ...m,
+              phone: updateData.phone,
+              join_date: updateData.join_date,
+              check_in_time: updateData.check_in_time,
+              check_out_time: updateData.check_out_time,
+              work_day: updateData.work_day,
+              work_schedule: schedule,
+              ...(isAdminRole ? { base_salary: updateData.base_salary } : {}),
+            }
+          : m
+      )
+    );
+
+    toast({ title: "Saved", description: `Updated schedule for ${form.full_name || "staff member"}.` });
 
     setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "" });
     setSchedule(defaultSchedule());
