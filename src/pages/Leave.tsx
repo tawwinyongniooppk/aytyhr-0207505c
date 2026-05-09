@@ -469,11 +469,12 @@ function MyRequestsList({
             {requests.map((req) => (
               <div key={req.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium">{req.date}</p>
-                    <Badge variant="outline" className="text-xs">
-                      {req.type === "late_excuse" ? "Late Excuse" : "Leave"}
-                    </Badge>
+                    <Badge variant="outline" className="text-xs">{TYPE_LABEL[req.type]}</Badge>
+                    {req.type === "partial_leave" && req.start_time && req.end_time && (
+                      <span className="text-xs text-muted-foreground">{req.start_time.slice(0,5)}–{req.end_time.slice(0,5)}</span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{req.reason}</p>
                 </div>
