@@ -297,15 +297,27 @@ export default function Attendance() {
   const schoolConfigured = settings.school_latitude !== 0 || settings.school_longitude !== 0;
   const isAdmin = userRole === "admin";
 
-  // Today's expected check-in time per staff schedule.
-  // Rule: IF today == staff.work_day → use staff's custom check_in_time
-  //       ELSE → use global default (settings.start_time)
+  // Today's expected check-in/out time per the staff member's saved schedule.
+  // Source of truth priority:
+  //   1. profiles.work_schedule[today] when present (per-day schedule set by Admin)
+  //   2. legacy profiles.work_day + check_in_time/check_out_time (only if today matches)
+  //   3. global app_settings defaults
   const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
+  const todaySchedule = workSchedule?.[todayName] ?? null;
+  const isWorkingDay = todaySchedule ? !!todaySchedule.active : true;
   const isSpecialDay = !!staffWorkDay && staffWorkDay === todayName;
   const expectedCheckInTime =
-    isSpecialDay && staffCheckInTime ? staffCheckInTime : settings.start_time;
+    todaySchedule?.active && todaySchedule.check_in
+      ? todaySchedule.check_in
+      : isSpecialDay && staffCheckInTime
+        ? staffCheckInTime
+        : settings.start_time;
   const expectedCheckOutTime =
-    isSpecialDay && staffCheckOutTime ? staffCheckOutTime : settings.end_time;
+    todaySchedule?.active && todaySchedule.check_out
+      ? todaySchedule.check_out
+      : isSpecialDay && staffCheckOutTime
+        ? staffCheckOutTime
+        : settings.end_time;
   const geoBlocked = schoolConfigured && location.status === "granted" && location.isInside === false;
   const geoDenied = location.status === "denied";
   const geoError = location.status === "error";
