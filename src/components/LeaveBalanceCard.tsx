@@ -1,0 +1,62 @@
+import { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { CalendarDays, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+
+export function LeaveBalanceCard({ userId }: { userId?: string }) {
+  const { user } = useAuth();
+  const targetId = userId ?? user?.id;
+  const [balance, setBalance] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!targetId) return;
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      const { data, error } = await supabase.rpc("get_leave_balance", { p_user_id: targetId });
+      if (cancelled) return;
+      if (!error && typeof data === "number") setBalance(data);
+      setLoading(false);
+    }
+    load();
+
+    const channel = supabase
+      .channel(`leave-balance-${targetId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "leave_balances", filter: `user_id=eq.${targetId}` },
+        () => load()
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [targetId]);
+
+  return (
+    <Card className="border border-border shadow-none bg-primary/5">
+      <CardContent className="flex items-center gap-3 py-4">
+        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+          <CalendarDays className="h-5 w-5 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          {loading || balance === null ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading balance…
+            </div>
+          ) : (
+            <p className="text-sm font-medium leading-snug">
+              သင်၏ ခွင့်လက်ကျန်ရက်မှာ{" "}
+              <span className="text-primary font-bold text-base">{balance}</span> ရက် ဖြစ်ပါသည်။
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
