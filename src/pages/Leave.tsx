@@ -352,15 +352,21 @@ export default function Leave() {
 /* ---------- Sub-components ---------- */
 
 function SubmitForm({
-  date, setDate, reason, setReason, type, setType, onSubmit, submitting,
+  date, setDate, reason, setReason, type, setType,
+  startTime, setStartTime, endTime, setEndTime,
+  onSubmit, submitting,
 }: {
   date: string; setDate: (v: string) => void;
   reason: string; setReason: (v: string) => void;
-  type: "leave" | "late_excuse"; setType: (v: "leave" | "late_excuse") => void;
+  type: LeaveType; setType: (v: LeaveType) => void;
+  startTime: string; setStartTime: (v: string) => void;
+  endTime: string; setEndTime: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   submitting: boolean;
 }) {
-  const isValid = date && reason;
+  const dayName = date ? new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" }) : "";
+  const isPartial = type === "partial_leave";
+  const isValid = date && reason && (!isPartial || (startTime && endTime && startTime < endTime));
   return (
     <Card className="border border-border shadow-none">
       <CardHeader>
@@ -370,27 +376,53 @@ function SubmitForm({
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <Label className="mb-2 block">Type</Label>
-            <RadioGroup value={type} onValueChange={(v) => setType(v as any)} className="flex gap-4">
+            <RadioGroup value={type} onValueChange={(v) => setType(v as LeaveType)} className="flex flex-wrap gap-4">
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="leave" id="leave" />
-                <Label htmlFor="leave" className="cursor-pointer">Leave</Label>
+                <Label htmlFor="leave" className="cursor-pointer">Full Leave</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="partial_leave" id="partial_leave" />
+                <Label htmlFor="partial_leave" className="cursor-pointer">Partial Leave</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="late_excuse" id="late_excuse" />
                 <Label htmlFor="late_excuse" className="cursor-pointer">Late Excuse</Label>
               </div>
             </RadioGroup>
+            {isPartial && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Partial Leave is treated as a minute-based deduction (like late check-in / early check-out) and does not reduce your leave-day balance.
+              </p>
+            )}
           </div>
           <div>
             <Label>Date</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            {dayName && <p className="text-xs text-muted-foreground mt-1">{dayName}</p>}
           </div>
+          {isPartial && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Start time</Label>
+                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+              </div>
+              <div>
+                <Label>End time</Label>
+                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+              </div>
+            </div>
+          )}
           <div>
             <Label>Reason</Label>
             <Textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder={type === "leave" ? "Reason for leave" : "Reason for being late"}
+              placeholder={
+                type === "leave" ? "Reason for leave" :
+                type === "partial_leave" ? "Reason for partial leave" :
+                "Reason for being late"
+              }
               rows={3}
             />
           </div>
