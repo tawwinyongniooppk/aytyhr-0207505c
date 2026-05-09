@@ -16,16 +16,26 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 
+type LeaveType = "leave" | "partial_leave" | "late_excuse";
+
+const TYPE_LABEL: Record<LeaveType, string> = {
+  leave: "Full Leave",
+  partial_leave: "Partial Leave",
+  late_excuse: "Late Excuse",
+};
+
 interface LeaveRequest {
   id: string;
   user_id: string;
   date: string;
-  type: "leave" | "late_excuse";
+  type: LeaveType;
   reason: string;
   status: "pending" | "approved" | "rejected";
   reviewed_by: string | null;
   reviewed_at: string | null;
   created_at: string;
+  start_time: string | null;
+  end_time: string | null;
   profile_name?: string;
 }
 
@@ -37,7 +47,9 @@ export default function Leave() {
   const [allRequests, setAllRequests] = useState<LeaveRequest[]>([]);
   const [date, setDate] = useState("");
   const [reason, setReason] = useState("");
-  const [type, setType] = useState<"leave" | "late_excuse">("leave");
+  const [type, setType] = useState<LeaveType>("leave");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
@@ -106,16 +118,24 @@ export default function Leave() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!date || !reason || !user) return;
+    if (type === "partial_leave" && (!startTime || !endTime)) return;
+    if (type === "partial_leave" && startTime >= endTime) {
+      toast({ title: "Invalid time range", description: "End time must be after start time.", variant: "destructive" });
+      return;
+    }
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("leave_requests").insert({
+      const payload: any = {
         user_id: user.id,
         date,
         type,
         reason,
         status: "pending",
-      } as any);
+        start_time: type === "partial_leave" ? startTime : null,
+        end_time: type === "partial_leave" ? endTime : null,
+      };
+      const { error } = await supabase.from("leave_requests").insert(payload);
 
       if (error) {
         toast({ title: "Failed to submit", description: error.message, variant: "destructive" });
@@ -124,6 +144,8 @@ export default function Leave() {
         setDate("");
         setReason("");
         setType("leave");
+        setStartTime("");
+        setEndTime("");
         loadData();
       }
     } finally {
@@ -209,6 +231,8 @@ export default function Leave() {
             date={date} setDate={setDate}
             reason={reason} setReason={setReason}
             type={type} setType={setType}
+            startTime={startTime} setStartTime={setStartTime}
+            endTime={endTime} setEndTime={setEndTime}
             onSubmit={handleSubmit}
             submitting={submitting}
           />
@@ -238,6 +262,8 @@ export default function Leave() {
               date={date} setDate={setDate}
               reason={reason} setReason={setReason}
               type={type} setType={setType}
+              startTime={startTime} setStartTime={setStartTime}
+              endTime={endTime} setEndTime={setEndTime}
               onSubmit={handleSubmit}
               submitting={submitting}
             />
@@ -271,14 +297,18 @@ export default function Leave() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Type</span>
-                  <span className="font-medium">
-                    {selectedRequest.type === "late_excuse" ? "Late Excuse" : "Leave"}
-                  </span>
+                  <span className="font-medium">{TYPE_LABEL[selectedRequest.type]}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Date</span>
                   <span className="font-medium">{selectedRequest.date}</span>
                 </div>
+                {selectedRequest.type === "partial_leave" && selectedRequest.start_time && selectedRequest.end_time && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Time</span>
+                    <span className="font-medium">{selectedRequest.start_time.slice(0,5)} – {selectedRequest.end_time.slice(0,5)}</span>
+                  </div>
+                )}
                 <div>
                   <span className="text-muted-foreground">Reason</span>
                   <p className="mt-1 p-2 bg-muted rounded text-sm">{selectedRequest.reason}</p>
@@ -326,15 +356,21 @@ export default function Leave() {
 /* ---------- Sub-components ---------- */
 
 function SubmitForm({
-  date, setDate, reason, setReason, type, setType, onSubmit, submitting,
+  date, setDate, reason, setReason, type, setType,
+  startTime, setStartTime, endTime, setEndTime,
+  onSubmit, submitting,
 }: {
   date: string; setDate: (v: string) => void;
   reason: string; setReason: (v: string) => void;
-  type: "leave" | "late_excuse"; setType: (v: "leave" | "late_excuse") => void;
+  type: LeaveType; setType: (v: LeaveType) => void;
+  startTime: string; setStartTime: (v: string) => void;
+  endTime: string; setEndTime: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   submitting: boolean;
 }) {
-  const isValid = date && reason;
+  const dayName = date ? new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" }) : "";
+  const isPartial = type === "partial_leave";
+  const isValid = date && reason && (!isPartial || (startTime && endTime && startTime < endTime));
   return (
     <Card className="border border-border shadow-none">
       <CardHeader>
@@ -344,27 +380,53 @@ function SubmitForm({
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <Label className="mb-2 block">Type</Label>
-            <RadioGroup value={type} onValueChange={(v) => setType(v as any)} className="flex gap-4">
+            <RadioGroup value={type} onValueChange={(v) => setType(v as LeaveType)} className="flex flex-wrap gap-4">
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="leave" id="leave" />
-                <Label htmlFor="leave" className="cursor-pointer">Leave</Label>
+                <Label htmlFor="leave" className="cursor-pointer">Full Leave</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="partial_leave" id="partial_leave" />
+                <Label htmlFor="partial_leave" className="cursor-pointer">Partial Leave</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="late_excuse" id="late_excuse" />
                 <Label htmlFor="late_excuse" className="cursor-pointer">Late Excuse</Label>
               </div>
             </RadioGroup>
+            {isPartial && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Partial Leave is treated as a minute-based deduction (like late check-in / early check-out) and does not reduce your leave-day balance.
+              </p>
+            )}
           </div>
           <div>
             <Label>Date</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            {dayName && <p className="text-xs text-muted-foreground mt-1">{dayName}</p>}
           </div>
+          {isPartial && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Start time</Label>
+                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+              </div>
+              <div>
+                <Label>End time</Label>
+                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+              </div>
+            </div>
+          )}
           <div>
             <Label>Reason</Label>
             <Textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder={type === "leave" ? "Reason for leave" : "Reason for being late"}
+              placeholder={
+                type === "leave" ? "Reason for leave" :
+                type === "partial_leave" ? "Reason for partial leave" :
+                "Reason for being late"
+              }
               rows={3}
             />
           </div>
@@ -407,11 +469,12 @@ function MyRequestsList({
             {requests.map((req) => (
               <div key={req.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium">{req.date}</p>
-                    <Badge variant="outline" className="text-xs">
-                      {req.type === "late_excuse" ? "Late Excuse" : "Leave"}
-                    </Badge>
+                    <Badge variant="outline" className="text-xs">{TYPE_LABEL[req.type]}</Badge>
+                    {req.type === "partial_leave" && req.start_time && req.end_time && (
+                      <span className="text-xs text-muted-foreground">{req.start_time.slice(0,5)}–{req.end_time.slice(0,5)}</span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{req.reason}</p>
                 </div>
@@ -487,11 +550,12 @@ function ManageSection({
                 >
                   <div>
                     <p className="text-sm font-medium">{req.profile_name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <p className="text-xs text-muted-foreground">{req.date}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {req.type === "late_excuse" ? "Late Excuse" : "Leave"}
-                      </Badge>
+                      <Badge variant="outline" className="text-xs">{TYPE_LABEL[req.type]}</Badge>
+                      {req.type === "partial_leave" && req.start_time && req.end_time && (
+                        <span className="text-xs text-muted-foreground">{req.start_time.slice(0,5)}–{req.end_time.slice(0,5)}</span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{req.reason}</p>
                   </div>

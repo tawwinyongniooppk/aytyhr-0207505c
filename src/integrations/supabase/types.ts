@@ -182,10 +182,12 @@ export type Database = {
         Row: {
           created_at: string
           date: string
+          end_time: string | null
           id: string
           reason: string
           reviewed_at: string | null
           reviewed_by: string | null
+          start_time: string | null
           status: string
           type: string
           user_id: string
@@ -193,10 +195,12 @@ export type Database = {
         Insert: {
           created_at?: string
           date: string
+          end_time?: string | null
           id?: string
           reason?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          start_time?: string | null
           status?: string
           type?: string
           user_id: string
@@ -204,10 +208,12 @@ export type Database = {
         Update: {
           created_at?: string
           date?: string
+          end_time?: string | null
           id?: string
           reason?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          start_time?: string | null
           status?: string
           type?: string
           user_id?: string
