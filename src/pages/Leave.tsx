@@ -231,6 +231,8 @@ export default function Leave() {
             date={date} setDate={setDate}
             reason={reason} setReason={setReason}
             type={type} setType={setType}
+            startTime={startTime} setStartTime={setStartTime}
+            endTime={endTime} setEndTime={setEndTime}
             onSubmit={handleSubmit}
             submitting={submitting}
           />
