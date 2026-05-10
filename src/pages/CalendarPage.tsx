@@ -63,6 +63,7 @@ export default function CalendarPage() {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [filterType, setFilterType] = useState("all");
+  const [assignmentLoad, setAssignmentLoad] = useState<Record<string, { weekly: number; biweekly: number; weighted: number }>>({});
 
   const [form, setForm] = useState({
     title: "",
@@ -173,6 +174,55 @@ export default function CalendarPage() {
     } catch { /* ignore */ }
   }
 
+  // Per-assignee monthly load: weekly=1 weighted unit, biweekly=2; cap = 4 weighted units / month / person.
+  const MONTHLY_WEIGHT_CAP = 4;
+  function monthBoundsFor(dateStr: string) {
+    const monthStart = (dateStr || new Date().toISOString().split("T")[0]).slice(0, 7) + "-01";
+    const d = new Date(monthStart + "T00:00:00");
+    d.setMonth(d.getMonth() + 1);
+    return { monthStart, nextMonthStart: d.toISOString().split("T")[0] };
+  }
+
+  async function loadAssignmentLoad(dateStr: string) {
+    try {
+      const { monthStart, nextMonthStart } = monthBoundsFor(dateStr);
+      const { data: taskEvents } = await supabase
+        .from("calendar_events")
+        .select("id, start_date, end_date")
+        .eq("event_type", "task")
+        .gte("start_date", monthStart)
+        .lt("start_date", nextMonthStart);
+      const evList = (taskEvents as { id: string; start_date: string; end_date: string }[]) || [];
+      if (evList.length === 0) { setAssignmentLoad({}); return; }
+      const evMap = new Map(evList.map((e) => [e.id, e]));
+      const { data: ass } = await supabase
+        .from("calendar_event_assignments")
+        .select("user_id, event_id")
+        .in("event_id", evList.map((e) => e.id));
+      const load: Record<string, { weekly: number; biweekly: number; weighted: number }> = {};
+      for (const a of (ass as { user_id: string; event_id: string }[]) || []) {
+        const ev = evMap.get(a.event_id);
+        if (!ev) continue;
+        const days = Math.round(
+          (new Date(ev.end_date + "T00:00:00").getTime() - new Date(ev.start_date + "T00:00:00").getTime()) / 86400000
+        );
+        const isBiweekly = days >= 13;
+        const entry = load[a.user_id] || { weekly: 0, biweekly: 0, weighted: 0 };
+        if (isBiweekly) { entry.biweekly += 1; entry.weighted += 2; }
+        else { entry.weekly += 1; entry.weighted += 1; }
+        load[a.user_id] = entry;
+      }
+      setAssignmentLoad(load);
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => {
+    if (isStaff) return;
+    if (!open) return;
+    loadAssignmentLoad(form.start_date || new Date().toISOString().split("T")[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, form.start_date, isStaff]);
+
 
   function isHolidayDate(dateStr: string) {
     if (!dateStr) return false;
@@ -209,6 +259,50 @@ export default function CalendarPage() {
       toast({
         title: "Monthly task limit reached",
         description: `You can assign at most ${monthlyCap} ${form.frequency === "weekly" ? "weekly" : "bi-weekly"} tasks per month.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Per-assignee monthly cap (weekly=1 weighted unit, biweekly=2; cap 4/month).
+    const newWeight = form.frequency === "weekly" ? 1 : 2;
+    const candidateIds = form.allStaff ? staffList.map((s) => s.id) : form.assignedIds;
+    if (candidateIds.length === 0) {
+      toast({ title: "Select at least one assignee", variant: "destructive" });
+      return;
+    }
+    // Refresh load for the target month before validating.
+    await loadAssignmentLoad(form.start_date);
+    const { monthStart: ms, nextMonthStart: nms } = monthBoundsFor(form.start_date);
+    const { data: freshEvents } = await supabase
+      .from("calendar_events")
+      .select("id, start_date, end_date")
+      .eq("event_type", "task")
+      .gte("start_date", ms)
+      .lt("start_date", nms);
+    const freshList = (freshEvents as { id: string; start_date: string; end_date: string }[]) || [];
+    const freshMap = new Map(freshList.map((e) => [e.id, e]));
+    const freshLoad: Record<string, number> = {};
+    if (freshList.length) {
+      const { data: ass } = await supabase
+        .from("calendar_event_assignments")
+        .select("user_id, event_id")
+        .in("event_id", freshList.map((e) => e.id));
+      for (const a of (ass as { user_id: string; event_id: string }[]) || []) {
+        const ev = freshMap.get(a.event_id);
+        if (!ev) continue;
+        const days = Math.round(
+          (new Date(ev.end_date + "T00:00:00").getTime() - new Date(ev.start_date + "T00:00:00").getTime()) / 86400000
+        );
+        freshLoad[a.user_id] = (freshLoad[a.user_id] || 0) + (days >= 13 ? 2 : 1);
+      }
+    }
+    const nameById: Record<string, string> = Object.fromEntries(staffList.map((s) => [s.id, s.full_name || "Unnamed"]));
+    const blocked = candidateIds.filter((id) => (freshLoad[id] || 0) + newWeight > MONTHLY_WEIGHT_CAP);
+    if (blocked.length > 0) {
+      toast({
+        title: "Monthly assignment limit reached",
+        description: `Cannot assign — over the 4-units/month cap for: ${blocked.map((id) => nameById[id] || "user").join(", ")}.`,
         variant: "destructive",
       });
       return;
@@ -347,18 +441,48 @@ export default function CalendarPage() {
                     <Switch checked={form.allStaff} onCheckedChange={(c) => setForm({ ...form, allStaff: c })} />
                     <Label>Assign to all staff</Label>
                   </div>
-                  {!form.allStaff && (
+                  <p className="text-xs text-muted-foreground">
+                    Monthly cap per person: 4 weekly tasks, or 2 bi-weekly, or a mix (weekly = 1 unit, bi-weekly = 2 units, max 4 units/month).
+                  </p>
+                  {form.allStaff ? (
+                    <div className="border border-border rounded-md p-3 max-h-40 overflow-y-auto space-y-1">
+                      {staffList.length === 0 && <p className="text-sm text-muted-foreground">No staff found</p>}
+                      {staffList.map((s) => {
+                        const l = assignmentLoad[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
+                        const newWeight = form.frequency === "weekly" ? 1 : 2;
+                        const willExceed = l.weighted + newWeight > MONTHLY_WEIGHT_CAP;
+                        return (
+                          <div key={s.id} className="flex items-center justify-between text-xs">
+                            <span>{s.full_name || "Unnamed"}</span>
+                            <span className={willExceed ? "text-destructive font-medium" : "text-muted-foreground"}>
+                              {l.weekly}w + {l.biweekly}bw = {l.weighted}/{MONTHLY_WEIGHT_CAP}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
                     <div className="border border-border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
                       {staffList.length === 0 && <p className="text-sm text-muted-foreground">No staff found</p>}
-                      {staffList.map((s) => (
-                        <label key={s.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                          <Checkbox
-                            checked={form.assignedIds.includes(s.id)}
-                            onCheckedChange={() => toggleAssignee(s.id)}
-                          />
-                          {s.full_name || "Unnamed"}
-                        </label>
-                      ))}
+                      {staffList.map((s) => {
+                        const l = assignmentLoad[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
+                        const newWeight = form.frequency === "weekly" ? 1 : 2;
+                        const willExceed = l.weighted + newWeight > MONTHLY_WEIGHT_CAP;
+                        return (
+                          <label key={s.id} className="flex items-center justify-between gap-2 text-sm cursor-pointer">
+                            <span className="flex items-center gap-2">
+                              <Checkbox
+                                checked={form.assignedIds.includes(s.id)}
+                                onCheckedChange={() => toggleAssignee(s.id)}
+                              />
+                              {s.full_name || "Unnamed"}
+                            </span>
+                            <span className={`text-xs ${willExceed ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                              {l.weekly}w + {l.biweekly}bw = {l.weighted}/{MONTHLY_WEIGHT_CAP}
+                            </span>
+                          </label>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
