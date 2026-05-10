@@ -681,12 +681,18 @@ function MyRequestsList({
 }
 
 function ManageSection({
-  filterStatus, setFilterStatus, filterStaff, setFilterStaff, staffList, filteredRequests, statusBadge, onSelect,
+  filterStatus, setFilterStatus, filterStaff, setFilterStaff,
+  filterFrom, setFilterFrom, filterTo, setFilterTo,
+  staffList, filteredRequests, statusBadge, onSelect,
 }: {
   filterStatus: string;
   setFilterStatus: (f: "all" | "pending" | "approved" | "rejected") => void;
   filterStaff: string;
   setFilterStaff: (f: string) => void;
+  filterFrom: string;
+  setFilterFrom: (f: string) => void;
+  filterTo: string;
+  setFilterTo: (f: string) => void;
   staffList: { id: string; full_name: string }[];
   filteredRequests: LeaveRequest[];
   statusBadge: (s: string) => React.ReactNode;
@@ -719,6 +725,19 @@ function ManageSection({
             ))}
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-1.5">
+          <Label className="text-xs text-muted-foreground">From</Label>
+          <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-8 w-[140px]" />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Label className="text-xs text-muted-foreground">To</Label>
+          <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-8 w-[140px]" />
+        </div>
+        {(filterFrom || filterTo || filterStaff !== "all") && (
+          <Button size="sm" variant="ghost" onClick={() => { setFilterFrom(""); setFilterTo(""); setFilterStaff("all"); }}>
+            Clear
+          </Button>
+        )}
       </div>
       <Card className="border border-border shadow-none">
         <CardHeader>
