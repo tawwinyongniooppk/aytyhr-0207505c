@@ -57,6 +57,8 @@ export default function Leave() {
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [filterStaff, setFilterStaff] = useState("all");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
   const [staffList, setStaffList] = useState<{ id: string; full_name: string }[]>([]);
   const [unpaidDesc, setUnpaidDesc] = useState("");
   const [unpaidAmount, setUnpaidAmount] = useState("");
