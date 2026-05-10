@@ -57,6 +57,8 @@ export default function Leave() {
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [filterStaff, setFilterStaff] = useState("all");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
   const [staffList, setStaffList] = useState<{ id: string; full_name: string }[]>([]);
   const [unpaidDesc, setUnpaidDesc] = useState("");
   const [unpaidAmount, setUnpaidAmount] = useState("");
@@ -289,11 +291,19 @@ export default function Leave() {
     );
   };
 
-  const filteredAdminRequests = allRequests.filter((r) => {
-    if (filterStatus !== "all" && r.status !== filterStatus) return false;
-    if (filterStaff !== "all" && r.user_id !== filterStaff) return false;
-    return true;
-  });
+  const filteredAdminRequests = allRequests
+    .filter((r) => {
+      if (filterStatus !== "all" && r.status !== filterStatus) return false;
+      if (filterStaff !== "all" && r.user_id !== filterStaff) return false;
+      if (filterFrom && r.date < filterFrom) return false;
+      if (filterTo && r.date > filterTo) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const at = new Date(a.reviewed_at || a.created_at).getTime();
+      const bt = new Date(b.reviewed_at || b.created_at).getTime();
+      return bt - at;
+    });
 
   if (loading) {
     return (
@@ -342,6 +352,8 @@ export default function Leave() {
           <ManageSection
             filterStatus={filterStatus} setFilterStatus={setFilterStatus}
             filterStaff={filterStaff} setFilterStaff={setFilterStaff}
+            filterFrom={filterFrom} setFilterFrom={setFilterFrom}
+            filterTo={filterTo} setFilterTo={setFilterTo}
             staffList={staffList}
             filteredRequests={filteredAdminRequests}
             statusBadge={statusBadge}
@@ -373,6 +385,8 @@ export default function Leave() {
             <ManageSection
               filterStatus={filterStatus} setFilterStatus={setFilterStatus}
               filterStaff={filterStaff} setFilterStaff={setFilterStaff}
+              filterFrom={filterFrom} setFilterFrom={setFilterFrom}
+              filterTo={filterTo} setFilterTo={setFilterTo}
               staffList={staffList}
               filteredRequests={filteredAdminRequests}
               statusBadge={statusBadge}
@@ -667,12 +681,18 @@ function MyRequestsList({
 }
 
 function ManageSection({
-  filterStatus, setFilterStatus, filterStaff, setFilterStaff, staffList, filteredRequests, statusBadge, onSelect,
+  filterStatus, setFilterStatus, filterStaff, setFilterStaff,
+  filterFrom, setFilterFrom, filterTo, setFilterTo,
+  staffList, filteredRequests, statusBadge, onSelect,
 }: {
   filterStatus: string;
   setFilterStatus: (f: "all" | "pending" | "approved" | "rejected") => void;
   filterStaff: string;
   setFilterStaff: (f: string) => void;
+  filterFrom: string;
+  setFilterFrom: (f: string) => void;
+  filterTo: string;
+  setFilterTo: (f: string) => void;
   staffList: { id: string; full_name: string }[];
   filteredRequests: LeaveRequest[];
   statusBadge: (s: string) => React.ReactNode;
@@ -705,6 +725,19 @@ function ManageSection({
             ))}
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-1.5">
+          <Label className="text-xs text-muted-foreground">From</Label>
+          <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-8 w-[140px]" />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Label className="text-xs text-muted-foreground">To</Label>
+          <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-8 w-[140px]" />
+        </div>
+        {(filterFrom || filterTo || filterStaff !== "all") && (
+          <Button size="sm" variant="ghost" onClick={() => { setFilterFrom(""); setFilterTo(""); setFilterStaff("all"); }}>
+            Clear
+          </Button>
+        )}
       </div>
       <Card className="border border-border shadow-none">
         <CardHeader>
