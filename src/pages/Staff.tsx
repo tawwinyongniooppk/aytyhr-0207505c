@@ -103,15 +103,12 @@ export default function Staff() {
     setLoading(true);
     const monthStart = getMonthStart();
 
-    const [profilesRes, salariesRes, settRes] = await Promise.all([
+    const [profilesRes, salariesRes] = await Promise.all([
       supabase.rpc("admin_list_profiles"),
       supabase.from("salaries").select("*").eq("month", monthStart),
-      supabase.from("app_settings").select("*").eq("key", "deduction_rate_per_minute").maybeSingle(),
     ]);
 
     if (profilesRes.data) {
-      // Hide IT Manager and Admin from staff list — admins manage themselves only via the Leave section,
-      // not as a manageable staff card. Also exclude the currently signed-in user so no one self-manages here.
       const filtered = (profilesRes.data as unknown as StaffProfile[]).filter(
         p => p.role !== "it_manager" && p.role !== "admin" && p.id !== user?.id
       );
@@ -126,7 +123,6 @@ export default function Staff() {
       setSalaryMap(map);
     }
 
-    if (settRes.data) setDeductionRate(Number((settRes.data as any).value) || 200);
     setLoading(false);
   };
 
