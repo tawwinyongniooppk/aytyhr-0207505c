@@ -264,7 +264,49 @@ export default function CalendarPage() {
       return;
     }
 
-    setSubmitting(true);
+    // Per-assignee monthly cap (weekly=1 weighted unit, biweekly=2; cap 4/month).
+    const newWeight = form.frequency === "weekly" ? 1 : 2;
+    const candidateIds = form.allStaff ? staffList.map((s) => s.id) : form.assignedIds;
+    if (candidateIds.length === 0) {
+      toast({ title: "Select at least one assignee", variant: "destructive" });
+      return;
+    }
+    // Refresh load for the target month before validating.
+    await loadAssignmentLoad(form.start_date);
+    const { monthStart: ms, nextMonthStart: nms } = monthBoundsFor(form.start_date);
+    const { data: freshEvents } = await supabase
+      .from("calendar_events")
+      .select("id, start_date, end_date")
+      .eq("event_type", "task")
+      .gte("start_date", ms)
+      .lt("start_date", nms);
+    const freshList = (freshEvents as { id: string; start_date: string; end_date: string }[]) || [];
+    const freshMap = new Map(freshList.map((e) => [e.id, e]));
+    const freshLoad: Record<string, number> = {};
+    if (freshList.length) {
+      const { data: ass } = await supabase
+        .from("calendar_event_assignments")
+        .select("user_id, event_id")
+        .in("event_id", freshList.map((e) => e.id));
+      for (const a of (ass as { user_id: string; event_id: string }[]) || []) {
+        const ev = freshMap.get(a.event_id);
+        if (!ev) continue;
+        const days = Math.round(
+          (new Date(ev.end_date + "T00:00:00").getTime() - new Date(ev.start_date + "T00:00:00").getTime()) / 86400000
+        );
+        freshLoad[a.user_id] = (freshLoad[a.user_id] || 0) + (days >= 13 ? 2 : 1);
+      }
+    }
+    const nameById: Record<string, string> = Object.fromEntries(staffList.map((s) => [s.id, s.full_name || "Unnamed"]));
+    const blocked = candidateIds.filter((id) => (freshLoad[id] || 0) + newWeight > MONTHLY_WEIGHT_CAP);
+    if (blocked.length > 0) {
+      toast({
+        title: "Monthly assignment limit reached",
+        description: `Cannot assign — over the 4-units/month cap for: ${blocked.map((id) => nameById[id] || "user").join(", ")}.`,
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       const isAllStaff = form.allStaff;
 
