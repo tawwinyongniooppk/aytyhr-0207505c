@@ -154,24 +154,41 @@ export default function Leave() {
     }
   };
 
-  const handleReview = async (requestId: string, decision: "approved" | "rejected") => {
+  const handleReview = async (
+    requestId: string,
+    decision: "approved" | "rejected",
+    paymentType?: "paid" | "unpaid",
+  ) => {
     if (!user) return;
 
     setReviewingId(requestId);
     try {
+      const updates: any = {
+        status: decision,
+        reviewed_by: user.id,
+        reviewed_at: new Date().toISOString(),
+      };
+      if (decision === "approved") {
+        updates.payment_type = paymentType ?? "paid";
+      } else {
+        updates.payment_type = null;
+      }
       const { error } = await supabase
         .from("leave_requests")
-        .update({
-          status: decision,
-          reviewed_by: user.id,
-          reviewed_at: new Date().toISOString(),
-        } as any)
+        .update(updates)
         .eq("id", requestId);
 
       if (error) {
         toast({ title: "Review failed", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: decision === "approved" ? "Leave request approved ✓" : "Leave request rejected" });
+        toast({
+          title:
+            decision === "approved"
+              ? paymentType === "unpaid"
+                ? "Leave approved as Unpaid ✓"
+                : "Leave approved as Paid ✓"
+              : "Leave request rejected",
+        });
         setSelectedRequest(null);
         loadData();
       }
@@ -323,23 +340,37 @@ export default function Leave() {
                 </div>
               </div>
               {selectedRequest.status === "pending" && (
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    onClick={() => handleReview(selectedRequest.id, "approved")}
-                    disabled={reviewingId === selectedRequest.id}
-                    className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90 active:scale-[0.98] transition-transform"
-                  >
-                    {reviewingId === selectedRequest.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <><CheckCircle className="h-4 w-4 mr-2" /> Approve</>
-                    )}
-                  </Button>
+                <div className="flex flex-col gap-2 pt-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      onClick={() => handleReview(selectedRequest.id, "approved", "paid")}
+                      disabled={reviewingId === selectedRequest.id}
+                      className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90 active:scale-[0.98] transition-transform"
+                    >
+                      {reviewingId === selectedRequest.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <><CheckCircle className="h-4 w-4 mr-2" /> Approve & Paid</>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleReview(selectedRequest.id, "approved", "unpaid")}
+                      disabled={reviewingId === selectedRequest.id}
+                      variant="outline"
+                      className="flex-1 border-accent text-accent hover:bg-accent/10 active:scale-[0.98] transition-transform"
+                    >
+                      {reviewingId === selectedRequest.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <><CheckCircle className="h-4 w-4 mr-2" /> Approve & Unpaid</>
+                      )}
+                    </Button>
+                  </div>
                   <Button
                     onClick={() => handleReview(selectedRequest.id, "rejected")}
                     disabled={reviewingId === selectedRequest.id}
                     variant="outline"
-                    className="flex-1 border-destructive text-destructive hover:bg-destructive/10 active:scale-[0.98] transition-transform"
+                    className="border-destructive text-destructive hover:bg-destructive/10 active:scale-[0.98] transition-transform"
                   >
                     {reviewingId === selectedRequest.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
