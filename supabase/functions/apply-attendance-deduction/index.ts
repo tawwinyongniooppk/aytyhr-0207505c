@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     const excused = hasLeave || hasLateExcuse || hasPartialLeave;
     const lateMin = excused ? 0 : (att.late_minutes ?? 0);
     const earlyMin = hasLeave || hasPartialLeave ? 0 : (att.early_minutes ?? 0);
-    const deduction = (lateMin + earlyMin) * rate;
+    const deduction = (lateMin * lateRate) + (earlyMin * earlyRate);
 
     // Ensure salary row
     let { data: salary } = await admin.from("salaries")
