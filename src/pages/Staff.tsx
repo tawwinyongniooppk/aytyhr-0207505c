@@ -147,6 +147,7 @@ export default function Staff() {
     // Only admin can update salary
     if (isAdminRole) {
       updateData.base_salary = Number(form.base_salary) || 300000;
+      updateData.deduction_rate_per_minute = Math.max(0, Number(form.deduction_rate_per_minute) || 0);
     }
 
     // Update the specific staff member's profile and verify the row was changed
