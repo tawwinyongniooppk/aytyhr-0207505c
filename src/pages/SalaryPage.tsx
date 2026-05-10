@@ -1,8 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wallet, TrendingDown, DollarSign } from "lucide-react";
+import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+
+type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction";
+interface LedgerEntry {
+  id: string;
+  date: string; // ISO
+  type: LedgerType;
+  description: string;
+  amount: number; // signed: positive credit, negative debit
+}
+
+const TYPE_META: Record<LedgerType, { label: string; icon: any; bg: string; fg: string; badge: string }> = {
+  salary: { label: "Salary", icon: Banknote, bg: "bg-secondary/10", fg: "text-secondary", badge: "bg-secondary/10 text-secondary" },
+  bonus: { label: "Bonus", icon: Gift, bg: "bg-accent/10", fg: "text-accent", badge: "bg-accent/10 text-accent" },
+  auto_deduction: { label: "Auto Deduction", icon: TrendingDown, bg: "bg-destructive/10", fg: "text-destructive", badge: "bg-destructive/10 text-destructive" },
+  manual_deduction: { label: "Manual Deduction", icon: Minus, bg: "bg-destructive/10", fg: "text-destructive", badge: "bg-destructive/15 text-destructive" },
+};
 
 interface SalaryData {
   base_salary: number;
@@ -37,6 +53,7 @@ export default function SalaryPage() {
   const [deductionRate, setDeductionRate] = useState(200);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [manualDeductions, setManualDeductions] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -48,18 +65,84 @@ export default function SalaryPage() {
     const monthStart = getMonthStart();
     const monthEnd = getMonthEnd();
 
-    const [salRes, attRes, settRes] = await Promise.all([
+    const [salRes, attRes, settRes, mdRes] = await Promise.all([
       supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
       supabase.from("attendance").select("*").eq("user_id", user!.id).gte("date", monthStart).lte("date", monthEnd).order("date", { ascending: false }),
       supabase.from("app_settings").select("*").eq("key", "deduction_rate_per_minute").maybeSingle(),
+      supabase.from("leave_manual_deductions").select("*").eq("user_id", user!.id).order("created_at", { ascending: false }),
     ]);
 
     if (salRes.data) setSalary(salRes.data as unknown as SalaryData);
     if (attRes.data) setAttendanceHistory(attRes.data as unknown as AttendanceEntry[]);
     if (settRes.data) setDeductionRate(Number((settRes.data as any).value) || 200);
+    if (mdRes.data) setManualDeductions(mdRes.data as any[]);
 
     setLoading(false);
   };
+
+  const ledger = useMemo<LedgerEntry[]>(() => {
+    const items: LedgerEntry[] = [];
+    const monthStart = getMonthStart();
+
+    if (salary) {
+      if (salary.base_salary > 0) {
+        items.push({
+          id: `salary-${monthStart}`,
+          date: monthStart,
+          type: "salary",
+          description: `Base salary (${new Date(monthStart + "T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })})`,
+          amount: salary.base_salary,
+        });
+      }
+      if (salary.bonus > 0) {
+        items.push({
+          id: `bonus-${monthStart}`,
+          date: monthStart,
+          type: "bonus",
+          description: salary.deduction_reason ? `Bonus approved` : "Bonus approved",
+          amount: salary.bonus,
+        });
+      }
+      if (salary.manual_deduction > 0) {
+        items.push({
+          id: `manual-sal-${monthStart}`,
+          date: monthStart,
+          type: "manual_deduction",
+          description: salary.deduction_reason || "Manual salary deduction",
+          amount: -salary.manual_deduction,
+        });
+      }
+    }
+
+    for (const entry of attendanceHistory) {
+      const totalMin = (entry.late_minutes || 0) + (entry.early_minutes || 0);
+      const amt = totalMin * deductionRate;
+      if (amt > 0) {
+        const parts: string[] = [];
+        if (entry.late_minutes > 0) parts.push(`Late ${entry.late_minutes}m`);
+        if (entry.early_minutes > 0) parts.push(`Early ${entry.early_minutes}m`);
+        items.push({
+          id: `auto-${entry.date}`,
+          date: entry.date,
+          type: "auto_deduction",
+          description: parts.join(" · ") || "Attendance deduction",
+          amount: -amt,
+        });
+      }
+    }
+
+    for (const md of manualDeductions) {
+      items.push({
+        id: `md-${md.id}`,
+        date: (md.created_at || "").slice(0, 10),
+        type: "manual_deduction",
+        description: `${md.title}${md.reason ? ` — ${md.reason}` : ""} (${md.days} day${md.days > 1 ? "s" : ""} leave)`,
+        amount: 0, // leave-balance deduction; no kyats impact here
+      });
+    }
+
+    return items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  }, [salary, attendanceHistory, manualDeductions, deductionRate]);
 
   const currentMonth = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
@@ -127,46 +210,51 @@ export default function SalaryPage() {
         </Card>
       </div>
 
-      {/* Deduction History */}
+      {/* Transaction History */}
       <Card className="border border-border shadow-none">
         <CardHeader>
-          <CardTitle className="text-base font-display">Deduction Breakdown</CardTitle>
+          <CardTitle className="text-base font-display">Transaction History</CardTitle>
         </CardHeader>
         <CardContent>
-          {attendanceHistory.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No attendance records this month</p>
+          {ledger.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No transactions yet</p>
           ) : (
-            <div className="space-y-2">
-              {attendanceHistory.map((entry) => {
-                const totalMin = entry.late_minutes + entry.early_minutes;
-                const deduction = totalMin * deductionRate;
-                const dateLabel = new Date(entry.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-
+            <ul className="divide-y divide-border">
+              {ledger.map((e) => {
+                const meta = TYPE_META[e.type];
+                const Icon = meta.icon;
+                const dateLabel = e.date
+                  ? new Date(e.date + "T00:00:00").toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })
+                  : "";
+                const isCredit = e.amount > 0;
+                const isDebit = e.amount < 0;
                 return (
-                  <div key={entry.date} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <div>
-                      <p className="text-sm font-medium">{dateLabel}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {entry.late_minutes > 0 && `Late: ${entry.late_minutes}min`}
-                        {entry.late_minutes > 0 && entry.early_minutes > 0 && " · "}
-                        {entry.early_minutes > 0 && `Early: ${entry.early_minutes}min`}
-                        {totalMin === 0 && "On time ✓"}
-                      </p>
+                  <li key={e.id} className="flex items-center gap-3 py-3">
+                    <div className={`shrink-0 h-9 w-9 rounded-full flex items-center justify-center ${meta.bg}`}>
+                      <Icon className={`h-4 w-4 ${meta.fg}`} />
                     </div>
-                    <div className="text-right">
-                      {deduction > 0 ? (
-                        <span className="text-sm font-semibold text-destructive">-{deduction.toLocaleString()} kyats</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${meta.badge}`}>
+                          {meta.label}
+                        </span>
+                        <span className="text-xs text-foreground/70">{dateLabel}</span>
+                      </div>
+                      <p className="text-sm font-medium text-foreground truncate mt-0.5">{e.description}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      {e.amount === 0 ? (
+                        <span className="text-xs font-medium text-foreground/70">—</span>
                       ) : (
-                        <span className="text-sm text-accent font-medium">No deduction</span>
-                      )}
-                      {entry.deduction_applied && deduction > 0 && (
-                        <p className="text-xs text-muted-foreground">Applied</p>
+                        <span className={`text-sm font-semibold ${isCredit ? "text-accent" : "text-destructive"}`}>
+                          {isCredit ? "+" : "-"}{Math.abs(e.amount).toLocaleString()} <span className="text-[10px] font-normal">Ks</span>
+                        </span>
                       )}
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           )}
         </CardContent>
       </Card>
