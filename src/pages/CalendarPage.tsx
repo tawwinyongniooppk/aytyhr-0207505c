@@ -150,10 +150,13 @@ export default function CalendarPage() {
 
   async function loadStaff() {
     try {
+      // Admin can assign tasks to Staff and Assistant Admin.
+      // Assistant Admin can assign only to Staff.
+      const roles = isAssistant ? ["staff"] : ["staff", "assistant"];
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name")
-        .eq("role", "staff");
+        .select("id, full_name, role")
+        .in("role", roles);
       setStaffList(data || []);
     } catch { /* ignore */ }
   }
