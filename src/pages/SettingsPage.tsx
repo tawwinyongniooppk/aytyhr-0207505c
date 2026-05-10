@@ -9,8 +9,6 @@ import { MapPin } from "lucide-react";
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const [gracePeriod, setGracePeriod] = useState("10");
-  const [deductionRate, setDeductionRate] = useState("200");
   const [schoolLat, setSchoolLat] = useState("0");
   const [schoolLng, setSchoolLng] = useState("0");
   const [allowedRadius, setAllowedRadius] = useState("50");
@@ -25,8 +23,6 @@ export default function SettingsPage() {
     if (data) {
       const map: Record<string, string> = {};
       (data as unknown as { key: string; value: string }[]).forEach((r) => (map[r.key] = r.value));
-      if (map.grace_period_minutes) setGracePeriod(map.grace_period_minutes);
-      if (map.deduction_rate_per_minute) setDeductionRate(map.deduction_rate_per_minute);
       if (map.school_latitude) setSchoolLat(map.school_latitude);
       if (map.school_longitude) setSchoolLng(map.school_longitude);
       if (map.allowed_radius_meters) setAllowedRadius(map.allowed_radius_meters);
@@ -36,8 +32,6 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     const entries = [
-      { key: "grace_period_minutes", value: gracePeriod },
-      { key: "deduction_rate_per_minute", value: deductionRate },
       { key: "school_latitude", value: schoolLat },
       { key: "school_longitude", value: schoolLng },
       { key: "allowed_radius_meters", value: allowedRadius },
@@ -76,32 +70,12 @@ export default function SettingsPage() {
         <p className="text-muted-foreground text-sm mt-1">System configuration</p>
       </div>
 
+      <p className="text-xs text-muted-foreground">
+        Per-staff check-in / check-out times, grace period, and salary deduction rate are managed
+        on each staff card in <span className="font-medium">Staff Management</span>.
+      </p>
+
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="border border-border shadow-none">
-          <CardHeader><CardTitle className="text-base font-display">Attendance Settings</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-              Per-staff check-in and check-out times are set in Staff Management.
-            </p>
-            <div>
-              <Label>Grace Period (minutes)</Label>
-              <Input type="number" value={gracePeriod} onChange={(e) => setGracePeriod(e.target.value)} />
-              <p className="text-xs text-muted-foreground mt-1">Time allowed after start before marking late</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border shadow-none">
-          <CardHeader><CardTitle className="text-base font-display">Salary Deduction</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Deduction Rate (kyats per minute)</Label>
-              <Input type="number" value={deductionRate} onChange={(e) => setDeductionRate(e.target.value)} />
-              <p className="text-xs text-muted-foreground mt-1">Applied to both late and early leave minutes</p>
-            </div>
-          </CardContent>
-        </Card>
-
         <Card className="border border-border shadow-none md:col-span-2">
           <CardHeader>
             <CardTitle className="text-base font-display flex items-center gap-2">
