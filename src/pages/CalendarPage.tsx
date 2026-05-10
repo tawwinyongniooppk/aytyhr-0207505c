@@ -87,26 +87,43 @@ export default function CalendarPage() {
     if (!isStaff) loadStaff();
   }, [user, isStaff]);
 
-  // Realtime: refresh schedule when profile work_schedule changes
+  // Realtime: refresh schedule when any relevant profile work_schedule changes
   useEffect(() => {
     if (!user) return;
+    const filter = isStaff ? `id=eq.${user.id}` : undefined;
     const channel = supabase
       .channel("profile-schedule-sync")
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
-        (payload: any) => {
-          const ws = payload?.new?.work_schedule;
-          if (ws) setMySchedule(ws);
-        }
+        { event: "UPDATE", schema: "public", table: "profiles", ...(filter ? { filter } : {}) },
+        () => { loadMySchedule(); }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [user, isStaff]);
 
   async function loadMySchedule() {
     if (!user) return;
     try {
+      // Admin/Assistant: derive off-days from staff schedules (shared off-day = every staff inactive that weekday).
+      // Staff: use own schedule.
+      if (!isStaff) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("work_schedule")
+          .eq("role", "staff");
+        const schedules = (data || [])
+          .map((r: any) => r.work_schedule)
+          .filter((ws: any) => ws && typeof ws === "object");
+        if (schedules.length === 0) { setMySchedule(null); return; }
+        const merged: Record<string, { active: boolean }> = {};
+        for (const day of WEEKDAY_NAMES) {
+          const allOff = schedules.every((ws: any) => ws[day] && ws[day].active === false);
+          merged[day] = { active: !allOff };
+        }
+        setMySchedule(merged);
+        return;
+      }
       const { data } = await supabase
         .from("profiles")
         .select("work_schedule")
