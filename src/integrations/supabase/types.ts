@@ -215,12 +215,14 @@ export type Database = {
           date: string
           end_time: string | null
           id: string
+          payment_type: string | null
           reason: string
           reviewed_at: string | null
           reviewed_by: string | null
           start_time: string | null
           status: string
           type: string
+          unpaid_salary_deducted: number
           user_id: string
         }
         Insert: {
@@ -229,12 +231,14 @@ export type Database = {
           date: string
           end_time?: string | null
           id?: string
+          payment_type?: string | null
           reason?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           start_time?: string | null
           status?: string
           type?: string
+          unpaid_salary_deducted?: number
           user_id: string
         }
         Update: {
@@ -243,12 +247,14 @@ export type Database = {
           date?: string
           end_time?: string | null
           id?: string
+          payment_type?: string | null
           reason?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           start_time?: string | null
           status?: string
           type?: string
+          unpaid_salary_deducted?: number
           user_id?: string
         }
         Relationships: []
