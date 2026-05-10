@@ -432,9 +432,12 @@ export default function Staff() {
             <DialogTitle className="font-display">Edit Staff</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            {/* Block: Identity (read-only) */}
-            <div className="rounded-lg border border-border p-3 space-y-3 bg-muted/30">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Identity</p>
+            {/* 1. Identity */}
+            <section className="rounded-lg border border-border p-3 space-y-3 bg-muted/30">
+              <header className="flex items-center gap-2">
+                <span className="h-5 w-5 rounded-full bg-muted text-muted-foreground text-[11px] font-bold flex items-center justify-center">1</span>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Identity</p>
+              </header>
               <div>
                 <Label>Full Name</Label>
                 <Input value={form.full_name} disabled readOnly />
@@ -445,52 +448,14 @@ export default function Staff() {
                 <Input value={form.role.replace("_", " ")} disabled className="capitalize" />
                 <p className="text-xs text-muted-foreground mt-1">Only the IT Manager can change roles.</p>
               </div>
-            </div>
+            </section>
 
-            {/* Block: Contact */}
-            <div className="rounded-lg border border-border p-3 space-y-3">
-              <p className="text-xs font-semibold text-primary uppercase tracking-wide">Contact</p>
-              <div>
-                <Label>Phone</Label>
-                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Primary phone" />
-              </div>
-              <div>
-                <Label>Emergency Phone</Label>
-                <Input value={form.emergency_phone} onChange={(e) => setForm({ ...form, emergency_phone: e.target.value })} placeholder="Emergency contact number" />
-              </div>
-              <div>
-                <Label>Join Date</Label>
-                <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
-              </div>
-            </div>
-
-            {/* Block: Salary Settings (Admin only) */}
-            {isAdminRole && (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
-                <p className="text-xs font-semibold text-primary uppercase tracking-wide">Salary Settings (Admin only)</p>
-                <div>
-                  <Label>Base Salary (kyats/month)</Label>
-                  <Input type="number" value={form.base_salary} onChange={(e) => setForm({ ...form, base_salary: e.target.value })} />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                  <div>
-                    <Label className="text-xs">Late entry / min</Label>
-                    <Input type="number" value={form.late_rate} onChange={(e) => setForm({ ...form, late_rate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Early back / min</Label>
-                    <Input type="number" value={form.early_rate} onChange={(e) => setForm({ ...form, early_rate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Partial leave / min</Label>
-                    <Input type="number" value={form.partial_rate} onChange={(e) => setForm({ ...form, partial_rate: e.target.value })} />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">Stored per staff member (not in global Settings).</p>
-              </div>
-            )}
-            <div className="space-y-2 border-t border-border pt-3">
-              <Label>Weekly Schedule</Label>
+            {/* 2. Weekly Schedule */}
+            <section className="rounded-lg border border-border p-3 space-y-3">
+              <header className="flex items-center gap-2">
+                <span className="h-5 w-5 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center">2</span>
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide">Weekly Schedule</p>
+              </header>
               <p className="text-xs text-muted-foreground">Toggle each day on/off and set check-in / check-out times.</p>
               <div className="space-y-2">
                 {WORK_DAYS.map((d) => {
@@ -500,18 +465,14 @@ export default function Staff() {
                     <div
                       key={d}
                       className={`rounded-lg border p-3 transition-colors ${
-                        active
-                          ? "border-accent/40 bg-accent/10"
-                          : "border-destructive/40 bg-destructive/10"
+                        active ? "border-accent/40 bg-accent/10" : "border-destructive/40 bg-destructive/10"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
                           <Switch
                             checked={active}
-                            onCheckedChange={(v) =>
-                              setSchedule({ ...schedule, [d]: { ...day, active: v } })
-                            }
+                            onCheckedChange={(v) => setSchedule({ ...schedule, [d]: { ...day, active: v } })}
                           />
                           <span className={`text-sm font-medium ${active ? "text-accent-foreground" : "text-destructive"}`}>{d}</span>
                           <span className={`text-[10px] uppercase font-semibold ${active ? "text-accent" : "text-destructive"}`}>
@@ -526,9 +487,7 @@ export default function Staff() {
                             <Input
                               type="time"
                               value={day.check_in}
-                              onChange={(e) =>
-                                setSchedule({ ...schedule, [d]: { ...day, check_in: e.target.value } })
-                              }
+                              onChange={(e) => setSchedule({ ...schedule, [d]: { ...day, check_in: e.target.value } })}
                             />
                           </div>
                           <div>
@@ -536,9 +495,7 @@ export default function Staff() {
                             <Input
                               type="time"
                               value={day.check_out}
-                              onChange={(e) =>
-                                setSchedule({ ...schedule, [d]: { ...day, check_out: e.target.value } })
-                              }
+                              onChange={(e) => setSchedule({ ...schedule, [d]: { ...day, check_out: e.target.value } })}
                             />
                           </div>
                         </div>
@@ -547,13 +504,79 @@ export default function Staff() {
                   );
                 })}
               </div>
-            </div>
+            </section>
 
+            {/* 3. Attendance-related staff settings */}
+            <section className="rounded-lg border border-border p-3 space-y-3">
+              <header className="flex items-center gap-2">
+                <span className="h-5 w-5 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center">3</span>
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide">Attendance Settings</p>
+              </header>
+              <div>
+                <Label>Join Date</Label>
+                <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
+                <p className="text-xs text-muted-foreground mt-1">Used as the start date for attendance tracking.</p>
+              </div>
+            </section>
+
+            {/* 4. Salary Deduction Rate (Admin only, staff-specific) */}
             {isAdminRole && (
-              <p className="text-xs text-muted-foreground border-t border-border pt-3">
-                Bonuses, salary preview, and salary management have moved to the <span className="font-semibold text-primary">Salaries &amp; Bonuses</span> menu.
-              </p>
+              <section className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+                <header className="flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center">4</span>
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wide">Salary Deduction Rate (per minute)</p>
+                </header>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs">Late entry / min</Label>
+                    <Input type="number" value={form.late_rate} onChange={(e) => setForm({ ...form, late_rate: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Early back / min</Label>
+                    <Input type="number" value={form.early_rate} onChange={(e) => setForm({ ...form, early_rate: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Partial leave / min</Label>
+                    <Input type="number" value={form.partial_rate} onChange={(e) => setForm({ ...form, partial_rate: e.target.value })} />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Stored per staff member (not in global Settings).</p>
+              </section>
             )}
+
+            {/* 5. Financial Adjustments (Admin only — Base Salary) */}
+            {isAdminRole && (
+              <section className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+                <header className="flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center">5</span>
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wide">Financial Adjustments (Admin only)</p>
+                </header>
+                <div>
+                  <Label>Base Salary (kyats / month)</Label>
+                  <Input type="number" value={form.base_salary} onChange={(e) => setForm({ ...form, base_salary: e.target.value })} />
+                  <p className="text-xs text-muted-foreground mt-1">Only Admin can edit Base Salary.</p>
+                </div>
+                <p className="text-xs text-muted-foreground border-t border-border pt-2">
+                  Bonuses, manual deductions, and salary preview live in the <span className="font-semibold text-primary">Salaries &amp; Bonuses</span> menu.
+                </p>
+              </section>
+            )}
+
+            {/* 6. Emergency Contact */}
+            <section className="rounded-lg border border-border p-3 space-y-3">
+              <header className="flex items-center gap-2">
+                <span className="h-5 w-5 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold flex items-center justify-center">6</span>
+                <p className="text-xs font-semibold text-destructive uppercase tracking-wide">Emergency Contact</p>
+              </header>
+              <div>
+                <Label>Phone</Label>
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Primary phone" />
+              </div>
+              <div>
+                <Label>Emergency Phone</Label>
+                <Input value={form.emergency_phone} onChange={(e) => setForm({ ...form, emergency_phone: e.target.value })} placeholder="Emergency contact number" />
+              </div>
+            </section>
 
             <Button onClick={handleSave} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
               Save Changes
