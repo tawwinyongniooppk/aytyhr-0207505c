@@ -338,17 +338,6 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {/* Filter bar (admin/assistant) */}
-      {!isStaff && (
-        <div className="flex gap-2 flex-wrap">
-          {["all", "event", "holiday", "meeting", "task"].map((t) => (
-            <Button key={t} size="sm" variant={filterType === t ? "default" : "outline"} onClick={() => setFilterType(t)}
-              className={filterType === t ? "bg-secondary text-secondary-foreground" : ""}>
-              {t === "all" ? "All" : t.charAt(0).toUpperCase() + t.slice(1)}
-            </Button>
-          ))}
-        </div>
-      )}
 
       {/* Monthly Calendar Grid */}
       <Card className="border border-border shadow-none">
