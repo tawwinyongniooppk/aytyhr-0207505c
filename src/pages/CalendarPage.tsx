@@ -500,6 +500,17 @@ export default function CalendarPage() {
         )}
       </div>
 
+      {/* Permanent task rules notice (always visible) */}
+      <Card className="border-l-4 border-l-secondary border border-border bg-secondary/5 shadow-none">
+        <CardContent className="p-4 space-y-2 text-sm leading-relaxed">
+          <p>
+            Admin နှင့် Assistant Admin တို့သည် Weekend ပိတ်ရက်များတွင် Member တယောက်ချင်းစီတိုင်းကို ကျောင်းအတွက် သို့ သူတို့အတွက် ဆောင်ရွက် လုပ်ကိုင်စေလိုသည့် Task တခုခုကို သတ်မှတ်ပေးရမည်။
+          </p>
+          <p>
+            မသတ်မှတ်လျှင် သတ်မှတ်ထားသည့် Bonus များမှ တပတ်ကို တခါနှုန်းဖြင့် Member များ၏ လစဉ်နောက်ဆုံးပိတ် Salary ထဲသို့ System မှ အလိုအလျောက် ပေါင်းထည့်သွားပါမည်။
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Monthly Calendar Grid */}
       <Card className="border border-border shadow-none">
