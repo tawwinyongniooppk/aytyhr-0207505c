@@ -52,7 +52,7 @@ const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const { isAdmin, isStaff } = useProfile();
+  const { isAdmin, isAssistant, isStaff } = useProfile();
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
