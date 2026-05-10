@@ -453,6 +453,8 @@ export type Database = {
           role: string
         }[]
       }
+      purge_old_leave_logs: { Args: never; Returns: undefined }
+      reset_leave_balances_yearly: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
