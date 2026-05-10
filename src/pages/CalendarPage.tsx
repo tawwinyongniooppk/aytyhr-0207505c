@@ -258,7 +258,7 @@ export default function CalendarPage() {
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
-                <Plus className="h-4 w-4 mr-2" /> Add New
+                <Plus className="h-4 w-4 mr-2" /> Add New Task
               </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto">
