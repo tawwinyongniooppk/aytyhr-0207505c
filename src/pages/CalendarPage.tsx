@@ -441,18 +441,48 @@ export default function CalendarPage() {
                     <Switch checked={form.allStaff} onCheckedChange={(c) => setForm({ ...form, allStaff: c })} />
                     <Label>Assign to all staff</Label>
                   </div>
-                  {!form.allStaff && (
+                  <p className="text-xs text-muted-foreground">
+                    Monthly cap per person: 4 weekly tasks, or 2 bi-weekly, or a mix (weekly = 1 unit, bi-weekly = 2 units, max 4 units/month).
+                  </p>
+                  {form.allStaff ? (
+                    <div className="border border-border rounded-md p-3 max-h-40 overflow-y-auto space-y-1">
+                      {staffList.length === 0 && <p className="text-sm text-muted-foreground">No staff found</p>}
+                      {staffList.map((s) => {
+                        const l = assignmentLoad[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
+                        const newWeight = form.frequency === "weekly" ? 1 : 2;
+                        const willExceed = l.weighted + newWeight > MONTHLY_WEIGHT_CAP;
+                        return (
+                          <div key={s.id} className="flex items-center justify-between text-xs">
+                            <span>{s.full_name || "Unnamed"}</span>
+                            <span className={willExceed ? "text-destructive font-medium" : "text-muted-foreground"}>
+                              {l.weekly}w + {l.biweekly}bw = {l.weighted}/{MONTHLY_WEIGHT_CAP}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
                     <div className="border border-border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
                       {staffList.length === 0 && <p className="text-sm text-muted-foreground">No staff found</p>}
-                      {staffList.map((s) => (
-                        <label key={s.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                          <Checkbox
-                            checked={form.assignedIds.includes(s.id)}
-                            onCheckedChange={() => toggleAssignee(s.id)}
-                          />
-                          {s.full_name || "Unnamed"}
-                        </label>
-                      ))}
+                      {staffList.map((s) => {
+                        const l = assignmentLoad[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
+                        const newWeight = form.frequency === "weekly" ? 1 : 2;
+                        const willExceed = l.weighted + newWeight > MONTHLY_WEIGHT_CAP;
+                        return (
+                          <label key={s.id} className="flex items-center justify-between gap-2 text-sm cursor-pointer">
+                            <span className="flex items-center gap-2">
+                              <Checkbox
+                                checked={form.assignedIds.includes(s.id)}
+                                onCheckedChange={() => toggleAssignee(s.id)}
+                              />
+                              {s.full_name || "Unnamed"}
+                            </span>
+                            <span className={`text-xs ${willExceed ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                              {l.weekly}w + {l.biweekly}bw = {l.weighted}/{MONTHLY_WEIGHT_CAP}
+                            </span>
+                          </label>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
