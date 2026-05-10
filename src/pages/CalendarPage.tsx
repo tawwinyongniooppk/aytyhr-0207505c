@@ -162,12 +162,22 @@ export default function CalendarPage() {
   }
 
 
+  function isHolidayDate(dateStr: string) {
+    if (!dateStr) return false;
+    return events.some(
+      (e) => e.event_type === "holiday" && e.start_date <= dateStr && e.end_date >= dateStr
+    );
+  }
+
   async function handleCreate() {
-    if (!form.title || !form.start_date || !form.end_date || !user) return;
+    if (!form.title || !form.start_date || !user) return;
+    if (isHolidayDate(form.start_date)) {
+      toast({ title: "ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     try {
-      const needsAssignments = form.visibility === "private" || form.event_type === "task";
-      const isAllStaff = needsAssignments && form.allStaff;
+      const isAllStaff = form.allStaff;
 
       const { data: ev, error } = await supabase
         .from("calendar_events")
@@ -175,9 +185,9 @@ export default function CalendarPage() {
           title: form.title,
           description: form.description,
           start_date: form.start_date,
-          end_date: form.end_date,
-          event_type: form.event_type,
-          visibility: form.visibility,
+          end_date: form.start_date,
+          event_type: "task",
+          visibility: "private",
           created_by: user.id,
           assigned_to_all: isAllStaff,
         } as any)
@@ -185,29 +195,22 @@ export default function CalendarPage() {
         .single();
       if (error) throw error;
 
-      // Insert assignments for private events OR for tasks (tasks must always be assigned to staff)
-      if (ev && needsAssignments) {
+      if (ev) {
         const ids = form.allStaff ? staffList.map((s) => s.id) : form.assignedIds;
-        console.log("[CalendarPage] Created event:", ev.id, "type:", form.event_type, "assigning to:", ids);
         if (ids.length > 0) {
           const { error: assignErr } = await supabase.from("calendar_event_assignments").insert(
             ids.map((uid) => ({ event_id: ev.id, user_id: uid, submission_status: "not_started" }))
           );
-          if (assignErr) {
-            console.error("[CalendarPage] Failed to insert assignments:", assignErr);
-            throw assignErr;
-          }
-        } else {
-          console.warn("[CalendarPage] Task created with no assignees");
+          if (assignErr) throw assignErr;
         }
       }
 
-      toast({ title: "Event created successfully" });
-      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "event", visibility: "public", allStaff: true, assignedIds: [] });
+      toast({ title: "Task created successfully" });
+      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [] });
       setOpen(false);
       loadEvents();
     } catch {
-      toast({ title: "Error", description: "Failed to create event", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to create task", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
@@ -263,74 +266,55 @@ export default function CalendarPage() {
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="font-display">Create Event</DialogTitle>
+                <DialogTitle className="font-display">Create New Task</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-2">
                 <div>
                   <Label>Title</Label>
-                  <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Event title" />
+                  <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Task title" />
                 </div>
                 <div>
                   <Label>Description</Label>
-                  <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Details..." rows={3} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Start Date</Label>
-                    <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>End Date</Label>
-                    <Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
-                  </div>
+                  <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Task details and purpose..." rows={3} />
                 </div>
                 <div>
-                  <Label>Event Type</Label>
-                  <Select value={form.event_type} onValueChange={(v) => setForm({ ...form, event_type: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="event">📅 Event</SelectItem>
-                      <SelectItem value="holiday">🏖 Holiday</SelectItem>
-                      <SelectItem value="meeting">📋 Meeting</SelectItem>
-                      <SelectItem value="task">📝 Task</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Start Date</Label>
+                  <Input
+                    type="date"
+                    value={form.start_date}
+                    onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                  />
+                  {form.start_date && isHolidayDate(form.start_date) && (
+                    <p className="text-xs text-destructive mt-1">ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ</p>
+                  )}
                 </div>
-                <div>
-                  <Label>Visibility</Label>
-                  <Select value={form.visibility} onValueChange={(v) => setForm({ ...form, visibility: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="public">🌐 Public (all staff)</SelectItem>
-                      <SelectItem value="private">🔒 Private (assigned only)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {(form.visibility === "private" || form.event_type === "task") && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Switch checked={form.allStaff} onCheckedChange={(c) => setForm({ ...form, allStaff: c })} />
-                      <Label>Assign to all staff</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Switch checked={form.allStaff} onCheckedChange={(c) => setForm({ ...form, allStaff: c })} />
+                    <Label>Assign to all staff</Label>
+                  </div>
+                  {!form.allStaff && (
+                    <div className="border border-border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
+                      {staffList.length === 0 && <p className="text-sm text-muted-foreground">No staff found</p>}
+                      {staffList.map((s) => (
+                        <label key={s.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={form.assignedIds.includes(s.id)}
+                            onCheckedChange={() => toggleAssignee(s.id)}
+                          />
+                          {s.full_name || "Unnamed"}
+                        </label>
+                      ))}
                     </div>
-                    {!form.allStaff && (
-                      <div className="border border-border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
-                        {staffList.length === 0 && <p className="text-sm text-muted-foreground">No staff found</p>}
-                        {staffList.map((s) => (
-                          <label key={s.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                            <Checkbox
-                              checked={form.assignedIds.includes(s.id)}
-                              onCheckedChange={() => toggleAssignee(s.id)}
-                            />
-                            {s.full_name || "Unnamed"}
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                <Button onClick={handleCreate} disabled={submitting || !form.title || !form.start_date || !form.end_date} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90">
+                  )}
+                </div>
+                <Button
+                  onClick={handleCreate}
+                  disabled={submitting || !form.title || !form.start_date || isHolidayDate(form.start_date)}
+                  className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Create Event
+                  Create Task
                 </Button>
               </div>
             </DialogContent>
