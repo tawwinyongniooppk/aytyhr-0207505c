@@ -13,6 +13,13 @@ interface LedgerEntry {
   amount: number; // signed: positive credit, negative debit
 }
 
+const TYPE_META: Record<LedgerType, { label: string; icon: any; bg: string; fg: string; badge: string }> = {
+  salary: { label: "Salary", icon: Banknote, bg: "bg-secondary/10", fg: "text-secondary", badge: "bg-secondary/10 text-secondary" },
+  bonus: { label: "Bonus", icon: Gift, bg: "bg-accent/10", fg: "text-accent", badge: "bg-accent/10 text-accent" },
+  auto_deduction: { label: "Auto Deduction", icon: TrendingDown, bg: "bg-destructive/10", fg: "text-destructive", badge: "bg-destructive/10 text-destructive" },
+  manual_deduction: { label: "Manual Deduction", icon: Minus, bg: "bg-destructive/10", fg: "text-destructive", badge: "bg-destructive/15 text-destructive" },
+};
+
 interface SalaryData {
   base_salary: number;
   current_salary: number;
