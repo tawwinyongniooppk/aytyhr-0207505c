@@ -352,6 +352,8 @@ export default function Leave() {
           <ManageSection
             filterStatus={filterStatus} setFilterStatus={setFilterStatus}
             filterStaff={filterStaff} setFilterStaff={setFilterStaff}
+            filterFrom={filterFrom} setFilterFrom={setFilterFrom}
+            filterTo={filterTo} setFilterTo={setFilterTo}
             staffList={staffList}
             filteredRequests={filteredAdminRequests}
             statusBadge={statusBadge}
