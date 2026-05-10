@@ -25,11 +25,14 @@ export function DesktopSidebar() {
   const { signOut } = useAuth();
 
   const navItems = allNavItems.filter((item: any) => {
-    if (item.itManagerOnlyOverride || item.itManagerOnly) return isItManager;
+    if (item.itManagerOnly) return isItManager;
     if (isItManager) return false;
     if (item.personalSalary) return isAssistant || isStaff;
-    if (item.adminOnly && !isAdmin) return false;
-    if (item.adminOnly && item.excludeAssistant && isAssistant) return false;
+    if (item.adminOnly) {
+      if (!isAdmin) return false;
+      if (item.excludeAssistant && isAssistant) return false;
+      return true;
+    }
     if (item.staffOnly && isAdmin) return false;
     return true;
   });
