@@ -429,10 +429,17 @@ export default function Staff() {
             </div>
             {/* Only admin can see/edit salary */}
             {isAdminRole && (
-              <div>
-                <Label>Base Salary (kyats/month)</Label>
-                <Input type="number" value={form.base_salary} onChange={(e) => setForm({ ...form, base_salary: e.target.value })} />
-              </div>
+              <>
+                <div>
+                  <Label>Base Salary (kyats/month)</Label>
+                  <Input type="number" value={form.base_salary} onChange={(e) => setForm({ ...form, base_salary: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Salary Deduction Rate (kyats per minute)</Label>
+                  <Input type="number" value={form.deduction_rate_per_minute} onChange={(e) => setForm({ ...form, deduction_rate_per_minute: e.target.value })} />
+                  <p className="text-xs text-muted-foreground mt-1">Applied to this staff's late and early-leave minutes.</p>
+                </div>
+              </>
             )}
             <div>
               <Label>Phone</Label>
