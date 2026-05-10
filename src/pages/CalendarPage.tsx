@@ -73,7 +73,19 @@ export default function CalendarPage() {
     visibility: "public",
     allStaff: true,
     assignedIds: [] as string[],
+    frequency: "weekly" as "weekly" | "biweekly",
   });
+
+  function addDaysISO(dateStr: string, days: number) {
+    const d = new Date(dateStr + "T00:00:00");
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split("T")[0];
+  }
+
+  function computeDeadline(startDate: string, frequency: "weekly" | "biweekly") {
+    if (!startDate) return "";
+    return addDaysISO(startDate, frequency === "weekly" ? 6 : 13);
+  }
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -175,6 +187,33 @@ export default function CalendarPage() {
       toast({ title: "ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ", variant: "destructive" });
       return;
     }
+
+    const deadline = computeDeadline(form.start_date, form.frequency);
+    const monthlyCap = form.frequency === "weekly" ? 4 : 2;
+
+    // Quota: count tasks created by this user whose start_date falls in the same month.
+    const monthStart = form.start_date.slice(0, 7) + "-01";
+    const nextMonthStart = (() => {
+      const d = new Date(monthStart + "T00:00:00");
+      d.setMonth(d.getMonth() + 1);
+      return d.toISOString().split("T")[0];
+    })();
+    const existingThisMonth = events.filter(
+      (e) =>
+        e.event_type === "task" &&
+        e.created_by === user.id &&
+        e.start_date >= monthStart &&
+        e.start_date < nextMonthStart
+    ).length;
+    if (existingThisMonth >= monthlyCap) {
+      toast({
+        title: "Monthly task limit reached",
+        description: `You can assign at most ${monthlyCap} ${form.frequency === "weekly" ? "weekly" : "bi-weekly"} tasks per month.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
       const isAllStaff = form.allStaff;
@@ -185,7 +224,7 @@ export default function CalendarPage() {
           title: form.title,
           description: form.description,
           start_date: form.start_date,
-          end_date: form.start_date,
+          end_date: deadline,
           event_type: "task",
           visibility: "private",
           created_by: user.id,
@@ -206,7 +245,7 @@ export default function CalendarPage() {
       }
 
       toast({ title: "Task created successfully" });
-      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [] });
+      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [], frequency: "weekly" });
       setOpen(false);
       loadEvents();
     } catch {
@@ -286,6 +325,21 @@ export default function CalendarPage() {
                   />
                   {form.start_date && isHolidayDate(form.start_date) && (
                     <p className="text-xs text-destructive mt-1">ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ</p>
+                  )}
+                </div>
+                <div>
+                  <Label>Frequency</Label>
+                  <Select value={form.frequency} onValueChange={(v) => setForm({ ...form, frequency: v as "weekly" | "biweekly" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">1 Task per Week (max 4/month)</SelectItem>
+                      <SelectItem value="biweekly">1 Task per 2 Weeks (max 2/month)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {form.start_date && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Deadline: {computeDeadline(form.start_date, form.frequency)}
+                    </p>
                   )}
                 </div>
                 <div className="space-y-2">
