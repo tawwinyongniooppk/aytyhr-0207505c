@@ -238,7 +238,7 @@ export default function Staff() {
 
     toast({ title: "Saved", description: `Updated schedule for ${form.full_name || "staff member"}.` });
 
-    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", deduction_rate_per_minute: "200" });
+    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", emergency_phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", late_rate: "200", early_rate: "200", partial_rate: "200" });
     setSchedule(defaultSchedule());
     setEditId(null);
     setOpen(false);
