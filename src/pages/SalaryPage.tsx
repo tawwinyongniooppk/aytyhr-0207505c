@@ -66,7 +66,7 @@ export default function SalaryPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div><h1 className="text-2xl font-bold font-display">Salary</h1></div>
+        <div><h1 className="text-2xl font-bold font-display">My Salary & Bonus</h1></div>
         <p className="text-muted-foreground text-sm">Loading...</p>
       </div>
     );
@@ -75,7 +75,7 @@ export default function SalaryPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold font-display">Salary</h1>
+        <h1 className="text-2xl font-bold font-display">My Salary & Bonus</h1>
         <p className="text-muted-foreground text-sm mt-1">{currentMonth}</p>
       </div>
 
