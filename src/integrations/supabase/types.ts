@@ -420,6 +420,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      can_manage_branding: { Args: never; Returns: boolean }
       get_leave_balance: { Args: { p_user_id: string }; Returns: number }
       get_profile_full: {
         Args: { p_id: string }
