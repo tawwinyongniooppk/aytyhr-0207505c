@@ -432,38 +432,63 @@ export default function Staff() {
             <DialogTitle className="font-display">Edit Staff</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            <div>
-              <Label>Full Name</Label>
-              <Input value={form.full_name} disabled readOnly />
-              <p className="text-xs text-muted-foreground mt-1">Only the IT Manager can change the staff name.</p>
+            {/* Block: Identity (read-only) */}
+            <div className="rounded-lg border border-border p-3 space-y-3 bg-muted/30">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Identity</p>
+              <div>
+                <Label>Full Name</Label>
+                <Input value={form.full_name} disabled readOnly />
+                <p className="text-xs text-muted-foreground mt-1">Only the IT Manager can change the staff name.</p>
+              </div>
+              <div>
+                <Label>Role</Label>
+                <Input value={form.role.replace("_", " ")} disabled className="capitalize" />
+                <p className="text-xs text-muted-foreground mt-1">Only the IT Manager can change roles.</p>
+              </div>
             </div>
-            <div>
-              <Label>Role</Label>
-              <Input value={form.role.replace("_", " ")} disabled className="capitalize" />
-              <p className="text-xs text-muted-foreground mt-1">Only the IT Manager can change roles.</p>
+
+            {/* Block: Contact */}
+            <div className="rounded-lg border border-border p-3 space-y-3">
+              <p className="text-xs font-semibold text-primary uppercase tracking-wide">Contact</p>
+              <div>
+                <Label>Phone</Label>
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Primary phone" />
+              </div>
+              <div>
+                <Label>Emergency Phone</Label>
+                <Input value={form.emergency_phone} onChange={(e) => setForm({ ...form, emergency_phone: e.target.value })} placeholder="Emergency contact number" />
+              </div>
+              <div>
+                <Label>Join Date</Label>
+                <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
+              </div>
             </div>
-            {/* Only admin can see/edit salary */}
+
+            {/* Block: Salary Settings (Admin only) */}
             {isAdminRole && (
-              <>
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide">Salary Settings (Admin only)</p>
                 <div>
                   <Label>Base Salary (kyats/month)</Label>
                   <Input type="number" value={form.base_salary} onChange={(e) => setForm({ ...form, base_salary: e.target.value })} />
                 </div>
-                <div>
-                  <Label>Salary Deduction Rate (kyats per minute)</Label>
-                  <Input type="number" value={form.deduction_rate_per_minute} onChange={(e) => setForm({ ...form, deduction_rate_per_minute: e.target.value })} />
-                  <p className="text-xs text-muted-foreground mt-1">Applied to this staff's late and early-leave minutes.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div>
+                    <Label className="text-xs">Late entry / min</Label>
+                    <Input type="number" value={form.late_rate} onChange={(e) => setForm({ ...form, late_rate: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Early back / min</Label>
+                    <Input type="number" value={form.early_rate} onChange={(e) => setForm({ ...form, early_rate: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Partial leave / min</Label>
+                    <Input type="number" value={form.partial_rate} onChange={(e) => setForm({ ...form, partial_rate: e.target.value })} />
+                  </div>
                 </div>
-              </>
+                <p className="text-xs text-muted-foreground">Stored per staff member (not in global Settings).</p>
+              </div>
             )}
-            <div>
-              <Label>Phone</Label>
-              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            </div>
-            <div>
-              <Label>Join Date</Label>
-              <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
-            </div>
             <div className="space-y-2 border-t border-border pt-3">
               <Label>Weekly Schedule</Label>
               <p className="text-xs text-muted-foreground">Toggle each day on/off and set check-in / check-out times.</p>
