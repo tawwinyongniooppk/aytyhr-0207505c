@@ -829,3 +829,25 @@ function ManageSection({
     </>
   );
 }
+
+function SectionBlock({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-2">
+      <div className="flex items-baseline gap-2 flex-wrap">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-primary">
+          {label}
+        </h2>
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </div>
+      <div>{children}</div>
+    </section>
+  );
+}
