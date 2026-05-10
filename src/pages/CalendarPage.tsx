@@ -63,6 +63,7 @@ export default function CalendarPage() {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [filterType, setFilterType] = useState("all");
+  const [assignmentLoad, setAssignmentLoad] = useState<Record<string, { weekly: number; biweekly: number; weighted: number }>>({});
 
   const [form, setForm] = useState({
     title: "",
