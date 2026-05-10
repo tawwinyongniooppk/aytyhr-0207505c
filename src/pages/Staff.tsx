@@ -550,21 +550,12 @@ export default function Staff() {
             </div>
 
             {isAdminRole && (
-              <div className="space-y-3 border-t border-border pt-3">
-                <p className="text-xs font-semibold text-primary">Financial Adjustments (this month)</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Bonus (kyats)</Label>
-                    <Input type="number" value={form.bonus} onChange={(e) => setForm({ ...form, bonus: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Manual Deduction</Label>
-                    <Input type="number" value={form.manual_deduction} onChange={(e) => setForm({ ...form, manual_deduction: e.target.value })} />
-                  </div>
-                </div>
+              <div className="rounded-lg border border-border p-3 space-y-3">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide">Financial Adjustments (this month)</p>
                 <div>
-                  <Label>Deduction Reason</Label>
-                  <Input value={form.deduction_reason} onChange={(e) => setForm({ ...form, deduction_reason: e.target.value })} placeholder="e.g. Equipment damage" />
+                  <Label>Bonus (kyats)</Label>
+                  <Input type="number" value={form.bonus} onChange={(e) => setForm({ ...form, bonus: e.target.value })} />
+                  <p className="text-xs text-muted-foreground mt-1">Reserved for task / calendar bonus logic. Not linked to minute-based deductions.</p>
                 </div>
               </div>
             )}
@@ -585,14 +576,10 @@ export default function Staff() {
                     <span className="text-muted-foreground">- Auto Deductions</span>
                     <span className="text-destructive">-{(salaryMap[editId]?.total_deductions ?? 0).toLocaleString()} kyats</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">- Manual Deduction</span>
-                    <span className="text-destructive">-{(Number(form.manual_deduction) || 0).toLocaleString()} kyats</span>
-                  </div>
                   <div className="flex justify-between text-sm font-bold pt-1 border-t border-border">
                     <span>Final Salary</span>
                     <span className="text-primary">
-                      {Math.max(0, Number(form.base_salary) + (Number(form.bonus) || 0) - (salaryMap[editId]?.total_deductions ?? 0) - (Number(form.manual_deduction) || 0)).toLocaleString()} kyats
+                      {Math.max(0, Number(form.base_salary) + (Number(form.bonus) || 0) - (salaryMap[editId]?.total_deductions ?? 0)).toLocaleString()} kyats
                     </span>
                   </div>
                 </CardContent>
