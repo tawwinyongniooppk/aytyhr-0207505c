@@ -174,6 +174,55 @@ export default function CalendarPage() {
     } catch { /* ignore */ }
   }
 
+  // Per-assignee monthly load: weekly=1 weighted unit, biweekly=2; cap = 4 weighted units / month / person.
+  const MONTHLY_WEIGHT_CAP = 4;
+  function monthBoundsFor(dateStr: string) {
+    const monthStart = (dateStr || new Date().toISOString().split("T")[0]).slice(0, 7) + "-01";
+    const d = new Date(monthStart + "T00:00:00");
+    d.setMonth(d.getMonth() + 1);
+    return { monthStart, nextMonthStart: d.toISOString().split("T")[0] };
+  }
+
+  async function loadAssignmentLoad(dateStr: string) {
+    try {
+      const { monthStart, nextMonthStart } = monthBoundsFor(dateStr);
+      const { data: taskEvents } = await supabase
+        .from("calendar_events")
+        .select("id, start_date, end_date")
+        .eq("event_type", "task")
+        .gte("start_date", monthStart)
+        .lt("start_date", nextMonthStart);
+      const evList = (taskEvents as { id: string; start_date: string; end_date: string }[]) || [];
+      if (evList.length === 0) { setAssignmentLoad({}); return; }
+      const evMap = new Map(evList.map((e) => [e.id, e]));
+      const { data: ass } = await supabase
+        .from("calendar_event_assignments")
+        .select("user_id, event_id")
+        .in("event_id", evList.map((e) => e.id));
+      const load: Record<string, { weekly: number; biweekly: number; weighted: number }> = {};
+      for (const a of (ass as { user_id: string; event_id: string }[]) || []) {
+        const ev = evMap.get(a.event_id);
+        if (!ev) continue;
+        const days = Math.round(
+          (new Date(ev.end_date + "T00:00:00").getTime() - new Date(ev.start_date + "T00:00:00").getTime()) / 86400000
+        );
+        const isBiweekly = days >= 13;
+        const entry = load[a.user_id] || { weekly: 0, biweekly: 0, weighted: 0 };
+        if (isBiweekly) { entry.biweekly += 1; entry.weighted += 2; }
+        else { entry.weekly += 1; entry.weighted += 1; }
+        load[a.user_id] = entry;
+      }
+      setAssignmentLoad(load);
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => {
+    if (isStaff) return;
+    if (!open) return;
+    loadAssignmentLoad(form.start_date || new Date().toISOString().split("T")[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, form.start_date, isStaff]);
+
 
   function isHolidayDate(dateStr: string) {
     if (!dateStr) return false;
