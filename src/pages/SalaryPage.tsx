@@ -1,8 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wallet, TrendingDown, DollarSign } from "lucide-react";
+import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+
+type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction";
+interface LedgerEntry {
+  id: string;
+  date: string; // ISO
+  type: LedgerType;
+  description: string;
+  amount: number; // signed: positive credit, negative debit
+}
 
 interface SalaryData {
   base_salary: number;
