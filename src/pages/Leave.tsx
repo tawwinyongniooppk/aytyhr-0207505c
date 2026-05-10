@@ -419,7 +419,33 @@ export default function Leave() {
                 </div>
               </div>
               {selectedRequest.status === "pending" && (
-                <div className="flex flex-col gap-2 pt-2">
+                <div className="flex flex-col gap-3 pt-2">
+                  {overLimitForUnpaid && (
+                    <div className="rounded-md border border-warning/40 bg-warning/10 p-3 space-y-3">
+                      <p className="text-xs text-warning whitespace-pre-line leading-relaxed">
+                        {OVER_LIMIT_MSG}
+                      </p>
+                      <div className="space-y-2">
+                        <div>
+                          <Label className="text-xs">Description</Label>
+                          <Input
+                            value={unpaidDesc}
+                            onChange={(e) => setUnpaidDesc(e.target.value)}
+                            placeholder="Reason for salary deduction"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Amount (MMK)</Label>
+                          <Input
+                            type="number" min={1} step={1}
+                            value={unpaidAmount}
+                            onChange={(e) => setUnpaidAmount(e.target.value)}
+                            placeholder="e.g. 10000"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button
                       onClick={() => handleReview(selectedRequest.id, "approved", "paid")}
@@ -434,7 +460,10 @@ export default function Leave() {
                     </Button>
                     <Button
                       onClick={() => handleReview(selectedRequest.id, "approved", "unpaid")}
-                      disabled={reviewingId === selectedRequest.id}
+                      disabled={
+                        reviewingId === selectedRequest.id ||
+                        (overLimitForUnpaid && (!unpaidDesc.trim() || !(Number(unpaidAmount) > 0)))
+                      }
                       variant="outline"
                       className="flex-1 border-accent text-accent hover:bg-accent/10 active:scale-[0.98] transition-transform"
                     >
