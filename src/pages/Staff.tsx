@@ -110,8 +110,11 @@ export default function Staff() {
     ]);
 
     if (profilesRes.data) {
-      // Hide IT Manager from admin/assistant staff list
-      const filtered = (profilesRes.data as unknown as StaffProfile[]).filter(p => p.role !== "it_manager");
+      // Hide IT Manager and Admin from staff list — admins manage themselves only via the Leave section,
+      // not as a manageable staff card. Also exclude the currently signed-in user so no one self-manages here.
+      const filtered = (profilesRes.data as unknown as StaffProfile[]).filter(
+        p => p.role !== "it_manager" && p.role !== "admin" && p.id !== user?.id
+      );
       setStaff(filtered);
     }
 
