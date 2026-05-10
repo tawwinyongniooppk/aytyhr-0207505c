@@ -258,7 +258,7 @@ export default function CalendarPage() {
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
-                <Plus className="h-4 w-4 mr-2" /> Add New
+                <Plus className="h-4 w-4 mr-2" /> Add New Task
               </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -338,17 +338,6 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {/* Filter bar (admin/assistant) */}
-      {!isStaff && (
-        <div className="flex gap-2 flex-wrap">
-          {["all", "event", "holiday", "meeting", "task"].map((t) => (
-            <Button key={t} size="sm" variant={filterType === t ? "default" : "outline"} onClick={() => setFilterType(t)}
-              className={filterType === t ? "bg-secondary text-secondary-foreground" : ""}>
-              {t === "all" ? "All" : t.charAt(0).toUpperCase() + t.slice(1)}
-            </Button>
-          ))}
-        </div>
-      )}
 
       {/* Monthly Calendar Grid */}
       <Card className="border border-border shadow-none">
