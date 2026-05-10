@@ -78,6 +78,7 @@ const App = () => (
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/salary" element={<SalaryPage />} />
+                  <Route path="/salaries-bonuses" element={<SalariesAndBonuses />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/manage-accounts" element={<ManageAccounts />} />
                 </Route>
