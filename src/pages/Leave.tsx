@@ -58,9 +58,34 @@ export default function Leave() {
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [filterStaff, setFilterStaff] = useState("all");
   const [staffList, setStaffList] = useState<{ id: string; full_name: string }[]>([]);
+  const [unpaidDesc, setUnpaidDesc] = useState("");
+  const [unpaidAmount, setUnpaidAmount] = useState("");
 
   const canManage = isAdmin || isAssistant;
   const canSubmitLeave = isStaff || isAssistant;
+
+  useEffect(() => {
+    if (!selectedRequest) { setUnpaidDesc(""); setUnpaidAmount(""); }
+  }, [selectedRequest]);
+
+  // Count this user's already-approved Full Leaves in the same month as the selected request
+  const overLimitForUnpaid = (() => {
+    if (!selectedRequest || selectedRequest.type !== "leave") return false;
+    const d = new Date(selectedRequest.date + "T00:00:00");
+    const y = d.getFullYear(), m = d.getMonth();
+    const source = canManage ? allRequests : myRequests;
+    const count = source.filter((r) =>
+      r.user_id === selectedRequest.user_id &&
+      r.type === "leave" &&
+      r.status === "approved" &&
+      r.id !== selectedRequest.id &&
+      (() => { const x = new Date(r.date + "T00:00:00"); return x.getFullYear() === y && x.getMonth() === m; })()
+    ).length;
+    return count >= 2;
+  })();
+
+  const OVER_LIMIT_MSG =
+    "အခု Full Leave တင်သော သူသည် တလ အတွင်းမှာ (2)ရက် ကျော်ပါတော့မည်\nSystem က တလကို (2)ရက်ထက် ပိုပြီး ခွင့်မပြုထားပါ\nသင့်အနေဖြင့် Approve ပေးချင်ပါက ယခု ခွင့်တောင်းခံသော သူကို လစာ ဖြတ်ပြီးမှ Approve ပေးခွင့်ပြုမည်";
 
   useEffect(() => {
     if (!user) return;
@@ -195,18 +220,55 @@ export default function Leave() {
 
       if (error) {
         toast({ title: "Review failed", description: error.message, variant: "destructive" });
-      } else {
-        toast({
-          title:
-            decision === "approved"
-              ? paymentType === "unpaid"
-                ? "Leave approved as Unpaid ✓"
-                : "Leave approved as Paid ✓"
-              : "Leave request rejected",
-        });
-        setSelectedRequest(null);
-        loadData();
+        return;
       }
+
+      // Apply additional manual salary deduction when approving an over-limit Full Leave as Unpaid
+      if (decision === "approved" && paymentType === "unpaid" && overLimitForUnpaid && selectedRequest) {
+        const amount = Number(unpaidAmount);
+        const desc = unpaidDesc.trim();
+        if (!desc || !Number.isFinite(amount) || amount <= 0) {
+          toast({ title: "Manual deduction required", description: "Description and amount are required.", variant: "destructive" });
+          return;
+        }
+        const d = new Date(selectedRequest.date + "T00:00:00");
+        const monthStart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+        const { data: existing } = await supabase
+          .from("salaries").select("*")
+          .eq("user_id", selectedRequest.user_id).eq("month", monthStart).maybeSingle();
+        if (!existing) {
+          const { data: prof } = await supabase.from("profiles")
+            .select("base_salary").eq("id", selectedRequest.user_id).maybeSingle();
+          const base = (prof as any)?.base_salary ?? 300000;
+          const { error: insErr } = await supabase.from("salaries").insert({
+            user_id: selectedRequest.user_id, month: monthStart, base_salary: base,
+            current_salary: Math.max(0, base - amount), total_deductions: amount,
+            manual_deduction: amount, deduction_reason: desc,
+          });
+          if (insErr) toast({ title: "Salary deduction failed", description: insErr.message, variant: "destructive" });
+        } else {
+          const e: any = existing;
+          const { error: updErr } = await supabase.from("salaries").update({
+            current_salary: Math.max(0, (e.current_salary ?? 0) - amount),
+            total_deductions: (e.total_deductions ?? 0) + amount,
+            manual_deduction: (e.manual_deduction ?? 0) + amount,
+            deduction_reason: e.deduction_reason ? `${e.deduction_reason}; ${desc}` : desc,
+            last_updated: new Date().toISOString(),
+          }).eq("user_id", selectedRequest.user_id).eq("month", monthStart);
+          if (updErr) toast({ title: "Salary deduction failed", description: updErr.message, variant: "destructive" });
+        }
+      }
+
+      toast({
+        title:
+          decision === "approved"
+            ? paymentType === "unpaid"
+              ? "Leave approved as Unpaid ✓"
+              : "Leave approved as Paid ✓"
+            : "Leave request rejected",
+      });
+      setSelectedRequest(null);
+      loadData();
     } finally {
       setReviewingId(null);
     }
@@ -357,7 +419,33 @@ export default function Leave() {
                 </div>
               </div>
               {selectedRequest.status === "pending" && (
-                <div className="flex flex-col gap-2 pt-2">
+                <div className="flex flex-col gap-3 pt-2">
+                  {overLimitForUnpaid && (
+                    <div className="rounded-md border border-warning/40 bg-warning/10 p-3 space-y-3">
+                      <p className="text-xs text-warning whitespace-pre-line leading-relaxed">
+                        {OVER_LIMIT_MSG}
+                      </p>
+                      <div className="space-y-2">
+                        <div>
+                          <Label className="text-xs">Description</Label>
+                          <Input
+                            value={unpaidDesc}
+                            onChange={(e) => setUnpaidDesc(e.target.value)}
+                            placeholder="Reason for salary deduction"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Amount (MMK)</Label>
+                          <Input
+                            type="number" min={1} step={1}
+                            value={unpaidAmount}
+                            onChange={(e) => setUnpaidAmount(e.target.value)}
+                            placeholder="e.g. 10000"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button
                       onClick={() => handleReview(selectedRequest.id, "approved", "paid")}
@@ -372,7 +460,10 @@ export default function Leave() {
                     </Button>
                     <Button
                       onClick={() => handleReview(selectedRequest.id, "approved", "unpaid")}
-                      disabled={reviewingId === selectedRequest.id}
+                      disabled={
+                        reviewingId === selectedRequest.id ||
+                        (overLimitForUnpaid && (!unpaidDesc.trim() || !(Number(unpaidAmount) > 0)))
+                      }
                       variant="outline"
                       className="flex-1 border-accent text-accent hover:bg-accent/10 active:scale-[0.98] transition-transform"
                     >
