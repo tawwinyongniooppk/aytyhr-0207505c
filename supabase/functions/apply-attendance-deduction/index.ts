@@ -62,10 +62,11 @@ Deno.serve(async (req) => {
       .select("value").eq("key", "deduction_rate_per_minute").maybeSingle();
     const rate = Number(rateRow?.value ?? 200) || 0;
 
-    // Approved leave / late excuse for today
+    // Approved leave / late excuse for today — only "paid" approvals excuse the deduction
     const { data: approved } = await admin.from("leave_requests")
-      .select("type").eq("user_id", user.id).eq("date", today).eq("status", "approved");
-    const types = (approved ?? []).map((r: any) => r.type);
+      .select("type, payment_type").eq("user_id", user.id).eq("date", today).eq("status", "approved");
+    const paid = (approved ?? []).filter((r: any) => (r.payment_type ?? "paid") === "paid");
+    const types = paid.map((r: any) => r.type);
     const hasLeave = types.includes("leave");
     const hasLateExcuse = types.includes("late_excuse");
 
