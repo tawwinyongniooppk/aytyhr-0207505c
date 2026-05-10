@@ -10,26 +10,27 @@ const allNavItems = [
   { to: "/leave", icon: FileText, label: "Leave", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
   { to: "/calendar", icon: CalendarDays, label: "Calendar", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
   { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/salaries-bonuses", icon: Coins, label: "Salaries & Bonuses", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/settings", icon: Settings, label: "Settings", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/salaries-bonuses", icon: Coins, label: "Salaries & Bonuses", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: true, personalSalary: false },
+  { to: "/settings", icon: Settings, label: "Settings", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
   // Staff-only entries
-  { to: "/attendance", icon: Clock, label: "Attendance", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, staffOnly: true, requireSalaryAccess: true, itManagerOnly: false },
-  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/manage-accounts", icon: UserPlus, label: "Accounts", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true },
+  { to: "/attendance", icon: Clock, label: "Attendance", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
+  { to: "/salary", icon: Wallet, label: "My Salary & Bonus", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: true },
+  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
+  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
+  { to: "/manage-accounts", icon: UserPlus, label: "Accounts", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false, itManagerOnlyOverride: true },
 ];
 
 export function DesktopSidebar() {
-  const { profile, isAdmin, canViewSalary, isItManager } = useProfile();
+  const { profile, isAdmin, isAssistant, isStaff, isItManager } = useProfile();
   const { signOut } = useAuth();
 
-  const navItems = allNavItems.filter((item) => {
-    if (item.itManagerOnly && !isItManager) return false;
-    if (!item.itManagerOnly && isItManager) return false;
+  const navItems = allNavItems.filter((item: any) => {
+    if (item.itManagerOnlyOverride || item.itManagerOnly) return isItManager;
+    if (isItManager) return false;
+    if (item.personalSalary) return isAssistant || isStaff;
     if (item.adminOnly && !isAdmin) return false;
+    if (item.adminOnly && item.excludeAssistant && isAssistant) return false;
     if (item.staffOnly && isAdmin) return false;
-    if (item.requireSalaryAccess && !canViewSalary) return false;
     return true;
   });
 
