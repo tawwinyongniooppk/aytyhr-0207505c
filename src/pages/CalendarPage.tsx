@@ -73,7 +73,19 @@ export default function CalendarPage() {
     visibility: "public",
     allStaff: true,
     assignedIds: [] as string[],
+    frequency: "weekly" as "weekly" | "biweekly",
   });
+
+  function addDaysISO(dateStr: string, days: number) {
+    const d = new Date(dateStr + "T00:00:00");
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split("T")[0];
+  }
+
+  function computeDeadline(startDate: string, frequency: "weekly" | "biweekly") {
+    if (!startDate) return "";
+    return addDaysISO(startDate, frequency === "weekly" ? 6 : 13);
+  }
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
