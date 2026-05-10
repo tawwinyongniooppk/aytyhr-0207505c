@@ -395,7 +395,7 @@ export default function Leave() {
 function SubmitForm({
   date, setDate, reason, setReason, type, setType,
   startTime, setStartTime, endTime, setEndTime,
-  onSubmit, submitting,
+  onSubmit, submitting, existingRequests,
 }: {
   date: string; setDate: (v: string) => void;
   reason: string; setReason: (v: string) => void;
@@ -404,10 +404,39 @@ function SubmitForm({
   endTime: string; setEndTime: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   submitting: boolean;
+  existingRequests: LeaveRequest[];
 }) {
   const dayName = date ? new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" }) : "";
   const isPartial = type === "partial_leave";
-  const isValid = date && reason && (!isPartial || (startTime && endTime && startTime < endTime));
+
+  const DUPLICATE_MSG = "သင်၏ ခွင့်ချိန် ခွင့်ရက်များကို (2)ကြိမ်မြောက် တူညီစွာ ယူလို့ မရပါ။";
+
+  // Duplicate detection (ignore rejected requests)
+  const activeOnDate = date
+    ? existingRequests.filter((r) => r.date === date && r.status !== "rejected")
+    : [];
+
+  const fullLeaveDuplicate =
+    type === "leave" && activeOnDate.some((r) => r.type === "leave");
+
+  const partialOverlap =
+    isPartial && startTime && endTime && startTime < endTime
+      ? activeOnDate.some(
+          (r) =>
+            r.type === "partial_leave" &&
+            r.start_time &&
+            r.end_time &&
+            // overlap if start < other.end and end > other.start
+            startTime < r.end_time.slice(0, 5) &&
+            endTime > r.start_time.slice(0, 5),
+        )
+      : false;
+
+  const hasDuplicate = fullLeaveDuplicate || partialOverlap;
+
+  const isValid =
+    date && reason && (!isPartial || (startTime && endTime && startTime < endTime)) && !hasDuplicate;
+
   return (
     <Card className="border border-border shadow-none">
       <CardHeader>
@@ -441,6 +470,9 @@ function SubmitForm({
             <Label>Date</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             {dayName && <p className="text-xs text-muted-foreground mt-1">{dayName}</p>}
+            {fullLeaveDuplicate && (
+              <p className="text-xs text-destructive mt-1.5 font-medium">{DUPLICATE_MSG}</p>
+            )}
           </div>
           {isPartial && (
             <div className="grid grid-cols-2 gap-3">
@@ -452,6 +484,9 @@ function SubmitForm({
                 <Label>End time</Label>
                 <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
               </div>
+              {partialOverlap && (
+                <p className="col-span-2 text-xs text-destructive font-medium">{DUPLICATE_MSG}</p>
+              )}
             </div>
           )}
           <div>
