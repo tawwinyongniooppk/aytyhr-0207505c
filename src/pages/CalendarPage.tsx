@@ -307,6 +307,8 @@ export default function CalendarPage() {
       });
       return;
     }
+
+    setSubmitting(true);
     try {
       const isAllStaff = form.allStaff;
 
