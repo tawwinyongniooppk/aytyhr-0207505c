@@ -57,10 +57,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get rate
-    const { data: rateRow } = await admin.from("app_settings")
-      .select("value").eq("key", "deduction_rate_per_minute").maybeSingle();
-    const rate = Number(rateRow?.value ?? 200) || 0;
+    // Get per-staff rate (falls back to global app_settings, then 200)
+    const { data: profileRate } = await admin.from("profiles")
+      .select("deduction_rate_per_minute").eq("id", user.id).maybeSingle();
+    let rate = Number((profileRate as any)?.deduction_rate_per_minute);
+    if (!rate || Number.isNaN(rate)) {
+      const { data: rateRow } = await admin.from("app_settings")
+        .select("value").eq("key", "deduction_rate_per_minute").maybeSingle();
+      rate = Number(rateRow?.value ?? 200) || 0;
+    }
 
     // Approved leave / late excuse for today — only "paid" approvals excuse the deduction
     const { data: approved } = await admin.from("leave_requests")

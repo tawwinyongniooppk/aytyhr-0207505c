@@ -266,6 +266,7 @@ export type Database = {
           check_in_time: string
           check_out_time: string
           created_at: string
+          deduction_rate_per_minute: number
           full_name: string
           id: string
           join_date: string | null
@@ -281,6 +282,7 @@ export type Database = {
           check_in_time?: string
           check_out_time?: string
           created_at?: string
+          deduction_rate_per_minute?: number
           full_name?: string
           id: string
           join_date?: string | null
@@ -296,6 +298,7 @@ export type Database = {
           check_in_time?: string
           check_out_time?: string
           created_at?: string
+          deduction_rate_per_minute?: number
           full_name?: string
           id?: string
           join_date?: string | null
@@ -404,6 +407,7 @@ export type Database = {
           check_in_time: string
           check_out_time: string
           created_at: string
+          deduction_rate_per_minute: number
           full_name: string
           id: string
           join_date: string | null
@@ -430,6 +434,7 @@ export type Database = {
           check_in_time: string
           check_out_time: string
           created_at: string
+          deduction_rate_per_minute: number
           full_name: string
           id: string
           join_date: string | null

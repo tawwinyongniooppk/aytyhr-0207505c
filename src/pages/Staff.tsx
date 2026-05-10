@@ -32,6 +32,7 @@ interface StaffProfile {
   work_schedule?: WeekSchedule | null;
   avatar_url?: string | null;
   sequence?: number;
+  deduction_rate_per_minute?: number;
 }
 
 const WORK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -81,12 +82,11 @@ export default function Staff() {
   const { toast } = useToast();
   const [staff, setStaff] = useState<StaffProfile[]>([]);
   const [salaryMap, setSalaryMap] = useState<Record<string, SalaryRecord>>({});
-  const [deductionRate, setDeductionRate] = useState(200);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "" });
+  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", deduction_rate_per_minute: "200" });
   const [schedule, setSchedule] = useState<WeekSchedule>(defaultSchedule());
   const [addForm, setAddForm] = useState({ full_name: "", email: "", password: "", role: "staff", base_salary: "300000", phone: "" });
   const [addLoading, setAddLoading] = useState(false);
@@ -103,15 +103,12 @@ export default function Staff() {
     setLoading(true);
     const monthStart = getMonthStart();
 
-    const [profilesRes, salariesRes, settRes] = await Promise.all([
+    const [profilesRes, salariesRes] = await Promise.all([
       supabase.rpc("admin_list_profiles"),
       supabase.from("salaries").select("*").eq("month", monthStart),
-      supabase.from("app_settings").select("*").eq("key", "deduction_rate_per_minute").maybeSingle(),
     ]);
 
     if (profilesRes.data) {
-      // Hide IT Manager and Admin from staff list — admins manage themselves only via the Leave section,
-      // not as a manageable staff card. Also exclude the currently signed-in user so no one self-manages here.
       const filtered = (profilesRes.data as unknown as StaffProfile[]).filter(
         p => p.role !== "it_manager" && p.role !== "admin" && p.id !== user?.id
       );
@@ -126,7 +123,6 @@ export default function Staff() {
       setSalaryMap(map);
     }
 
-    if (settRes.data) setDeductionRate(Number((settRes.data as any).value) || 200);
     setLoading(false);
   };
 
@@ -151,6 +147,7 @@ export default function Staff() {
     // Only admin can update salary
     if (isAdminRole) {
       updateData.base_salary = Number(form.base_salary) || 300000;
+      updateData.deduction_rate_per_minute = Math.max(0, Number(form.deduction_rate_per_minute) || 0);
     }
 
     // Update the specific staff member's profile and verify the row was changed
@@ -229,7 +226,7 @@ export default function Staff() {
 
     toast({ title: "Saved", description: `Updated schedule for ${form.full_name || "staff member"}.` });
 
-    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "" });
+    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", deduction_rate_per_minute: "200" });
     setSchedule(defaultSchedule());
     setEditId(null);
     setOpen(false);
@@ -286,6 +283,7 @@ export default function Staff() {
       bonus: String(sal?.bonus ?? 0),
       manual_deduction: String(sal?.manual_deduction ?? 0),
       deduction_reason: sal?.deduction_reason ?? "",
+      deduction_rate_per_minute: String(member.deduction_rate_per_minute ?? 200),
     });
     setSchedule(normalizeSchedule(member.work_schedule));
     setOpen(true);
@@ -413,7 +411,7 @@ export default function Staff() {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "" }); setSchedule(defaultSchedule()); } }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", deduction_rate_per_minute: "200" }); setSchedule(defaultSchedule()); } }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">Edit Staff</DialogTitle>
@@ -431,10 +429,17 @@ export default function Staff() {
             </div>
             {/* Only admin can see/edit salary */}
             {isAdminRole && (
-              <div>
-                <Label>Base Salary (kyats/month)</Label>
-                <Input type="number" value={form.base_salary} onChange={(e) => setForm({ ...form, base_salary: e.target.value })} />
-              </div>
+              <>
+                <div>
+                  <Label>Base Salary (kyats/month)</Label>
+                  <Input type="number" value={form.base_salary} onChange={(e) => setForm({ ...form, base_salary: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Salary Deduction Rate (kyats per minute)</Label>
+                  <Input type="number" value={form.deduction_rate_per_minute} onChange={(e) => setForm({ ...form, deduction_rate_per_minute: e.target.value })} />
+                  <p className="text-xs text-muted-foreground mt-1">Applied to this staff's late and early-leave minutes.</p>
+                </div>
+              </>
             )}
             <div>
               <Label>Phone</Label>
