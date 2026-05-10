@@ -4,32 +4,36 @@ import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 
-const allNavItems = [
+const allNavItems: any[] = [
   // Admin order: Dashboard, Staff, Leave, Calendar, Tasks, Salaries & Bonuses
-  { to: "/dashboard", icon: LayoutDashboard, label: "Home", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/staff", icon: Users, label: "Staff", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/leave", icon: FileText, label: "Leave", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/calendar", icon: CalendarDays, label: "Cal", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/salaries-bonuses", icon: Coins, label: "Salary", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Home", adminOnly: true },
+  { to: "/staff", icon: Users, label: "Staff", adminOnly: true },
+  { to: "/leave", icon: FileText, label: "Leave", adminOnly: true },
+  { to: "/calendar", icon: CalendarDays, label: "Cal", adminOnly: true },
+  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: true },
+  { to: "/salaries-bonuses", icon: Coins, label: "Salary", adminOnly: true, excludeAssistant: true },
   // Staff
-  { to: "/attendance", icon: Clock, label: "Attend", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, staffOnly: true, requireSalaryAccess: true, itManagerOnly: false },
-  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/manage-accounts", icon: UserPlus, label: "Accounts", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true },
+  { to: "/attendance", icon: Clock, label: "Attend", staffOnly: true },
+  { to: "/salary", icon: Wallet, label: "My Salary", personalSalary: true },
+  { to: "/leave", icon: FileText, label: "Leave", staffOnly: true },
+  { to: "/tasks", icon: ClipboardList, label: "Tasks", staffOnly: true },
+  { to: "/manage-accounts", icon: UserPlus, label: "Accounts", itManagerOnly: true },
 ];
 
 export function BottomNav() {
-  const { isAdmin, canViewSalary, isItManager } = useProfile();
+  const { isAdmin, isAssistant, isStaff, isItManager } = useProfile();
   const { signOut } = useAuth();
 
   const navItems = allNavItems.filter((item) => {
-    if (item.itManagerOnly && !isItManager) return false;
-    if (!item.itManagerOnly && isItManager) return false;
-    if (item.adminOnly && !isAdmin) return false;
+    if (item.itManagerOnly) return isItManager;
+    if (isItManager) return false;
+    if (item.personalSalary) return isAssistant || isStaff;
+    if (item.adminOnly) {
+      if (!isAdmin) return false;
+      if (item.excludeAssistant && isAssistant) return false;
+      return true;
+    }
     if (item.staffOnly && isAdmin) return false;
-    if (item.requireSalaryAccess && !canViewSalary) return false;
     return true;
   });
 
