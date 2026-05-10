@@ -58,6 +58,31 @@ export default function Leave() {
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [filterStaff, setFilterStaff] = useState("all");
   const [staffList, setStaffList] = useState<{ id: string; full_name: string }[]>([]);
+  const [unpaidDesc, setUnpaidDesc] = useState("");
+  const [unpaidAmount, setUnpaidAmount] = useState("");
+
+  useEffect(() => {
+    if (!selectedRequest) { setUnpaidDesc(""); setUnpaidAmount(""); }
+  }, [selectedRequest]);
+
+  // Count this user's already-approved Full Leaves in the same month as the selected request
+  const overLimitForUnpaid = (() => {
+    if (!selectedRequest || selectedRequest.type !== "leave") return false;
+    const d = new Date(selectedRequest.date + "T00:00:00");
+    const y = d.getFullYear(), m = d.getMonth();
+    const source = canManage ? allRequests : myRequests;
+    const count = source.filter((r) =>
+      r.user_id === selectedRequest.user_id &&
+      r.type === "leave" &&
+      r.status === "approved" &&
+      r.id !== selectedRequest.id &&
+      (() => { const x = new Date(r.date + "T00:00:00"); return x.getFullYear() === y && x.getMonth() === m; })()
+    ).length;
+    return count >= 2;
+  })();
+
+  const OVER_LIMIT_MSG =
+    "အခု Full Leave တင်သော သူသည် တလ အတွင်းမှာ (2)ရက် ကျော်ပါတော့မည်\nSystem က တလကို (2)ရက်ထက် ပိုပြီး ခွင့်မပြုထားပါ\nသင့်အနေဖြင့် Approve ပေးချင်ပါက ယခု ခွင့်တောင်းခံသော သူကို လစာ ဖြတ်ပြီးမှ Approve ပေးခွင့်ပြုမည်";
 
   const canManage = isAdmin || isAssistant;
   const canSubmitLeave = isStaff || isAssistant;
