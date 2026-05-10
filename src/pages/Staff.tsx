@@ -25,6 +25,7 @@ interface StaffProfile {
   role: string;
   base_salary: number;
   phone: string;
+  emergency_phone?: string;
   join_date: string;
   check_in_time: string;
   check_out_time: string;
@@ -33,6 +34,9 @@ interface StaffProfile {
   avatar_url?: string | null;
   sequence?: number;
   deduction_rate_per_minute?: number;
+  late_deduction_per_minute?: number;
+  early_deduction_per_minute?: number;
+  partial_leave_deduction_per_minute?: number;
 }
 
 const WORK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
