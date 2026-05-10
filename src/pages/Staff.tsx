@@ -291,11 +291,14 @@ export default function Staff() {
       role: member.role,
       base_salary: String(member.base_salary),
       phone: member.phone || "",
+      emergency_phone: (member as any).emergency_phone || "",
       join_date: member.join_date || "",
       bonus: String(sal?.bonus ?? 0),
       manual_deduction: String(sal?.manual_deduction ?? 0),
       deduction_reason: sal?.deduction_reason ?? "",
-      deduction_rate_per_minute: String(member.deduction_rate_per_minute ?? 200),
+      late_rate: String(member.late_deduction_per_minute ?? member.deduction_rate_per_minute ?? 200),
+      early_rate: String(member.early_deduction_per_minute ?? member.deduction_rate_per_minute ?? 200),
+      partial_rate: String(member.partial_leave_deduction_per_minute ?? member.deduction_rate_per_minute ?? 200),
     });
     setSchedule(normalizeSchedule(member.work_schedule));
     setOpen(true);
