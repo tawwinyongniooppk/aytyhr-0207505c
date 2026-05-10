@@ -17,7 +17,7 @@ const allNavItems = [
   { to: "/salary", icon: Wallet, label: "My Salary & Bonus", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: true },
   { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
   { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
-  { to: "/manage-accounts", icon: UserPlus, label: "Accounts", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false, itManagerOnlyOverride: true },
+  { to: "/manage-accounts", icon: UserPlus, label: "Accounts", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true, excludeAssistant: false, personalSalary: false },
 ];
 
 export function DesktopSidebar() {
