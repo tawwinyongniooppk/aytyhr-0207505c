@@ -267,9 +267,13 @@ export type Database = {
           check_out_time: string
           created_at: string
           deduction_rate_per_minute: number
+          early_deduction_per_minute: number
+          emergency_phone: string | null
           full_name: string
           id: string
           join_date: string | null
+          late_deduction_per_minute: number
+          partial_leave_deduction_per_minute: number
           phone: string | null
           role: string
           sequence: number
@@ -283,9 +287,13 @@ export type Database = {
           check_out_time?: string
           created_at?: string
           deduction_rate_per_minute?: number
+          early_deduction_per_minute?: number
+          emergency_phone?: string | null
           full_name?: string
           id: string
           join_date?: string | null
+          late_deduction_per_minute?: number
+          partial_leave_deduction_per_minute?: number
           phone?: string | null
           role?: string
           sequence?: number
@@ -299,9 +307,13 @@ export type Database = {
           check_out_time?: string
           created_at?: string
           deduction_rate_per_minute?: number
+          early_deduction_per_minute?: number
+          emergency_phone?: string | null
           full_name?: string
           id?: string
           join_date?: string | null
+          late_deduction_per_minute?: number
+          partial_leave_deduction_per_minute?: number
           phone?: string | null
           role?: string
           sequence?: number
@@ -408,9 +420,13 @@ export type Database = {
           check_out_time: string
           created_at: string
           deduction_rate_per_minute: number
+          early_deduction_per_minute: number
+          emergency_phone: string | null
           full_name: string
           id: string
           join_date: string | null
+          late_deduction_per_minute: number
+          partial_leave_deduction_per_minute: number
           phone: string | null
           role: string
           sequence: number
@@ -435,9 +451,13 @@ export type Database = {
           check_out_time: string
           created_at: string
           deduction_rate_per_minute: number
+          early_deduction_per_minute: number
+          emergency_phone: string | null
           full_name: string
           id: string
           join_date: string | null
+          late_deduction_per_minute: number
+          partial_leave_deduction_per_minute: number
           phone: string | null
           role: string
           sequence: number
