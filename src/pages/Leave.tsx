@@ -288,6 +288,7 @@ export default function Leave() {
               endTime={endTime} setEndTime={setEndTime}
               onSubmit={handleSubmit}
               submitting={submitting}
+              existingRequests={myRequests}
             />
             <MyRequestsList requests={myRequests} statusBadge={statusBadge} />
           </TabsContent>
