@@ -52,7 +52,7 @@ const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const { isAdmin, isStaff } = useProfile();
+  const { isAdmin, isAssistant, isStaff } = useProfile();
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -85,7 +85,7 @@ export default function CalendarPage() {
     loadEvents();
     loadMySchedule();
     if (!isStaff) loadStaff();
-  }, [user, isStaff]);
+  }, [user, isStaff, isAssistant]);
 
   // Realtime: refresh schedule when any relevant profile work_schedule changes
   useEffect(() => {
@@ -150,10 +150,13 @@ export default function CalendarPage() {
 
   async function loadStaff() {
     try {
+      // Admin can assign tasks to Staff and Assistant Admin.
+      // Assistant Admin can assign only to Staff.
+      const roles = isAssistant ? ["staff"] : ["staff", "assistant"];
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name")
-        .eq("role", "staff");
+        .select("id, full_name, role")
+        .in("role", roles);
       setStaffList(data || []);
     } catch { /* ignore */ }
   }
