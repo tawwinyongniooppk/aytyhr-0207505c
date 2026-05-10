@@ -35,6 +35,7 @@ const Leave = lazyRetry(() => import("@/pages/Leave"));
 const CalendarPage = lazyRetry(() => import("@/pages/CalendarPage"));
 const Tasks = lazyRetry(() => import("@/pages/Tasks"));
 const SalaryPage = lazyRetry(() => import("@/pages/SalaryPage"));
+const SalariesAndBonuses = lazyRetry(() => import("@/pages/SalariesAndBonuses"));
 const SettingsPage = lazyRetry(() => import("@/pages/SettingsPage"));
 const ManageAccounts = lazyRetry(() => import("@/pages/ManageAccounts"));
 const NotFound = lazyRetry(() => import("@/pages/NotFound"));
