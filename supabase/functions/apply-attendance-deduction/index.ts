@@ -69,9 +69,12 @@ Deno.serve(async (req) => {
     const types = paid.map((r: any) => r.type);
     const hasLeave = types.includes("leave");
     const hasLateExcuse = types.includes("late_excuse");
+    const hasPartialLeave = types.includes("partial_leave");
 
-    const lateMin = hasLeave || hasLateExcuse ? 0 : (att.late_minutes ?? 0);
-    const earlyMin = hasLeave ? 0 : (att.early_minutes ?? 0);
+    // Paid approvals (full leave, late excuse, partial leave) excuse minute-based salary deduction
+    const excused = hasLeave || hasLateExcuse || hasPartialLeave;
+    const lateMin = excused ? 0 : (att.late_minutes ?? 0);
+    const earlyMin = hasLeave || hasPartialLeave ? 0 : (att.early_minutes ?? 0);
     const deduction = (lateMin + earlyMin) * rate;
 
     // Ensure salary row
