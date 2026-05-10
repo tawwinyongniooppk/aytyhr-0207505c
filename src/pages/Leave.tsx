@@ -154,24 +154,41 @@ export default function Leave() {
     }
   };
 
-  const handleReview = async (requestId: string, decision: "approved" | "rejected") => {
+  const handleReview = async (
+    requestId: string,
+    decision: "approved" | "rejected",
+    paymentType?: "paid" | "unpaid",
+  ) => {
     if (!user) return;
 
     setReviewingId(requestId);
     try {
+      const updates: any = {
+        status: decision,
+        reviewed_by: user.id,
+        reviewed_at: new Date().toISOString(),
+      };
+      if (decision === "approved") {
+        updates.payment_type = paymentType ?? "paid";
+      } else {
+        updates.payment_type = null;
+      }
       const { error } = await supabase
         .from("leave_requests")
-        .update({
-          status: decision,
-          reviewed_by: user.id,
-          reviewed_at: new Date().toISOString(),
-        } as any)
+        .update(updates)
         .eq("id", requestId);
 
       if (error) {
         toast({ title: "Review failed", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: decision === "approved" ? "Leave request approved ✓" : "Leave request rejected" });
+        toast({
+          title:
+            decision === "approved"
+              ? paymentType === "unpaid"
+                ? "Leave approved as Unpaid ✓"
+                : "Leave approved as Paid ✓"
+              : "Leave request rejected",
+        });
         setSelectedRequest(null);
         loadData();
       }
