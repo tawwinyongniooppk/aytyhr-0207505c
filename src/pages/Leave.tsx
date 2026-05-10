@@ -61,6 +61,9 @@ export default function Leave() {
   const [unpaidDesc, setUnpaidDesc] = useState("");
   const [unpaidAmount, setUnpaidAmount] = useState("");
 
+  const canManage = isAdmin || isAssistant;
+  const canSubmitLeave = isStaff || isAssistant;
+
   useEffect(() => {
     if (!selectedRequest) { setUnpaidDesc(""); setUnpaidAmount(""); }
   }, [selectedRequest]);
@@ -83,9 +86,6 @@ export default function Leave() {
 
   const OVER_LIMIT_MSG =
     "အခု Full Leave တင်သော သူသည် တလ အတွင်းမှာ (2)ရက် ကျော်ပါတော့မည်\nSystem က တလကို (2)ရက်ထက် ပိုပြီး ခွင့်မပြုထားပါ\nသင့်အနေဖြင့် Approve ပေးချင်ပါက ယခု ခွင့်တောင်းခံသော သူကို လစာ ဖြတ်ပြီးမှ Approve ပေးခွင့်ပြုမည်";
-
-  const canManage = isAdmin || isAssistant;
-  const canSubmitLeave = isStaff || isAssistant;
 
   useEffect(() => {
     if (!user) return;
