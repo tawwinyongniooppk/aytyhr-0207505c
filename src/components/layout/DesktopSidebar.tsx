@@ -51,7 +51,7 @@ export function DesktopSidebar() {
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map((item) => (
           <NavLink
-            key={item.to}
+            key={`${item.to}-${item.staffOnly ? "s" : item.adminOnly ? "a" : "all"}`}
             to={item.to}
             className={({ isActive }) =>
               cn(
