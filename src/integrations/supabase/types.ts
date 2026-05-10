@@ -480,6 +480,7 @@ export type Database = {
         }[]
       }
       purge_old_leave_logs: { Args: never; Returns: undefined }
+      purge_old_salary_logs: { Args: never; Returns: undefined }
       reset_leave_balances_yearly: { Args: never; Returns: undefined }
     }
     Enums: {
