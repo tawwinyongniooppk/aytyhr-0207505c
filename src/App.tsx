@@ -35,6 +35,7 @@ const Leave = lazyRetry(() => import("@/pages/Leave"));
 const CalendarPage = lazyRetry(() => import("@/pages/CalendarPage"));
 const Tasks = lazyRetry(() => import("@/pages/Tasks"));
 const SalaryPage = lazyRetry(() => import("@/pages/SalaryPage"));
+const SalariesAndBonuses = lazyRetry(() => import("@/pages/SalariesAndBonuses"));
 const SettingsPage = lazyRetry(() => import("@/pages/SettingsPage"));
 const ManageAccounts = lazyRetry(() => import("@/pages/ManageAccounts"));
 const NotFound = lazyRetry(() => import("@/pages/NotFound"));
@@ -77,6 +78,7 @@ const App = () => (
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/salary" element={<SalaryPage />} />
+                  <Route path="/salaries-bonuses" element={<SalariesAndBonuses />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/manage-accounts" element={<ManageAccounts />} />
                 </Route>

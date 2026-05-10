@@ -550,40 +550,9 @@ export default function Staff() {
             </div>
 
             {isAdminRole && (
-              <div className="rounded-lg border border-border p-3 space-y-3">
-                <p className="text-xs font-semibold text-primary uppercase tracking-wide">Financial Adjustments (this month)</p>
-                <div>
-                  <Label>Bonus (kyats)</Label>
-                  <Input type="number" value={form.bonus} onChange={(e) => setForm({ ...form, bonus: e.target.value })} />
-                  <p className="text-xs text-muted-foreground mt-1">Reserved for task / calendar bonus logic. Not linked to minute-based deductions.</p>
-                </div>
-              </div>
-            )}
-
-            {isAdminRole && editId && (
-              <Card className="border border-primary/30 bg-primary/5 shadow-none">
-                <CardContent className="p-3 space-y-1">
-                  <p className="text-xs font-semibold text-primary">Salary Preview (this month)</p>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Base</span>
-                    <span>{Number(form.base_salary).toLocaleString()} kyats</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">+ Bonus</span>
-                    <span className="text-accent">+{(Number(form.bonus) || 0).toLocaleString()} kyats</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">- Auto Deductions</span>
-                    <span className="text-destructive">-{(salaryMap[editId]?.total_deductions ?? 0).toLocaleString()} kyats</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-bold pt-1 border-t border-border">
-                    <span>Final Salary</span>
-                    <span className="text-primary">
-                      {Math.max(0, Number(form.base_salary) + (Number(form.bonus) || 0) - (salaryMap[editId]?.total_deductions ?? 0)).toLocaleString()} kyats
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+              <p className="text-xs text-muted-foreground border-t border-border pt-3">
+                Bonuses, salary preview, and salary management have moved to the <span className="font-semibold text-primary">Salaries &amp; Bonuses</span> menu.
+              </p>
             )}
 
             <Button onClick={handleSave} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">

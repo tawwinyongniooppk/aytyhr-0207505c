@@ -1,15 +1,22 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Clock, Wallet, ClipboardList, LogOut, FileText, UserPlus } from "lucide-react";
+import { LayoutDashboard, Clock, Wallet, ClipboardList, LogOut, FileText, UserPlus, Users, CalendarDays, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 
 const allNavItems = [
+  // Admin order: Dashboard, Staff, Leave, Calendar, Tasks, Salaries & Bonuses
   { to: "/dashboard", icon: LayoutDashboard, label: "Home", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/staff", icon: Users, label: "Staff", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/leave", icon: FileText, label: "Leave", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/calendar", icon: CalendarDays, label: "Cal", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/salaries-bonuses", icon: Coins, label: "Salary", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  // Staff
   { to: "/attendance", icon: Clock, label: "Attend", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false },
   { to: "/salary", icon: Wallet, label: "Salary", adminOnly: false, staffOnly: true, requireSalaryAccess: true, itManagerOnly: false },
-  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false },
   { to: "/manage-accounts", icon: UserPlus, label: "Accounts", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true },
 ];
 
@@ -31,7 +38,7 @@ export function BottomNav() {
       <div className="flex items-center justify-between gap-0.5 h-16 px-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {navItems.map((item) => (
           <NavLink
-            key={item.to}
+            key={`${item.to}-${item.staffOnly ? "s" : item.adminOnly ? "a" : "all"}`}
             to={item.to}
             className={({ isActive }) =>
               cn(
