@@ -322,53 +322,26 @@ export default function Leave() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold font-display">Leave Requests</h1>
+        <h1 className="text-2xl font-bold font-display">
+          {canManage ? "Leave Control Center" : "Leave Requests"}
+        </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {canManage ? "Manage leave requests" : "Submit and track your leave requests"}
+          {isAdmin
+            ? "Central panel: review requests, approve, deduct, and track logs."
+            : isAssistant
+              ? "Submit your own leave or review staff requests."
+              : "Submit and track your personal leave."}
         </p>
       </div>
 
-      {(isStaff || isAssistant) && <LeaveBalanceCard />}
-
+      {/* STAFF — personal blocks only */}
       {isStaff && (
         <>
-          <SubmitForm
-            date={date} setDate={setDate}
-            reason={reason} setReason={setReason}
-            type={type} setType={setType}
-            startTime={startTime} setStartTime={setStartTime}
-            endTime={endTime} setEndTime={setEndTime}
-            onSubmit={handleSubmit}
-            submitting={submitting}
-            existingRequests={myRequests}
-          />
-          <MyRequestsList requests={myRequests} statusBadge={statusBadge} />
-        </>
-      )}
+          <SectionBlock label="1 · Leave Balance" hint="Your current available leave days.">
+            <LeaveBalanceCard />
+          </SectionBlock>
 
-      {isAdmin && (
-        <>
-          <ManualDeductionPanel staffList={staffList} />
-          <ManageSection
-            filterStatus={filterStatus} setFilterStatus={setFilterStatus}
-            filterStaff={filterStaff} setFilterStaff={setFilterStaff}
-            filterFrom={filterFrom} setFilterFrom={setFilterFrom}
-            filterTo={filterTo} setFilterTo={setFilterTo}
-            staffList={staffList}
-            filteredRequests={filteredAdminRequests}
-            statusBadge={statusBadge}
-            onSelect={setSelectedRequest}
-          />
-        </>
-      )}
-
-      {isAssistant && (
-        <Tabs defaultValue="my" className="w-full">
-          <TabsList className="w-full">
-            <TabsTrigger value="my" className="flex-1">My Requests</TabsTrigger>
-            <TabsTrigger value="manage" className="flex-1">All Requests</TabsTrigger>
-          </TabsList>
-          <TabsContent value="my" className="space-y-6 mt-4">
+          <SectionBlock label="2 · Submit a Leave Request" hint="Choose type, date, and reason.">
             <SubmitForm
               date={date} setDate={setDate}
               reason={reason} setReason={setReason}
@@ -379,9 +352,21 @@ export default function Leave() {
               submitting={submitting}
               existingRequests={myRequests}
             />
+          </SectionBlock>
+
+          <SectionBlock label="3 · My Leave Logs" hint="Status of your past requests.">
             <MyRequestsList requests={myRequests} statusBadge={statusBadge} />
-          </TabsContent>
-          <TabsContent value="manage" className="space-y-6 mt-4">
+          </SectionBlock>
+        </>
+      )}
+
+      {/* ADMIN — central control panel */}
+      {isAdmin && (
+        <>
+          <SectionBlock
+            label="A · Leave Logs & Filters"
+            hint="All requests sorted by latest update. Click a row to open the approval action."
+          >
             <ManageSection
               filterStatus={filterStatus} setFilterStatus={setFilterStatus}
               filterStaff={filterStaff} setFilterStaff={setFilterStaff}
@@ -392,6 +377,70 @@ export default function Leave() {
               statusBadge={statusBadge}
               onSelect={setSelectedRequest}
             />
+          </SectionBlock>
+
+          <SectionBlock
+            label="B · Manual Deduction Box"
+            hint="Apply manual leave-day deductions outside the standard flow."
+          >
+            <ManualDeductionPanel staffList={staffList} />
+          </SectionBlock>
+
+          <SectionBlock
+            label="C · Approval Action & Salary Live Update"
+            hint="Open a request from the logs above to approve as Paid / Unpaid. Salary updates instantly after Unpaid approvals."
+          >
+            <div className="rounded-md border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+              Select a request from <span className="font-medium text-foreground">Leave Logs</span> to review.
+              Approval actions and any required manual salary deductions appear in the review dialog and apply to the salary record in real time.
+            </div>
+          </SectionBlock>
+        </>
+      )}
+
+      {/* ASSISTANT — personal + manage tabs */}
+      {isAssistant && (
+        <Tabs defaultValue="my" className="w-full">
+          <TabsList className="w-full">
+            <TabsTrigger value="my" className="flex-1">My Requests</TabsTrigger>
+            <TabsTrigger value="manage" className="flex-1">All Requests</TabsTrigger>
+          </TabsList>
+          <TabsContent value="my" className="space-y-6 mt-4">
+            <SectionBlock label="1 · Leave Balance" hint="Your current available leave days.">
+              <LeaveBalanceCard />
+            </SectionBlock>
+            <SectionBlock label="2 · Submit a Leave Request" hint="Choose type, date, and reason.">
+              <SubmitForm
+                date={date} setDate={setDate}
+                reason={reason} setReason={setReason}
+                type={type} setType={setType}
+                startTime={startTime} setStartTime={setStartTime}
+                endTime={endTime} setEndTime={setEndTime}
+                onSubmit={handleSubmit}
+                submitting={submitting}
+                existingRequests={myRequests}
+              />
+            </SectionBlock>
+            <SectionBlock label="3 · My Leave Logs" hint="Status of your past requests.">
+              <MyRequestsList requests={myRequests} statusBadge={statusBadge} />
+            </SectionBlock>
+          </TabsContent>
+          <TabsContent value="manage" className="space-y-6 mt-4">
+            <SectionBlock
+              label="A · Leave Logs & Filters"
+              hint="All requests sorted by latest update. Click a row to open the approval action."
+            >
+              <ManageSection
+                filterStatus={filterStatus} setFilterStatus={setFilterStatus}
+                filterStaff={filterStaff} setFilterStaff={setFilterStaff}
+                filterFrom={filterFrom} setFilterFrom={setFilterFrom}
+                filterTo={filterTo} setFilterTo={setFilterTo}
+                staffList={staffList}
+                filteredRequests={filteredAdminRequests}
+                statusBadge={statusBadge}
+                onSelect={setSelectedRequest}
+              />
+            </SectionBlock>
           </TabsContent>
         </Tabs>
       )}
