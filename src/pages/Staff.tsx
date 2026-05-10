@@ -147,16 +147,19 @@ export default function Staff() {
     const legacyDay = schedule[firstActive] || { active: true, check_in: "09:00", check_out: "16:00" };
     const updateData: any = {
       phone: form.phone,
+      emergency_phone: form.emergency_phone,
       join_date: form.join_date || null,
       check_in_time: legacyDay.check_in,
       check_out_time: legacyDay.check_out,
       work_day: firstActive,
       work_schedule: schedule,
     };
-    // Only admin can update salary
+    // Only admin can update salary settings
     if (isAdminRole) {
       updateData.base_salary = Number(form.base_salary) || 300000;
-      updateData.deduction_rate_per_minute = Math.max(0, Number(form.deduction_rate_per_minute) || 0);
+      updateData.late_deduction_per_minute = Math.max(0, Number(form.late_rate) || 0);
+      updateData.early_deduction_per_minute = Math.max(0, Number(form.early_rate) || 0);
+      updateData.partial_leave_deduction_per_minute = Math.max(0, Number(form.partial_rate) || 0);
     }
 
     // Update the specific staff member's profile and verify the row was changed
