@@ -341,6 +341,7 @@ export default function CalendarPage() {
                       Deadline: {computeDeadline(form.start_date, form.frequency)}
                     </p>
                   )}
+                </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Switch checked={form.allStaff} onCheckedChange={(c) => setForm({ ...form, allStaff: c })} />
