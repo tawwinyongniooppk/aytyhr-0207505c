@@ -291,11 +291,19 @@ export default function Leave() {
     );
   };
 
-  const filteredAdminRequests = allRequests.filter((r) => {
-    if (filterStatus !== "all" && r.status !== filterStatus) return false;
-    if (filterStaff !== "all" && r.user_id !== filterStaff) return false;
-    return true;
-  });
+  const filteredAdminRequests = allRequests
+    .filter((r) => {
+      if (filterStatus !== "all" && r.status !== filterStatus) return false;
+      if (filterStaff !== "all" && r.user_id !== filterStaff) return false;
+      if (filterFrom && r.date < filterFrom) return false;
+      if (filterTo && r.date > filterTo) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const at = new Date(a.reviewed_at || a.created_at).getTime();
+      const bt = new Date(b.reviewed_at || b.created_at).getTime();
+      return bt - at;
+    });
 
   if (loading) {
     return (
