@@ -85,7 +85,7 @@ export default function CalendarPage() {
     loadEvents();
     loadMySchedule();
     if (!isStaff) loadStaff();
-  }, [user, isStaff]);
+  }, [user, isStaff, isAssistant]);
 
   // Realtime: refresh schedule when any relevant profile work_schedule changes
   useEffect(() => {
