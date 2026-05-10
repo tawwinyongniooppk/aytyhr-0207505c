@@ -203,46 +203,51 @@ export default function SalaryPage() {
         </Card>
       </div>
 
-      {/* Deduction History */}
+      {/* Transaction History */}
       <Card className="border border-border shadow-none">
         <CardHeader>
-          <CardTitle className="text-base font-display">Deduction Breakdown</CardTitle>
+          <CardTitle className="text-base font-display">Transaction History</CardTitle>
         </CardHeader>
         <CardContent>
-          {attendanceHistory.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No attendance records this month</p>
+          {ledger.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No transactions yet</p>
           ) : (
-            <div className="space-y-2">
-              {attendanceHistory.map((entry) => {
-                const totalMin = entry.late_minutes + entry.early_minutes;
-                const deduction = totalMin * deductionRate;
-                const dateLabel = new Date(entry.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-
+            <ul className="divide-y divide-border">
+              {ledger.map((e) => {
+                const meta = TYPE_META[e.type];
+                const Icon = meta.icon;
+                const dateLabel = e.date
+                  ? new Date(e.date + "T00:00:00").toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })
+                  : "";
+                const isCredit = e.amount > 0;
+                const isDebit = e.amount < 0;
                 return (
-                  <div key={entry.date} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                    <div>
-                      <p className="text-sm font-medium">{dateLabel}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {entry.late_minutes > 0 && `Late: ${entry.late_minutes}min`}
-                        {entry.late_minutes > 0 && entry.early_minutes > 0 && " · "}
-                        {entry.early_minutes > 0 && `Early: ${entry.early_minutes}min`}
-                        {totalMin === 0 && "On time ✓"}
-                      </p>
+                  <li key={e.id} className="flex items-center gap-3 py-3">
+                    <div className={`shrink-0 h-9 w-9 rounded-full flex items-center justify-center ${meta.bg}`}>
+                      <Icon className={`h-4 w-4 ${meta.fg}`} />
                     </div>
-                    <div className="text-right">
-                      {deduction > 0 ? (
-                        <span className="text-sm font-semibold text-destructive">-{deduction.toLocaleString()} kyats</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${meta.badge}`}>
+                          {meta.label}
+                        </span>
+                        <span className="text-xs text-foreground/70">{dateLabel}</span>
+                      </div>
+                      <p className="text-sm font-medium text-foreground truncate mt-0.5">{e.description}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      {e.amount === 0 ? (
+                        <span className="text-xs font-medium text-foreground/70">—</span>
                       ) : (
-                        <span className="text-sm text-accent font-medium">No deduction</span>
-                      )}
-                      {entry.deduction_applied && deduction > 0 && (
-                        <p className="text-xs text-muted-foreground">Applied</p>
+                        <span className={`text-sm font-semibold ${isCredit ? "text-accent" : "text-destructive"}`}>
+                          {isCredit ? "+" : "-"}{Math.abs(e.amount).toLocaleString()} <span className="text-[10px] font-normal">Ks</span>
+                        </span>
                       )}
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           )}
         </CardContent>
       </Card>
