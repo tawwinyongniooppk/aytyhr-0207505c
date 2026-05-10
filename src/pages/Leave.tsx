@@ -125,6 +125,21 @@ export default function Leave() {
       return;
     }
 
+    // Duplicate guard (uses already-loaded leave logs)
+    const sameDate = myRequests.filter((r) => r.date === date && r.status !== "rejected");
+    const dupMsg = "သင်၏ ခွင့်ချိန် ခွင့်ရက်များကို (2)ကြိမ်မြောက် တူညီစွာ ယူလို့ မရပါ။";
+    if (type === "leave" && sameDate.some((r) => r.type === "leave")) {
+      toast({ title: "Duplicate leave", description: dupMsg, variant: "destructive" });
+      return;
+    }
+    if (type === "partial_leave" && sameDate.some((r) =>
+      r.type === "partial_leave" && r.start_time && r.end_time &&
+      startTime < r.end_time.slice(0,5) && endTime > r.start_time.slice(0,5)
+    )) {
+      toast({ title: "Duplicate time slot", description: dupMsg, variant: "destructive" });
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload: any = {
