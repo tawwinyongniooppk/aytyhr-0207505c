@@ -187,6 +187,33 @@ export default function CalendarPage() {
       toast({ title: "ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ", variant: "destructive" });
       return;
     }
+
+    const deadline = computeDeadline(form.start_date, form.frequency);
+    const monthlyCap = form.frequency === "weekly" ? 4 : 2;
+
+    // Quota: count tasks created by this user whose start_date falls in the same month.
+    const monthStart = form.start_date.slice(0, 7) + "-01";
+    const nextMonthStart = (() => {
+      const d = new Date(monthStart + "T00:00:00");
+      d.setMonth(d.getMonth() + 1);
+      return d.toISOString().split("T")[0];
+    })();
+    const existingThisMonth = events.filter(
+      (e) =>
+        e.event_type === "task" &&
+        e.created_by === user.id &&
+        e.start_date >= monthStart &&
+        e.start_date < nextMonthStart
+    ).length;
+    if (existingThisMonth >= monthlyCap) {
+      toast({
+        title: "Monthly task limit reached",
+        description: `You can assign at most ${monthlyCap} ${form.frequency === "weekly" ? "weekly" : "bi-weekly"} tasks per month.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
       const isAllStaff = form.allStaff;
@@ -197,7 +224,7 @@ export default function CalendarPage() {
           title: form.title,
           description: form.description,
           start_date: form.start_date,
-          end_date: form.start_date,
+          end_date: deadline,
           event_type: "task",
           visibility: "private",
           created_by: user.id,
@@ -218,7 +245,7 @@ export default function CalendarPage() {
       }
 
       toast({ title: "Task created successfully" });
-      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [] });
+      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [], frequency: "weekly" });
       setOpen(false);
       loadEvents();
     } catch {
