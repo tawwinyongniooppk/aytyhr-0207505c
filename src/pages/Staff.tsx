@@ -32,6 +32,7 @@ interface StaffProfile {
   work_schedule?: WeekSchedule | null;
   avatar_url?: string | null;
   sequence?: number;
+  deduction_rate_per_minute?: number;
 }
 
 const WORK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
