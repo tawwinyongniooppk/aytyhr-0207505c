@@ -162,12 +162,22 @@ export default function CalendarPage() {
   }
 
 
+  function isHolidayDate(dateStr: string) {
+    if (!dateStr) return false;
+    return events.some(
+      (e) => e.event_type === "holiday" && e.start_date <= dateStr && e.end_date >= dateStr
+    );
+  }
+
   async function handleCreate() {
-    if (!form.title || !form.start_date || !form.end_date || !user) return;
+    if (!form.title || !form.start_date || !user) return;
+    if (isHolidayDate(form.start_date)) {
+      toast({ title: "ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     try {
-      const needsAssignments = form.visibility === "private" || form.event_type === "task";
-      const isAllStaff = needsAssignments && form.allStaff;
+      const isAllStaff = form.allStaff;
 
       const { data: ev, error } = await supabase
         .from("calendar_events")
@@ -175,9 +185,9 @@ export default function CalendarPage() {
           title: form.title,
           description: form.description,
           start_date: form.start_date,
-          end_date: form.end_date,
-          event_type: form.event_type,
-          visibility: form.visibility,
+          end_date: form.start_date,
+          event_type: "task",
+          visibility: "private",
           created_by: user.id,
           assigned_to_all: isAllStaff,
         } as any)
@@ -185,29 +195,22 @@ export default function CalendarPage() {
         .single();
       if (error) throw error;
 
-      // Insert assignments for private events OR for tasks (tasks must always be assigned to staff)
-      if (ev && needsAssignments) {
+      if (ev) {
         const ids = form.allStaff ? staffList.map((s) => s.id) : form.assignedIds;
-        console.log("[CalendarPage] Created event:", ev.id, "type:", form.event_type, "assigning to:", ids);
         if (ids.length > 0) {
           const { error: assignErr } = await supabase.from("calendar_event_assignments").insert(
             ids.map((uid) => ({ event_id: ev.id, user_id: uid, submission_status: "not_started" }))
           );
-          if (assignErr) {
-            console.error("[CalendarPage] Failed to insert assignments:", assignErr);
-            throw assignErr;
-          }
-        } else {
-          console.warn("[CalendarPage] Task created with no assignees");
+          if (assignErr) throw assignErr;
         }
       }
 
-      toast({ title: "Event created successfully" });
-      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "event", visibility: "public", allStaff: true, assignedIds: [] });
+      toast({ title: "Task created successfully" });
+      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [] });
       setOpen(false);
       loadEvents();
     } catch {
-      toast({ title: "Error", description: "Failed to create event", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to create task", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
