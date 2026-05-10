@@ -282,6 +282,7 @@ export default function Staff() {
       bonus: String(sal?.bonus ?? 0),
       manual_deduction: String(sal?.manual_deduction ?? 0),
       deduction_reason: sal?.deduction_reason ?? "",
+      deduction_rate_per_minute: String(member.deduction_rate_per_minute ?? 200),
     });
     setSchedule(normalizeSchedule(member.work_schedule));
     setOpen(true);
