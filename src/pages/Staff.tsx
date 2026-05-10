@@ -25,6 +25,7 @@ interface StaffProfile {
   role: string;
   base_salary: number;
   phone: string;
+  emergency_phone?: string;
   join_date: string;
   check_in_time: string;
   check_out_time: string;
@@ -33,6 +34,9 @@ interface StaffProfile {
   avatar_url?: string | null;
   sequence?: number;
   deduction_rate_per_minute?: number;
+  late_deduction_per_minute?: number;
+  early_deduction_per_minute?: number;
+  partial_leave_deduction_per_minute?: number;
 }
 
 const WORK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -86,7 +90,12 @@ export default function Staff() {
   const [open, setOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", deduction_rate_per_minute: "200" });
+  const [form, setForm] = useState({
+    full_name: "", role: "staff", base_salary: "300000",
+    phone: "", emergency_phone: "", join_date: "",
+    bonus: "0", manual_deduction: "0", deduction_reason: "",
+    late_rate: "200", early_rate: "200", partial_rate: "200",
+  });
   const [schedule, setSchedule] = useState<WeekSchedule>(defaultSchedule());
   const [addForm, setAddForm] = useState({ full_name: "", email: "", password: "", role: "staff", base_salary: "300000", phone: "" });
   const [addLoading, setAddLoading] = useState(false);
@@ -138,16 +147,19 @@ export default function Staff() {
     const legacyDay = schedule[firstActive] || { active: true, check_in: "09:00", check_out: "16:00" };
     const updateData: any = {
       phone: form.phone,
+      emergency_phone: form.emergency_phone,
       join_date: form.join_date || null,
       check_in_time: legacyDay.check_in,
       check_out_time: legacyDay.check_out,
       work_day: firstActive,
       work_schedule: schedule,
     };
-    // Only admin can update salary
+    // Only admin can update salary settings
     if (isAdminRole) {
       updateData.base_salary = Number(form.base_salary) || 300000;
-      updateData.deduction_rate_per_minute = Math.max(0, Number(form.deduction_rate_per_minute) || 0);
+      updateData.late_deduction_per_minute = Math.max(0, Number(form.late_rate) || 0);
+      updateData.early_deduction_per_minute = Math.max(0, Number(form.early_rate) || 0);
+      updateData.partial_leave_deduction_per_minute = Math.max(0, Number(form.partial_rate) || 0);
     }
 
     // Update the specific staff member's profile and verify the row was changed
@@ -226,7 +238,7 @@ export default function Staff() {
 
     toast({ title: "Saved", description: `Updated schedule for ${form.full_name || "staff member"}.` });
 
-    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", deduction_rate_per_minute: "200" });
+    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", emergency_phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", late_rate: "200", early_rate: "200", partial_rate: "200" });
     setSchedule(defaultSchedule());
     setEditId(null);
     setOpen(false);
@@ -279,11 +291,14 @@ export default function Staff() {
       role: member.role,
       base_salary: String(member.base_salary),
       phone: member.phone || "",
+      emergency_phone: (member as any).emergency_phone || "",
       join_date: member.join_date || "",
       bonus: String(sal?.bonus ?? 0),
       manual_deduction: String(sal?.manual_deduction ?? 0),
       deduction_reason: sal?.deduction_reason ?? "",
-      deduction_rate_per_minute: String(member.deduction_rate_per_minute ?? 200),
+      late_rate: String(member.late_deduction_per_minute ?? member.deduction_rate_per_minute ?? 200),
+      early_rate: String(member.early_deduction_per_minute ?? member.deduction_rate_per_minute ?? 200),
+      partial_rate: String(member.partial_leave_deduction_per_minute ?? member.deduction_rate_per_minute ?? 200),
     });
     setSchedule(normalizeSchedule(member.work_schedule));
     setOpen(true);
@@ -411,44 +426,69 @@ export default function Staff() {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", deduction_rate_per_minute: "200" }); setSchedule(defaultSchedule()); } }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", emergency_phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", late_rate: "200", early_rate: "200", partial_rate: "200" }); setSchedule(defaultSchedule()); } }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">Edit Staff</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            <div>
-              <Label>Full Name</Label>
-              <Input value={form.full_name} disabled readOnly />
-              <p className="text-xs text-muted-foreground mt-1">Only the IT Manager can change the staff name.</p>
+            {/* Block: Identity (read-only) */}
+            <div className="rounded-lg border border-border p-3 space-y-3 bg-muted/30">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Identity</p>
+              <div>
+                <Label>Full Name</Label>
+                <Input value={form.full_name} disabled readOnly />
+                <p className="text-xs text-muted-foreground mt-1">Only the IT Manager can change the staff name.</p>
+              </div>
+              <div>
+                <Label>Role</Label>
+                <Input value={form.role.replace("_", " ")} disabled className="capitalize" />
+                <p className="text-xs text-muted-foreground mt-1">Only the IT Manager can change roles.</p>
+              </div>
             </div>
-            <div>
-              <Label>Role</Label>
-              <Input value={form.role.replace("_", " ")} disabled className="capitalize" />
-              <p className="text-xs text-muted-foreground mt-1">Only the IT Manager can change roles.</p>
+
+            {/* Block: Contact */}
+            <div className="rounded-lg border border-border p-3 space-y-3">
+              <p className="text-xs font-semibold text-primary uppercase tracking-wide">Contact</p>
+              <div>
+                <Label>Phone</Label>
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Primary phone" />
+              </div>
+              <div>
+                <Label>Emergency Phone</Label>
+                <Input value={form.emergency_phone} onChange={(e) => setForm({ ...form, emergency_phone: e.target.value })} placeholder="Emergency contact number" />
+              </div>
+              <div>
+                <Label>Join Date</Label>
+                <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
+              </div>
             </div>
-            {/* Only admin can see/edit salary */}
+
+            {/* Block: Salary Settings (Admin only) */}
             {isAdminRole && (
-              <>
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide">Salary Settings (Admin only)</p>
                 <div>
                   <Label>Base Salary (kyats/month)</Label>
                   <Input type="number" value={form.base_salary} onChange={(e) => setForm({ ...form, base_salary: e.target.value })} />
                 </div>
-                <div>
-                  <Label>Salary Deduction Rate (kyats per minute)</Label>
-                  <Input type="number" value={form.deduction_rate_per_minute} onChange={(e) => setForm({ ...form, deduction_rate_per_minute: e.target.value })} />
-                  <p className="text-xs text-muted-foreground mt-1">Applied to this staff's late and early-leave minutes.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div>
+                    <Label className="text-xs">Late entry / min</Label>
+                    <Input type="number" value={form.late_rate} onChange={(e) => setForm({ ...form, late_rate: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Early back / min</Label>
+                    <Input type="number" value={form.early_rate} onChange={(e) => setForm({ ...form, early_rate: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Partial leave / min</Label>
+                    <Input type="number" value={form.partial_rate} onChange={(e) => setForm({ ...form, partial_rate: e.target.value })} />
+                  </div>
                 </div>
-              </>
+                <p className="text-xs text-muted-foreground">Stored per staff member (not in global Settings).</p>
+              </div>
             )}
-            <div>
-              <Label>Phone</Label>
-              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            </div>
-            <div>
-              <Label>Join Date</Label>
-              <Input type="date" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
-            </div>
             <div className="space-y-2 border-t border-border pt-3">
               <Label>Weekly Schedule</Label>
               <p className="text-xs text-muted-foreground">Toggle each day on/off and set check-in / check-out times.</p>
@@ -510,21 +550,12 @@ export default function Staff() {
             </div>
 
             {isAdminRole && (
-              <div className="space-y-3 border-t border-border pt-3">
-                <p className="text-xs font-semibold text-primary">Financial Adjustments (this month)</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Bonus (kyats)</Label>
-                    <Input type="number" value={form.bonus} onChange={(e) => setForm({ ...form, bonus: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Manual Deduction</Label>
-                    <Input type="number" value={form.manual_deduction} onChange={(e) => setForm({ ...form, manual_deduction: e.target.value })} />
-                  </div>
-                </div>
+              <div className="rounded-lg border border-border p-3 space-y-3">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide">Financial Adjustments (this month)</p>
                 <div>
-                  <Label>Deduction Reason</Label>
-                  <Input value={form.deduction_reason} onChange={(e) => setForm({ ...form, deduction_reason: e.target.value })} placeholder="e.g. Equipment damage" />
+                  <Label>Bonus (kyats)</Label>
+                  <Input type="number" value={form.bonus} onChange={(e) => setForm({ ...form, bonus: e.target.value })} />
+                  <p className="text-xs text-muted-foreground mt-1">Reserved for task / calendar bonus logic. Not linked to minute-based deductions.</p>
                 </div>
               </div>
             )}
@@ -545,14 +576,10 @@ export default function Staff() {
                     <span className="text-muted-foreground">- Auto Deductions</span>
                     <span className="text-destructive">-{(salaryMap[editId]?.total_deductions ?? 0).toLocaleString()} kyats</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">- Manual Deduction</span>
-                    <span className="text-destructive">-{(Number(form.manual_deduction) || 0).toLocaleString()} kyats</span>
-                  </div>
                   <div className="flex justify-between text-sm font-bold pt-1 border-t border-border">
                     <span>Final Salary</span>
                     <span className="text-primary">
-                      {Math.max(0, Number(form.base_salary) + (Number(form.bonus) || 0) - (salaryMap[editId]?.total_deductions ?? 0) - (Number(form.manual_deduction) || 0)).toLocaleString()} kyats
+                      {Math.max(0, Number(form.base_salary) + (Number(form.bonus) || 0) - (salaryMap[editId]?.total_deductions ?? 0)).toLocaleString()} kyats
                     </span>
                   </div>
                 </CardContent>

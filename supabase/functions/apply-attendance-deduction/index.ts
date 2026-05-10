@@ -57,15 +57,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get per-staff rate (falls back to global app_settings, then 200)
+    // Get per-staff rates (separate late vs early; falls back to legacy rate then 200)
     const { data: profileRate } = await admin.from("profiles")
-      .select("deduction_rate_per_minute").eq("id", user.id).maybeSingle();
-    let rate = Number((profileRate as any)?.deduction_rate_per_minute);
-    if (!rate || Number.isNaN(rate)) {
-      const { data: rateRow } = await admin.from("app_settings")
-        .select("value").eq("key", "deduction_rate_per_minute").maybeSingle();
-      rate = Number(rateRow?.value ?? 200) || 0;
-    }
+      .select("late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute")
+      .eq("id", user.id).maybeSingle();
+    const legacy = Number((profileRate as any)?.deduction_rate_per_minute) || 200;
+    const lateRate = Number((profileRate as any)?.late_deduction_per_minute) || legacy;
+    const earlyRate = Number((profileRate as any)?.early_deduction_per_minute) || legacy;
 
     // Approved leave / late excuse for today — only "paid" approvals excuse the deduction
     const { data: approved } = await admin.from("leave_requests")
@@ -80,7 +78,7 @@ Deno.serve(async (req) => {
     const excused = hasLeave || hasLateExcuse || hasPartialLeave;
     const lateMin = excused ? 0 : (att.late_minutes ?? 0);
     const earlyMin = hasLeave || hasPartialLeave ? 0 : (att.early_minutes ?? 0);
-    const deduction = (lateMin + earlyMin) * rate;
+    const deduction = (lateMin * lateRate) + (earlyMin * earlyRate);
 
     // Ensure salary row
     let { data: salary } = await admin.from("salaries")
