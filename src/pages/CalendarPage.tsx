@@ -249,7 +249,7 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold font-display">Calendar</h1>
-          <p className="text-muted-foreground text-sm mt-1">School events & holidays</p>
+          <p className="text-muted-foreground text-sm mt-1">To create a new task for everyone</p>
         </div>
         {!isStaff && (
           <Dialog open={open} onOpenChange={setOpen}>
