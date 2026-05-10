@@ -220,18 +220,55 @@ export default function Leave() {
 
       if (error) {
         toast({ title: "Review failed", description: error.message, variant: "destructive" });
-      } else {
-        toast({
-          title:
-            decision === "approved"
-              ? paymentType === "unpaid"
-                ? "Leave approved as Unpaid ✓"
-                : "Leave approved as Paid ✓"
-              : "Leave request rejected",
-        });
-        setSelectedRequest(null);
-        loadData();
+        return;
       }
+
+      // Apply additional manual salary deduction when approving an over-limit Full Leave as Unpaid
+      if (decision === "approved" && paymentType === "unpaid" && overLimitForUnpaid && selectedRequest) {
+        const amount = Number(unpaidAmount);
+        const desc = unpaidDesc.trim();
+        if (!desc || !Number.isFinite(amount) || amount <= 0) {
+          toast({ title: "Manual deduction required", description: "Description and amount are required.", variant: "destructive" });
+          return;
+        }
+        const d = new Date(selectedRequest.date + "T00:00:00");
+        const monthStart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+        const { data: existing } = await supabase
+          .from("salaries").select("*")
+          .eq("user_id", selectedRequest.user_id).eq("month", monthStart).maybeSingle();
+        if (!existing) {
+          const { data: prof } = await supabase.from("profiles")
+            .select("base_salary").eq("id", selectedRequest.user_id).maybeSingle();
+          const base = (prof as any)?.base_salary ?? 300000;
+          const { error: insErr } = await supabase.from("salaries").insert({
+            user_id: selectedRequest.user_id, month: monthStart, base_salary: base,
+            current_salary: Math.max(0, base - amount), total_deductions: amount,
+            manual_deduction: amount, deduction_reason: desc,
+          });
+          if (insErr) toast({ title: "Salary deduction failed", description: insErr.message, variant: "destructive" });
+        } else {
+          const e: any = existing;
+          const { error: updErr } = await supabase.from("salaries").update({
+            current_salary: Math.max(0, (e.current_salary ?? 0) - amount),
+            total_deductions: (e.total_deductions ?? 0) + amount,
+            manual_deduction: (e.manual_deduction ?? 0) + amount,
+            deduction_reason: e.deduction_reason ? `${e.deduction_reason}; ${desc}` : desc,
+            last_updated: new Date().toISOString(),
+          }).eq("user_id", selectedRequest.user_id).eq("month", monthStart);
+          if (updErr) toast({ title: "Salary deduction failed", description: updErr.message, variant: "destructive" });
+        }
+      }
+
+      toast({
+        title:
+          decision === "approved"
+            ? paymentType === "unpaid"
+              ? "Leave approved as Unpaid ✓"
+              : "Leave approved as Paid ✓"
+            : "Leave request rejected",
+      });
+      setSelectedRequest(null);
+      loadData();
     } finally {
       setReviewingId(null);
     }
