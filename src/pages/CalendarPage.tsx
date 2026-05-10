@@ -327,6 +327,20 @@ export default function CalendarPage() {
                     <p className="text-xs text-destructive mt-1">ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ</p>
                   )}
                 </div>
+                <div>
+                  <Label>Frequency</Label>
+                  <Select value={form.frequency} onValueChange={(v) => setForm({ ...form, frequency: v as "weekly" | "biweekly" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">1 Task per Week (max 4/month)</SelectItem>
+                      <SelectItem value="biweekly">1 Task per 2 Weeks (max 2/month)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {form.start_date && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Deadline: {computeDeadline(form.start_date, form.frequency)}
+                    </p>
+                  )}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Switch checked={form.allStaff} onCheckedChange={(c) => setForm({ ...form, allStaff: c })} />
