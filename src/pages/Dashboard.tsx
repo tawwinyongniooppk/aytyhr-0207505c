@@ -303,9 +303,12 @@ export default function Dashboard() {
         {canViewSalary && (
           <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/salaries-bonuses")}>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-display flex items-center gap-2">
-                <TrendingDown className="h-4 w-4 text-muted-foreground" />
-                Salary Impact — Today
+              <CardTitle className="text-base font-display flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <TrendingDown className="h-4 w-4 text-muted-foreground" />
+                  Salary Impact — Today
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
