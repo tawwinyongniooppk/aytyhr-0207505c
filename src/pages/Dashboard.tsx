@@ -123,12 +123,12 @@ export default function Dashboard() {
     .slice(0, 3);
 
   const summaryCards = [
-    { label: "Total Staff", value: totalStaff, icon: Users, accent: "text-primary" },
-    { label: "Present Today", value: presentToday, icon: CalendarCheck, accent: "text-accent" },
-    { label: "Late Today", value: lateToday, icon: AlertTriangle, accent: "text-destructive" },
-    { label: "On Leave", value: onLeaveToday, icon: FileText, accent: "text-warning" },
-    { label: "Tasks", value: `${pendingTasks} pending • ${completedTasks} done`, icon: ListChecks, accent: "text-primary" },
-    ...(canViewSalary ? [{ label: "Today's Deductions", value: `${todayDeductions.toLocaleString()} Ks`, icon: TrendingDown, accent: "text-destructive" }] : []),
+    { label: "Total Staff", value: totalStaff, icon: Users, accent: "text-primary", to: "/staff" },
+    { label: "Present Today", value: presentToday, icon: CalendarCheck, accent: "text-accent", to: "/attendance" },
+    { label: "Late Today", value: lateToday, icon: AlertTriangle, accent: "text-destructive", to: "/attendance" },
+    { label: "On Leave", value: onLeaveToday, icon: FileText, accent: "text-warning", to: "/leave" },
+    { label: "Tasks", value: `${pendingTasks} pending • ${completedTasks} done`, icon: ListChecks, accent: "text-primary", to: "/tasks" },
+    ...(canViewSalary ? [{ label: "Today's Deductions", value: `${todayDeductions.toLocaleString()} Ks`, icon: TrendingDown, accent: "text-destructive", to: "/salaries-bonuses" }] : []),
   ];
 
   function attendanceStatus(a: AttendanceRow) {
