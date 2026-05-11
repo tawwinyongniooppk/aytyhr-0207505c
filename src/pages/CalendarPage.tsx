@@ -593,7 +593,13 @@ export default function CalendarPage() {
                       <Badge className="bg-destructive text-destructive-foreground shrink-0 mt-0.5">holiday</Badge>
                       <div className="min-w-0">
                         <p className="font-medium text-sm">Day off</p>
-                        <p className="text-xs text-muted-foreground mt-1">{weekdayName} is set as a non-working day in your schedule.</p>
+                        {!isStaff && offStaffByWeekday[weekdayName]?.length ? (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Off for: {offStaffByWeekday[weekdayName].join(", ")}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground mt-1">{weekdayName} is set as a non-working day in your schedule.</p>
+                        )}
                       </div>
                     </div>
                   )}
