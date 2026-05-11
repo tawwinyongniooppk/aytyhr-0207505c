@@ -246,6 +246,7 @@ export default function Attendance() {
       if (profileRes.data) {
         const p = profileRes.data as any;
         setUserRole(p.role ?? "staff");
+        setFullName(p.full_name ?? "");
         setStaffWorkDay(p.work_day ?? "");
         setStaffCheckInTime(p.check_in_time ?? "");
         setStaffCheckOutTime(p.check_out_time ?? "");
