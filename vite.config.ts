@@ -22,9 +22,9 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [/^\/~oauth/],
       },
       manifest: {
-        name: "Aye Yait Tharyar Smart HR System",
+        name: "AYTY Smart HR",
         short_name: "AYTY Smart HR",
-        description: "Aye Yait Tharyar Smart HR System",
+        description: "Aye Yait Tharyar Smart HR",
         theme_color: "#1E293B",
         background_color: "#F8FAFC",
         display: "standalone",

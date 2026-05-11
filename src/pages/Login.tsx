@@ -67,7 +67,7 @@ export default function Login() {
               )}
             </div>
             <h1 className="text-base md:text-lg font-bold font-display underline underline-offset-4 decoration-2">
-              Welcome to Aye Yait Tharyar Smart HR System
+              Aye Yait Tharyar Smart HR
             </h1>
             <p className="text-sm text-muted-foreground">Sign in to your account</p>
           </div>
