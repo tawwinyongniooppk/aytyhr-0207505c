@@ -245,15 +245,24 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
-              <div className="text-center p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <div
+                onClick={(e) => { e.stopPropagation(); navigate("/leave"); }}
+                className="text-center p-3 rounded-lg bg-amber-50 border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors"
+              >
                 <p className="text-xl font-bold text-amber-600">{pendingRequests.length}</p>
                 <p className="text-xs text-amber-700 mt-1">Pending</p>
               </div>
-              <div className="text-center p-3 rounded-lg bg-green-50 border border-green-200">
+              <div
+                onClick={(e) => { e.stopPropagation(); navigate("/leave"); }}
+                className="text-center p-3 rounded-lg bg-green-50 border border-green-200 cursor-pointer hover:bg-green-100 transition-colors"
+              >
                 <p className="text-xl font-bold text-green-600">{approvedToday.length}</p>
                 <p className="text-xs text-green-700 mt-1">Approved</p>
               </div>
-              <div className="text-center p-3 rounded-lg bg-red-50 border border-red-200">
+              <div
+                onClick={(e) => { e.stopPropagation(); navigate("/leave"); }}
+                className="text-center p-3 rounded-lg bg-red-50 border border-red-200 cursor-pointer hover:bg-red-100 transition-colors"
+              >
                 <p className="text-xl font-bold text-destructive">{rejectedToday.length}</p>
                 <p className="text-xs text-red-700 mt-1">Rejected</p>
               </div>
@@ -263,7 +272,11 @@ export default function Dashboard() {
                 <p className="text-xs font-medium text-muted-foreground mb-2">Recent pending</p>
                 <div className="space-y-2">
                   {pendingRequests.slice(0, 3).map((r) => (
-                    <div key={r.id} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                    <div
+                      key={r.id}
+                      onClick={(e) => { e.stopPropagation(); navigate("/leave"); }}
+                      className="flex items-center justify-between py-1.5 border-b border-border last:border-0 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                    >
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{profileMap[r.user_id]?.full_name || "Unknown"}</p>
                         <p className="text-xs text-muted-foreground">{r.type} — {r.date}</p>
