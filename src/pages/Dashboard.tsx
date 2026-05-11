@@ -147,7 +147,7 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold font-display">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">Loading overview...</p>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
           ))}
@@ -169,7 +169,7 @@ export default function Dashboard() {
       <LeaveBalanceCard />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         {summaryCards.map((card) => (
           <Card key={card.label} className="border border-border shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-4">
