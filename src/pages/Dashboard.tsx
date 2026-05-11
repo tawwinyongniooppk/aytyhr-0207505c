@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2, ListChecks } from "lucide-react";
+import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2, ListChecks, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -186,7 +186,10 @@ export default function Dashboard() {
                 <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
                 <card.icon className={cn("h-4 w-4", card.accent)} />
               </div>
-              <p className="text-xl font-bold font-display">{card.value}</p>
+              <div className="flex items-end justify-between gap-2">
+                <p className="text-xl font-bold font-display">{card.value}</p>
+                <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0 mb-1" />
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -196,9 +199,12 @@ export default function Dashboard() {
         {/* Today's Attendance */}
         <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/attendance")}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              Today's Attendance
+            <CardTitle className="text-base font-display flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                Today's Attendance
+              </span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -238,9 +244,12 @@ export default function Dashboard() {
         {/* Leave & Approval */}
         <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/leave")}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              Leave & Requests
+            <CardTitle className="text-base font-display flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                Leave & Requests
+              </span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -294,9 +303,12 @@ export default function Dashboard() {
         {canViewSalary && (
           <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/salaries-bonuses")}>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-display flex items-center gap-2">
-                <TrendingDown className="h-4 w-4 text-muted-foreground" />
-                Salary Impact — Today
+              <CardTitle className="text-base font-display flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <TrendingDown className="h-4 w-4 text-muted-foreground" />
+                  Salary Impact — Today
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -334,9 +346,12 @@ export default function Dashboard() {
         {/* Monthly Report */}
         <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/attendance")}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center gap-2">
-              <CalendarCheck className="h-4 w-4 text-muted-foreground" />
-              Monthly Report
+            <CardTitle className="text-base font-display flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <CalendarCheck className="h-4 w-4 text-muted-foreground" />
+                Monthly Report
+              </span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
             </CardTitle>
           </CardHeader>
           <CardContent>
