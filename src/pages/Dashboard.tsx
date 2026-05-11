@@ -194,7 +194,7 @@ export default function Dashboard() {
 
       <div className="grid md:grid-cols-2 gap-5">
         {/* Today's Attendance */}
-        <Card className="border border-border shadow-sm">
+        <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/attendance")}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
@@ -210,7 +210,11 @@ export default function Dashboard() {
                   const profile = profileMap[a.user_id];
                   const status = attendanceStatus(a);
                   return (
-                    <div key={a.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                    <div
+                      key={a.id}
+                      onClick={(e) => { e.stopPropagation(); navigate("/attendance"); }}
+                      className="flex items-center justify-between py-2 border-b border-border last:border-0 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                    >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
                           {(profile?.full_name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2)}
@@ -232,7 +236,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Leave & Approval */}
-        <Card className="border border-border shadow-sm">
+        <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/leave")}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
