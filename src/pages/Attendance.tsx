@@ -596,7 +596,37 @@ export default function Attendance() {
         <p className="text-muted-foreground text-sm mt-1">Mark your attendance for today</p>
       </div>
 
-      {/* Salary Notification Banner */}
+      {/* 6:00 AM Daily Greeting / Reminder */}
+      {(() => {
+        void nowTick;
+        const now = new Date();
+        const after6 = now.getHours() >= 6;
+        if (!after6) return null;
+        if (checkedIn) return null;
+        const displayName = fullName || "မင်္ဂလာပါ";
+        const isOffOrLeave = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
+        if (isOffOrLeave) {
+          return (
+            <Card className="border-l-4 border-l-destructive border border-border bg-destructive/5 shadow-none">
+              <CardContent className="p-4 text-sm leading-relaxed">
+                <p>
+                  <span className="font-semibold">{displayName}</span> ယနေ့ သင့်အားလပ်ရက် ဖြစ်ပါတယ် အိပ်စရာတွေ ရှိတာတွေ လုပ်စရာ ရှိတာတွေ သွားစရာ ရှိတာတွေ ကို သတိလေးထားပြီး ပျော်ပျော်ရွှင်ရွှင် လှုပ်ရှား လုပ်ကိုင် သွားလာနိုင်ပါစေရှင့်။
+                </p>
+              </CardContent>
+            </Card>
+          );
+        }
+        return (
+          <Card className="border-l-4 border-l-secondary border border-border bg-secondary/5 shadow-none">
+            <CardContent className="p-4 text-sm leading-relaxed">
+              <p>
+                <span className="font-semibold">{displayName}</span> ယနေ့ မနက် Check in လုပ်ရမည့် အချိန်မှာ <span className="font-semibold text-secondary">{expectedCheckInTime}</span> ဖြစ်ပါတယ် အမှီသွားပါနော် မင်္ဂလာ မနက်ခင်းပါရှင့်။
+              </p>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {salaryNotification && (
         <Card className="border-2 border-secondary shadow-md bg-secondary/5 animate-in fade-in slide-in-from-top-2 duration-300">
           <CardContent className="p-4 space-y-2">
