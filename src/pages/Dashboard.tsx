@@ -292,7 +292,7 @@ export default function Dashboard() {
 
         {/* Salary Impact - Admin only */}
         {canViewSalary && (
-          <Card className="border border-border shadow-sm">
+          <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/salaries-bonuses")}>
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-display flex items-center gap-2">
                 <TrendingDown className="h-4 w-4 text-muted-foreground" />
@@ -300,7 +300,10 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 rounded-lg bg-destructive/5 border border-destructive/20">
+              <div
+                onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
+                className="p-4 rounded-lg bg-destructive/5 border border-destructive/20 cursor-pointer hover:bg-destructive/10 transition-colors"
+              >
                 <p className="text-xs text-muted-foreground">Total Deductions Today</p>
                 <p className="text-2xl font-bold text-destructive">{todayDeductions.toLocaleString()} Ks</p>
               </div>
@@ -309,7 +312,11 @@ export default function Dashboard() {
                   <p className="text-xs font-medium text-muted-foreground mb-2">Top deductions this month</p>
                   <div className="space-y-2">
                     {topDeductions.map((d, i) => (
-                      <div key={d.name} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                      <div
+                        key={d.name}
+                        onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
+                        className="flex items-center justify-between py-1.5 border-b border-border last:border-0 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                      >
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}.</span>
                           <span className="text-sm font-medium">{d.name}</span>
@@ -325,7 +332,7 @@ export default function Dashboard() {
         )}
 
         {/* Monthly Report */}
-        <Card className="border border-border shadow-sm">
+        <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/attendance")}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center gap-2">
               <CalendarCheck className="h-4 w-4 text-muted-foreground" />
@@ -334,16 +341,25 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <div className="flex items-center justify-between py-2 border-b border-border">
+              <div
+                onClick={(e) => { e.stopPropagation(); navigate("/attendance"); }}
+                className="flex items-center justify-between py-2 border-b border-border rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+              >
                 <span className="text-sm text-muted-foreground">Total Attendance Days</span>
                 <span className="text-sm font-bold">{totalAttendanceDays}</span>
               </div>
-              <div className="flex items-center justify-between py-2 border-b border-border">
+              <div
+                onClick={(e) => { e.stopPropagation(); navigate("/attendance"); }}
+                className="flex items-center justify-between py-2 border-b border-border rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+              >
                 <span className="text-sm text-muted-foreground">Late Cases</span>
                 <span className="text-sm font-bold text-destructive">{totalLateCases}</span>
               </div>
               {canViewSalary && (
-                <div className="flex items-center justify-between py-2">
+                <div
+                  onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
+                  className="flex items-center justify-between py-2 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                >
                   <span className="text-sm text-muted-foreground">Total Deductions</span>
                   <span className="text-sm font-bold text-destructive">{monthDeductions.toLocaleString()} Ks</span>
                 </div>
