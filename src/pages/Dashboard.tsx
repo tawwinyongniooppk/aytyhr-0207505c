@@ -186,7 +186,10 @@ export default function Dashboard() {
                 <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
                 <card.icon className={cn("h-4 w-4", card.accent)} />
               </div>
-              <p className="text-xl font-bold font-display">{card.value}</p>
+              <div className="flex items-end justify-between gap-2">
+                <p className="text-xl font-bold font-display">{card.value}</p>
+                <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0 mb-1" />
+              </div>
             </CardContent>
           </Card>
         ))}
