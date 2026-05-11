@@ -125,6 +125,7 @@ export default function Dashboard() {
     { label: "Present Today", value: presentToday, icon: CalendarCheck, accent: "text-accent" },
     { label: "Late Today", value: lateToday, icon: AlertTriangle, accent: "text-destructive" },
     { label: "On Leave", value: onLeaveToday, icon: FileText, accent: "text-warning" },
+    { label: "Tasks", value: `${pendingTasks} pending • ${completedTasks} done`, icon: ListChecks, accent: "text-primary" },
     ...(canViewSalary ? [{ label: "Today's Deductions", value: `${todayDeductions.toLocaleString()} Ks`, icon: TrendingDown, accent: "text-destructive" }] : []),
   ];
 
