@@ -2,9 +2,12 @@ import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
 import { AppHeader } from "./AppHeader";
 import { DesktopSidebar } from "./DesktopSidebar";
+import { BackToDashboard } from "@/components/BackToDashboard";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { Loader2 } from "lucide-react";
+
+const dashboardDetailRoutes = ["/staff", "/attendance", "/leave", "/tasks", "/salaries-bonuses", "/calendar"];
 
 const adminOnlyRoutes = ["/dashboard", "/staff", "/settings", "/calendar"];
 const salaryRoutes = ["/salary"];
@@ -81,6 +84,7 @@ export function AppLayout() {
       <div className="md:hidden">
         <BottomNav />
       </div>
+      {dashboardDetailRoutes.includes(location.pathname) && <BackToDashboard />}
     </div>
   );
 }
