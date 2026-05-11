@@ -64,12 +64,13 @@ export default function Dashboard() {
 
   async function loadData() {
     setLoading(true);
-    const [profilesRes, todayAttRes, monthAttRes, leaveRes, settingsRes] = await Promise.all([
+    const [profilesRes, todayAttRes, monthAttRes, leaveRes, settingsRes, tasksRes] = await Promise.all([
       supabase.rpc("admin_list_profiles"),
       supabase.from("attendance").select("*").eq("date", today),
       supabase.from("attendance").select("*").gte("date", monthStart).lte("date", monthEnd),
       supabase.from("leave_requests").select("*").gte("date", monthStart).lte("date", monthEnd),
       supabase.from("app_settings").select("*").eq("key", "deduction_rate").maybeSingle(),
+      supabase.from("tasks").select("completed").gte("created_at", monthStart),
     ]);
 
     setProfiles(profilesRes.data ?? []);
@@ -77,6 +78,9 @@ export default function Dashboard() {
     setMonthAttendance(monthAttRes.data ?? []);
     setLeaveRequests(leaveRes.data ?? []);
     if (settingsRes.data?.value) setDeductionRate(Number(settingsRes.data.value));
+    const taskRows = (tasksRes.data ?? []) as { completed: boolean }[];
+    setPendingTasks(taskRows.filter((t) => !t.completed).length);
+    setCompletedTasks(taskRows.filter((t) => t.completed).length);
     setLoading(false);
   }
 
