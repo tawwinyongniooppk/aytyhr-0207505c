@@ -48,6 +48,8 @@ export default function Dashboard() {
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRow[]>([]);
   const [monthAttendance, setMonthAttendance] = useState<AttendanceRow[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRow[]>([]);
+  const [pendingTasks, setPendingTasks] = useState(0);
+  const [completedTasks, setCompletedTasks] = useState(0);
   const [deductionRate, setDeductionRate] = useState(200);
   const [loading, setLoading] = useState(true);
 
