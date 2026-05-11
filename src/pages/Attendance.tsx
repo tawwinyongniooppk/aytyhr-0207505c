@@ -114,6 +114,7 @@ export default function Attendance() {
   const [showSalaryModal, setShowSalaryModal] = useState(false);
   const [lastDeduction, setLastDeduction] = useState(0);
   const [userRole, setUserRole] = useState<string>("staff");
+  const [fullName, setFullName] = useState<string>("");
   const [staffWorkDay, setStaffWorkDay] = useState<string>("");
   const [staffCheckInTime, setStaffCheckInTime] = useState<string>("");
   const [staffCheckOutTime, setStaffCheckOutTime] = useState<string>("");
@@ -121,6 +122,9 @@ export default function Attendance() {
   const [checkOutNotice, setCheckOutNotice] = useState<string | null>(null);
   const [checkInNotice, setCheckInNotice] = useState<string | null>(null);
   const [salaryNotification, setSalaryNotification] = useState<{ remaining: number; deduction: number } | null>(null);
+  const [isHolidayToday, setIsHolidayToday] = useState(false);
+  const [hasFullLeaveToday, setHasFullLeaveToday] = useState(false);
+  const [nowTick, setNowTick] = useState<number>(Date.now());
   const [location, setLocation] = useState<LocationState>({
     status: "idle",
     lat: null,
