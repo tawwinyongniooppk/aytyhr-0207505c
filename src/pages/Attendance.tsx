@@ -137,7 +137,63 @@ export default function Attendance() {
   useEffect(() => {
     if (!user) return;
     loadData();
+    loadHolidayAndLeave();
   }, [user]);
+
+  // Tick every minute so the 6:00 AM gating updates without a refresh
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Fade out check-in / check-out notices after 10 seconds
+  useEffect(() => {
+    if (!checkInNotice) return;
+    const id = setTimeout(() => setCheckInNotice(null), 10_000);
+    return () => clearTimeout(id);
+  }, [checkInNotice]);
+  useEffect(() => {
+    if (!checkOutNotice) return;
+    const id = setTimeout(() => setCheckOutNotice(null), 10_000);
+    return () => clearTimeout(id);
+  }, [checkOutNotice]);
+
+  async function loadHolidayAndLeave() {
+    if (!user) return;
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const [evRes, leaveRes, assignRes] = await Promise.all([
+        supabase
+          .from("calendar_events")
+          .select("id, event_type, assigned_to_all, start_date, end_date")
+          .eq("event_type", "holiday")
+          .lte("start_date", today)
+          .gte("end_date", today),
+        supabase
+          .from("leave_requests")
+          .select("id, type, start_time, end_time, status")
+          .eq("user_id", user.id)
+          .eq("date", today)
+          .eq("status", "approved"),
+        supabase
+          .from("calendar_event_assignments")
+          .select("event_id")
+          .eq("user_id", user.id),
+      ]);
+      const myEventIds = new Set(((assignRes.data as any[]) || []).map((r) => r.event_id));
+      const holiday = ((evRes.data as any[]) || []).some(
+        (e) => e.assigned_to_all || myEventIds.has(e.id)
+      );
+      setIsHolidayToday(holiday);
+      const fullLeave = ((leaveRes.data as any[]) || []).some(
+        (l) => l.type === "leave" && !l.start_time && !l.end_time
+      );
+      setHasFullLeaveToday(fullLeave);
+    } catch {
+      /* ignore */
+    }
+  }
+
 
   useEffect(() => {
     if (settings.school_latitude !== 0 || settings.school_longitude !== 0) {
