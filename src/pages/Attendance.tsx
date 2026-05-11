@@ -114,6 +114,7 @@ export default function Attendance() {
   const [showSalaryModal, setShowSalaryModal] = useState(false);
   const [lastDeduction, setLastDeduction] = useState(0);
   const [userRole, setUserRole] = useState<string>("staff");
+  const [fullName, setFullName] = useState<string>("");
   const [staffWorkDay, setStaffWorkDay] = useState<string>("");
   const [staffCheckInTime, setStaffCheckInTime] = useState<string>("");
   const [staffCheckOutTime, setStaffCheckOutTime] = useState<string>("");
@@ -121,6 +122,9 @@ export default function Attendance() {
   const [checkOutNotice, setCheckOutNotice] = useState<string | null>(null);
   const [checkInNotice, setCheckInNotice] = useState<string | null>(null);
   const [salaryNotification, setSalaryNotification] = useState<{ remaining: number; deduction: number } | null>(null);
+  const [isHolidayToday, setIsHolidayToday] = useState(false);
+  const [hasFullLeaveToday, setHasFullLeaveToday] = useState(false);
+  const [nowTick, setNowTick] = useState<number>(Date.now());
   const [location, setLocation] = useState<LocationState>({
     status: "idle",
     lat: null,
@@ -133,7 +137,63 @@ export default function Attendance() {
   useEffect(() => {
     if (!user) return;
     loadData();
+    loadHolidayAndLeave();
   }, [user]);
+
+  // Tick every minute so the 6:00 AM gating updates without a refresh
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Fade out check-in / check-out notices after 10 seconds
+  useEffect(() => {
+    if (!checkInNotice) return;
+    const id = setTimeout(() => setCheckInNotice(null), 10_000);
+    return () => clearTimeout(id);
+  }, [checkInNotice]);
+  useEffect(() => {
+    if (!checkOutNotice) return;
+    const id = setTimeout(() => setCheckOutNotice(null), 10_000);
+    return () => clearTimeout(id);
+  }, [checkOutNotice]);
+
+  async function loadHolidayAndLeave() {
+    if (!user) return;
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const [evRes, leaveRes, assignRes] = await Promise.all([
+        supabase
+          .from("calendar_events")
+          .select("id, event_type, assigned_to_all, start_date, end_date")
+          .eq("event_type", "holiday")
+          .lte("start_date", today)
+          .gte("end_date", today),
+        supabase
+          .from("leave_requests")
+          .select("id, type, start_time, end_time, status")
+          .eq("user_id", user.id)
+          .eq("date", today)
+          .eq("status", "approved"),
+        supabase
+          .from("calendar_event_assignments")
+          .select("event_id")
+          .eq("user_id", user.id),
+      ]);
+      const myEventIds = new Set(((assignRes.data as any[]) || []).map((r) => r.event_id));
+      const holiday = ((evRes.data as any[]) || []).some(
+        (e) => e.assigned_to_all || myEventIds.has(e.id)
+      );
+      setIsHolidayToday(holiday);
+      const fullLeave = ((leaveRes.data as any[]) || []).some(
+        (l) => l.type === "leave" && !l.start_time && !l.end_time
+      );
+      setHasFullLeaveToday(fullLeave);
+    } catch {
+      /* ignore */
+    }
+  }
+
 
   useEffect(() => {
     if (settings.school_latitude !== 0 || settings.school_longitude !== 0) {
@@ -225,7 +285,7 @@ export default function Attendance() {
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("*"),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
-        supabase.from("profiles").select("role, work_day, check_in_time, check_out_time, work_schedule").eq("id", user!.id).maybeSingle(),
+        supabase.from("profiles").select("role, full_name, work_day, check_in_time, check_out_time, work_schedule").eq("id", user!.id).maybeSingle(),
       ]);
 
       if (attRes.data) {
@@ -242,6 +302,7 @@ export default function Attendance() {
       if (profileRes.data) {
         const p = profileRes.data as any;
         setUserRole(p.role ?? "staff");
+        setFullName(p.full_name ?? "");
         setStaffWorkDay(p.work_day ?? "");
         setStaffCheckInTime(p.check_in_time ?? "");
         setStaffCheckOutTime(p.check_out_time ?? "");
@@ -535,7 +596,37 @@ export default function Attendance() {
         <p className="text-muted-foreground text-sm mt-1">Mark your attendance for today</p>
       </div>
 
-      {/* Salary Notification Banner */}
+      {/* 6:00 AM Daily Greeting / Reminder */}
+      {(() => {
+        void nowTick;
+        const now = new Date();
+        const after6 = now.getHours() >= 6;
+        if (!after6) return null;
+        if (checkedIn) return null;
+        const displayName = fullName || "မင်္ဂလာပါ";
+        const isOffOrLeave = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
+        if (isOffOrLeave) {
+          return (
+            <Card className="border-l-4 border-l-destructive border border-border bg-destructive/5 shadow-none">
+              <CardContent className="p-4 text-sm leading-relaxed">
+                <p>
+                  <span className="font-semibold">{displayName}</span> ယနေ့ သင့်အားလပ်ရက် ဖြစ်ပါတယ် အိပ်စရာတွေ ရှိတာတွေ လုပ်စရာ ရှိတာတွေ သွားစရာ ရှိတာတွေ ကို သတိလေးထားပြီး ပျော်ပျော်ရွှင်ရွှင် လှုပ်ရှား လုပ်ကိုင် သွားလာနိုင်ပါစေရှင့်။
+                </p>
+              </CardContent>
+            </Card>
+          );
+        }
+        return (
+          <Card className="border-l-4 border-l-secondary border border-border bg-secondary/5 shadow-none">
+            <CardContent className="p-4 text-sm leading-relaxed">
+              <p>
+                <span className="font-semibold">{displayName}</span> ယနေ့ မနက် Check in လုပ်ရမည့် အချိန်မှာ <span className="font-semibold text-secondary">{expectedCheckInTime}</span> ဖြစ်ပါတယ် အမှီသွားပါနော် မင်္ဂလာ မနက်ခင်းပါရှင့်။
+              </p>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {salaryNotification && (
         <Card className="border-2 border-secondary shadow-md bg-secondary/5 animate-in fade-in slide-in-from-top-2 duration-300">
           <CardContent className="p-4 space-y-2">
