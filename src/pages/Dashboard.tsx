@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2 } from "lucide-react";
+import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2, ListChecks } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -48,6 +48,8 @@ export default function Dashboard() {
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRow[]>([]);
   const [monthAttendance, setMonthAttendance] = useState<AttendanceRow[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRow[]>([]);
+  const [pendingTasks, setPendingTasks] = useState(0);
+  const [completedTasks, setCompletedTasks] = useState(0);
   const [deductionRate, setDeductionRate] = useState(200);
   const [loading, setLoading] = useState(true);
 
@@ -62,12 +64,13 @@ export default function Dashboard() {
 
   async function loadData() {
     setLoading(true);
-    const [profilesRes, todayAttRes, monthAttRes, leaveRes, settingsRes] = await Promise.all([
+    const [profilesRes, todayAttRes, monthAttRes, leaveRes, settingsRes, tasksRes] = await Promise.all([
       supabase.rpc("admin_list_profiles"),
       supabase.from("attendance").select("*").eq("date", today),
       supabase.from("attendance").select("*").gte("date", monthStart).lte("date", monthEnd),
       supabase.from("leave_requests").select("*").gte("date", monthStart).lte("date", monthEnd),
       supabase.from("app_settings").select("*").eq("key", "deduction_rate").maybeSingle(),
+      supabase.from("tasks").select("completed").gte("created_at", monthStart),
     ]);
 
     setProfiles(profilesRes.data ?? []);
@@ -75,6 +78,9 @@ export default function Dashboard() {
     setMonthAttendance(monthAttRes.data ?? []);
     setLeaveRequests(leaveRes.data ?? []);
     if (settingsRes.data?.value) setDeductionRate(Number(settingsRes.data.value));
+    const taskRows = (tasksRes.data ?? []) as { completed: boolean }[];
+    setPendingTasks(taskRows.filter((t) => !t.completed).length);
+    setCompletedTasks(taskRows.filter((t) => t.completed).length);
     setLoading(false);
   }
 
@@ -119,6 +125,7 @@ export default function Dashboard() {
     { label: "Present Today", value: presentToday, icon: CalendarCheck, accent: "text-accent" },
     { label: "Late Today", value: lateToday, icon: AlertTriangle, accent: "text-destructive" },
     { label: "On Leave", value: onLeaveToday, icon: FileText, accent: "text-warning" },
+    { label: "Tasks", value: `${pendingTasks} pending • ${completedTasks} done`, icon: ListChecks, accent: "text-primary" },
     ...(canViewSalary ? [{ label: "Today's Deductions", value: `${todayDeductions.toLocaleString()} Ks`, icon: TrendingDown, accent: "text-destructive" }] : []),
   ];
 
@@ -140,7 +147,7 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold font-display">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">Loading overview...</p>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
           ))}
@@ -162,7 +169,7 @@ export default function Dashboard() {
       <LeaveBalanceCard />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         {summaryCards.map((card) => (
           <Card key={card.label} className="border border-border shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-4">
