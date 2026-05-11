@@ -173,7 +173,14 @@ export default function Dashboard() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         {summaryCards.map((card) => (
-          <Card key={card.label} className="border border-border shadow-sm hover:shadow-md transition-shadow">
+          <Card
+            key={card.label}
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(card.to)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(card.to); } }}
+            className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
