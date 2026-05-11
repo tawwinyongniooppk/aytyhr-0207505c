@@ -119,22 +119,25 @@ export default function CalendarPage() {
   async function loadMySchedule() {
     if (!user) return;
     try {
-      // Admin/Assistant: derive off-days from staff schedules (shared off-day = every staff inactive that weekday).
+      // Admin/Assistant: collect per-weekday off staff names. Any staff marked off => weekday is a holiday for them.
       // Staff: use own schedule.
       if (!isStaff) {
         const { data } = await supabase
           .from("profiles")
-          .select("work_schedule")
+          .select("full_name, work_schedule, role")
           .eq("role", "staff");
-        const schedules = (data || [])
-          .map((r: any) => r.work_schedule)
-          .filter((ws: any) => ws && typeof ws === "object");
-        if (schedules.length === 0) { setMySchedule(null); return; }
+        const rows = (data || []) as Array<{ full_name: string; work_schedule: any }>;
+        const byDay: Record<string, string[]> = {};
         const merged: Record<string, { active: boolean }> = {};
         for (const day of WEEKDAY_NAMES) {
-          const allOff = schedules.every((ws: any) => ws[day] && ws[day].active === false);
-          merged[day] = { active: !allOff };
+          const offNames = rows
+            .filter((r) => r.work_schedule && r.work_schedule[day] && r.work_schedule[day].active === false)
+            .map((r) => r.full_name || "Unnamed");
+          byDay[day] = offNames;
+          // Treat the day as a Holiday if ANY staff is off that day
+          merged[day] = { active: offNames.length === 0 };
         }
+        setOffStaffByWeekday(byDay);
         setMySchedule(merged);
         return;
       }
@@ -144,6 +147,7 @@ export default function CalendarPage() {
         .eq("id", user.id)
         .maybeSingle();
       if (data?.work_schedule) setMySchedule(data.work_schedule as any);
+      setOffStaffByWeekday({});
     } catch { /* ignore */ }
   }
 
