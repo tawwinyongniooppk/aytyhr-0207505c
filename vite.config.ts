@@ -22,9 +22,9 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [/^\/~oauth/],
       },
       manifest: {
-        name: "StaffPortal",
-        short_name: "StaffPortal",
-        description: "School Staff Management System",
+        name: "Aye Yait Tharyar Smart HR System",
+        short_name: "AYTY Smart HR",
+        description: "Aye Yait Tharyar Smart HR System",
         theme_color: "#1E293B",
         background_color: "#F8FAFC",
         display: "standalone",
