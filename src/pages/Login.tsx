@@ -16,12 +16,24 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && user) {
       navigate("/dashboard", { replace: true });
     }
   }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "company_logo_url")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) setLogoUrl(data.value);
+      });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,11 +58,17 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm border border-border shadow-none">
         <CardContent className="p-6 space-y-6">
-          <div className="text-center space-y-2">
-            <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-secondary/10 mx-auto">
-              <GraduationCap className="h-6 w-6 text-secondary" />
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center justify-center h-16 w-16 rounded-xl bg-secondary/10 mx-auto overflow-hidden border border-border">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Company logo" className="h-full w-full object-contain" />
+              ) : (
+                <GraduationCap className="h-8 w-8 text-secondary" />
+              )}
             </div>
-            <h1 className="text-xl font-bold font-display">StaffPortal</h1>
+            <h1 className="text-base md:text-lg font-bold font-display underline underline-offset-4 decoration-2">
+              Welcome to Aye Yait Tharyar Smart HR System
+            </h1>
             <p className="text-sm text-muted-foreground">Sign in to your account</p>
           </div>
 
