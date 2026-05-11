@@ -84,6 +84,7 @@ export function AppLayout() {
       <div className="md:hidden">
         <BottomNav />
       </div>
+      {dashboardDetailRoutes.includes(location.pathname) && <BackToDashboard />}
     </div>
   );
 }
