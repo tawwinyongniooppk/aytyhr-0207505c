@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -76,6 +77,7 @@ export default function CalendarPage() {
     allStaff: true,
     assignedIds: [] as string[],
     frequency: "weekly" as "weekly" | "biweekly",
+    assignMode: "everyone" as "everyone" | "single_private" | "single_public",
   });
 
   function addDaysISO(dateStr: string, days: number) {
@@ -271,9 +273,14 @@ export default function CalendarPage() {
 
     // Per-assignee monthly cap (weekly=1 weighted unit, biweekly=2; cap 4/month).
     const newWeight = form.frequency === "weekly" ? 1 : 2;
-    const candidateIds = form.allStaff ? staffList.map((s) => s.id) : form.assignedIds;
+    const isEveryone = form.assignMode === "everyone";
+    const candidateIds = isEveryone ? staffList.map((s) => s.id) : form.assignedIds;
     if (candidateIds.length === 0) {
       toast({ title: "Select at least one assignee", variant: "destructive" });
+      return;
+    }
+    if (!isEveryone && candidateIds.length !== 1) {
+      toast({ title: "Pick exactly one staff member for this mode", variant: "destructive" });
       return;
     }
     // Refresh load for the target month before validating.
@@ -306,8 +313,8 @@ export default function CalendarPage() {
     const blocked = candidateIds.filter((id) => (freshLoad[id] || 0) + newWeight > MONTHLY_WEIGHT_CAP);
     if (blocked.length > 0) {
       toast({
-        title: "Monthly assignment limit reached",
-        description: `Cannot assign — over the 4-units/month cap for: ${blocked.map((id) => nameById[id] || "user").join(", ")}.`,
+        title: "Monthly assignment limit reached (4/4)",
+        description: `Blocked: ${blocked.map((id) => nameById[id] || "user").join(", ")}. Other staff can still be assigned.`,
         variant: "destructive",
       });
       return;
@@ -315,7 +322,12 @@ export default function CalendarPage() {
 
     setSubmitting(true);
     try {
-      const isAllStaff = form.allStaff;
+      // Mode → visibility:
+      //  - everyone: assigned to all staff (private record, but every staff has an assignment)
+      //  - single_private: assigned to one staff, only that staff sees it
+      //  - single_public: assigned to one staff, visible to the whole team
+      const visibility = form.assignMode === "single_public" ? "public" : "private";
+      const isAllStaff = form.assignMode === "everyone";
 
       const { data: ev, error } = await supabase
         .from("calendar_events")
@@ -325,7 +337,7 @@ export default function CalendarPage() {
           start_date: form.start_date,
           end_date: deadline,
           event_type: "task",
-          visibility: "private",
+          visibility,
           created_by: user.id,
           assigned_to_all: isAllStaff,
         } as any)
@@ -334,7 +346,7 @@ export default function CalendarPage() {
       if (error) throw error;
 
       if (ev) {
-        const ids = form.allStaff ? staffList.map((s) => s.id) : form.assignedIds;
+        const ids = isAllStaff ? staffList.map((s) => s.id) : form.assignedIds;
         if (ids.length > 0) {
           const { error: assignErr } = await supabase.from("calendar_event_assignments").insert(
             ids.map((uid) => ({ event_id: ev.id, user_id: uid, submission_status: "not_started" }))
@@ -344,7 +356,7 @@ export default function CalendarPage() {
       }
 
       toast({ title: "Task created successfully" });
-      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [], frequency: "weekly" });
+      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [], frequency: "weekly", assignMode: "everyone" });
       setOpen(false);
       loadEvents();
     } catch {
@@ -441,55 +453,73 @@ export default function CalendarPage() {
                     </p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Switch checked={form.allStaff} onCheckedChange={(c) => setForm({ ...form, allStaff: c })} />
-                    <Label>Assign to all staff</Label>
-                  </div>
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Assignment Mode</Label>
+                  <RadioGroup
+                    value={form.assignMode}
+                    onValueChange={(v) => setForm({ ...form, assignMode: v as typeof form.assignMode, assignedIds: [] })}
+                    className="grid gap-2"
+                  >
+                    <label className={`flex items-start gap-2 p-3 rounded-md border cursor-pointer transition ${form.assignMode === "everyone" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"}`}>
+                      <RadioGroupItem value="everyone" className="mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium">Assign to everyone</p>
+                        <p className="text-xs text-muted-foreground">Every staff member gets this task.</p>
+                      </div>
+                    </label>
+                    <label className={`flex items-start gap-2 p-3 rounded-md border cursor-pointer transition ${form.assignMode === "single_private" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"}`}>
+                      <RadioGroupItem value="single_private" className="mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium">Assign to one person only</p>
+                        <p className="text-xs text-muted-foreground">Only the chosen staff sees this task.</p>
+                      </div>
+                    </label>
+                    <label className={`flex items-start gap-2 p-3 rounded-md border cursor-pointer transition ${form.assignMode === "single_public" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"}`}>
+                      <RadioGroupItem value="single_public" className="mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium">Assign to one — visible to team</p>
+                        <p className="text-xs text-muted-foreground">One staff is responsible; the rest can see it.</p>
+                      </div>
+                    </label>
+                  </RadioGroup>
+
                   <p className="text-xs text-muted-foreground">
-                    Monthly cap per person: 4 weekly tasks, or 2 bi-weekly, or a mix (weekly = 1 unit, bi-weekly = 2 units, max 4 units/month).
+                    Monthly cap per person: 4 Units (weekly = 1 Unit, bi-weekly = 2 Units). When a member reaches 4/4, only that member is blocked.
                   </p>
-                  {form.allStaff ? (
-                    <div className="border border-border rounded-md p-3 max-h-40 overflow-y-auto space-y-1">
-                      {staffList.length === 0 && <p className="text-sm text-muted-foreground">No staff found</p>}
-                      {staffList.map((s) => {
-                        const l = assignmentLoad[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
-                        const newWeight = form.frequency === "weekly" ? 1 : 2;
-                        const willExceed = l.weighted + newWeight > MONTHLY_WEIGHT_CAP;
-                        return (
-                          <div key={s.id} className="flex items-center justify-between text-xs">
-                            <span>{s.full_name || "Unnamed"}</span>
-                            <span className={willExceed ? "text-destructive font-medium" : "text-muted-foreground"}>
-                              {l.weekly}w + {l.biweekly}bw = {l.weighted}/{MONTHLY_WEIGHT_CAP}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="border border-border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
-                      {staffList.length === 0 && <p className="text-sm text-muted-foreground">No staff found</p>}
-                      {staffList.map((s) => {
-                        const l = assignmentLoad[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
-                        const newWeight = form.frequency === "weekly" ? 1 : 2;
-                        const willExceed = l.weighted + newWeight > MONTHLY_WEIGHT_CAP;
-                        return (
-                          <label key={s.id} className="flex items-center justify-between gap-2 text-sm cursor-pointer">
-                            <span className="flex items-center gap-2">
-                              <Checkbox
-                                checked={form.assignedIds.includes(s.id)}
-                                onCheckedChange={() => toggleAssignee(s.id)}
-                              />
-                              {s.full_name || "Unnamed"}
-                            </span>
-                            <span className={`text-xs ${willExceed ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                              {l.weekly}w + {l.biweekly}bw = {l.weighted}/{MONTHLY_WEIGHT_CAP}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
+
+                  <div className="border border-border rounded-md p-3 max-h-48 overflow-y-auto space-y-1.5 bg-muted/20">
+                    {staffList.length === 0 && <p className="text-sm text-muted-foreground">No staff found</p>}
+                    {staffList.map((s) => {
+                      const l = assignmentLoad[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
+                      const newWeight = form.frequency === "weekly" ? 1 : 2;
+                      const willExceed = l.weighted + newWeight > MONTHLY_WEIGHT_CAP;
+                      const atCap = l.weighted >= MONTHLY_WEIGHT_CAP;
+                      const selectable = form.assignMode !== "everyone";
+                      const selected = form.assignedIds.includes(s.id);
+                      const pickOne = () => {
+                        if (atCap) return;
+                        setForm((f) => ({ ...f, assignedIds: selected ? [] : [s.id] }));
+                      };
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={selectable ? pickOne : undefined}
+                          className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-sm ${selectable ? "cursor-pointer hover:bg-background" : ""} ${selected && selectable ? "bg-primary/10 ring-1 ring-primary/40" : ""} ${atCap ? "opacity-60" : ""}`}
+                        >
+                          <span className="flex items-center gap-2">
+                            {selectable && (
+                              <Checkbox checked={selected} disabled={atCap} onCheckedChange={pickOne} />
+                            )}
+                            <span className="font-medium">{s.full_name || "Unnamed"}</span>
+                          </span>
+                          <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold ${atCap ? "bg-destructive/15 text-destructive" : willExceed ? "bg-warning/15 text-warning" : "bg-accent/15 text-accent"}`}>
+                            {l.weighted} / {MONTHLY_WEIGHT_CAP} Unit{l.weighted === 1 ? "" : "s"}
+                            {atCap && " · Full"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
                 <Button
                   onClick={handleCreate}

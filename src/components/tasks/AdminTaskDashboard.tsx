@@ -376,19 +376,19 @@ export function AdminTaskDashboard({
 
       {/* Tabs */}
       <Tabs defaultValue="by-staff" className="w-full">
-        <TabsList className="w-full grid grid-cols-2">
-          <TabsTrigger value="by-staff" className="gap-1"><Users className="h-4 w-4" /> By Staff</TabsTrigger>
-          <TabsTrigger value="by-date" className="gap-1"><CalendarDays className="h-4 w-4" /> By Date</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-2 h-11 p-1 bg-muted/60 rounded-xl">
+          <TabsTrigger value="by-staff" className="gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm font-semibold"><Users className="h-4 w-4" /> By Staff</TabsTrigger>
+          <TabsTrigger value="by-date" className="gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm font-semibold"><CalendarDays className="h-4 w-4" /> By Date</TabsTrigger>
         </TabsList>
 
         <TabsContent value="by-staff">
           {byStaff.length === 0 ? <EmptyState /> : (
             <div className="space-y-4">
               {byStaff.map(([staffId, items]) => (
-                <Card key={staffId} className="border border-border shadow-sm">
-                  <CardHeader className="pb-2 pt-4 px-4">
+                <Card key={staffId} className="border border-border shadow-sm overflow-hidden">
+                  <CardHeader className="pb-2 pt-4 px-4 bg-gradient-to-r from-primary/5 to-transparent border-b border-border">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base font-semibold">{staffNames[staffId] || "Unknown"}</CardTitle>
+                      <CardTitle className="text-base font-semibold flex items-center gap-2"><Users className="h-4 w-4 text-primary" />{staffNames[staffId] || "Unknown"}</CardTitle>
                       <div className="flex items-center gap-2">
                         {notAcceptedByStaff[staffId] ? (
                           <Badge variant="secondary" className="bg-muted text-muted-foreground text-xs gap-1">
@@ -447,9 +447,10 @@ export function AdminTaskDashboard({
 
             {byDate.length === 0 ? <EmptyState /> : (
               byDate.map(([date, items]) => (
-                <Card key={date} className="border border-border shadow-sm">
-                  <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-base font-semibold">
+                <Card key={date} className="border border-border shadow-sm overflow-hidden">
+                  <CardHeader className="pb-2 pt-4 px-4 bg-gradient-to-r from-accent/5 to-transparent border-b border-border">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4 text-accent" />
                       {new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "short", day: "numeric" })}
                     </CardTitle>
                   </CardHeader>
