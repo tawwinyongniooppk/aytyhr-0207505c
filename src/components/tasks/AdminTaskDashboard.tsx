@@ -322,16 +322,6 @@ export function AdminTaskDashboard({
                 {staffList.map((s) => (<SelectItem key={s.id} value={s.id}>{s.full_name || "Unnamed"}</SelectItem>))}
               </SelectContent>
             </Select>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-full sm:w-[140px]"><SelectValue placeholder="All Types" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="task">Tasks</SelectItem>
-                <SelectItem value="meeting">Meetings</SelectItem>
-                <SelectItem value="event">Events</SelectItem>
-                <SelectItem value="holiday">Holidays</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-full sm:w-[150px]"><SelectValue placeholder="All Status" /></SelectTrigger>
               <SelectContent>
