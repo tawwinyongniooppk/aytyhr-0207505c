@@ -373,12 +373,12 @@ export default function Staff() {
                           key={d}
                           className={`flex justify-between items-center px-2 py-1 rounded ${
                             day.active
-                              ? "bg-accent/10 text-accent-foreground"
+                              ? "bg-accent/10 text-black font-bold"
                               : "bg-destructive/10 text-destructive"
                           }`}
                         >
-                          <span className="font-medium">{d.slice(0, 3)}</span>
-                          <span>
+                          <span className="font-bold">{d.slice(0, 3)}</span>
+                          <span className="font-bold">
                             {day.active ? `${day.check_in} – ${day.check_out}` : "Off"}
                           </span>
                         </div>
