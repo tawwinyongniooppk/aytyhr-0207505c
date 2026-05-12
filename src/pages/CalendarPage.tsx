@@ -76,6 +76,7 @@ export default function CalendarPage() {
     allStaff: true,
     assignedIds: [] as string[],
     frequency: "weekly" as "weekly" | "biweekly",
+    assignMode: "everyone" as "everyone" | "single_private" | "single_public",
   });
 
   function addDaysISO(dateStr: string, days: number) {
