@@ -404,11 +404,18 @@ export function AdminTaskDashboard({
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
-                    <div className="space-y-1">
-                      {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} />
-                      ))}
-                    </div>
+                    {items.length === 0 ? (
+                      <div className="flex items-center gap-2 py-3 px-3 rounded-lg bg-destructive/10 border-l-2 border-l-destructive text-destructive text-sm font-medium">
+                        <AlertTriangle className="h-4 w-4" />
+                        No tasks assigned to this staff member.
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {items.map((item) => (
+                          <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} detailed />
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
