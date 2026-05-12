@@ -119,7 +119,6 @@ export function AdminTaskDashboard({
 }: AdminTaskDashboardProps) {
   const { user } = useAuth();
   const [filterStaff, setFilterStaff] = useState("all");
-  const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -220,14 +219,17 @@ export function AdminTaskDashboard({
   const filtered = useMemo(() => {
     const f = unifiedItems.filter((item) => {
       if (filterStaff !== "all" && item.staffId !== filterStaff) return false;
-      if (filterType !== "all" && item.type !== filterType) return false;
-      if (filterStatus !== "all" && item.status !== filterStatus) return false;
+      if (filterStatus !== "all") {
+        if (filterStatus === "not_started") {
+          if (item.status !== "not_started" && item.status !== "overdue") return false;
+        } else if (item.status !== filterStatus) return false;
+      }
       if (dateFrom && item.date < dateFrom) return false;
       if (dateTo && item.date > dateTo) return false;
       return true;
     });
     return sortByPriority(f);
-  }, [unifiedItems, filterStaff, filterType, filterStatus, dateFrom, dateTo]);
+  }, [unifiedItems, filterStaff, filterStatus, dateFrom, dateTo]);
 
   const byStaff = useMemo(() => {
     const map: Record<string, UnifiedItem[]> = {};
@@ -301,10 +303,10 @@ export function AdminTaskDashboard({
       <div>
         <h1 className="text-2xl font-bold font-display">Task Monitor</h1>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <Badge variant="secondary" className="bg-muted text-muted-foreground text-xs">{notStartedCount} not started</Badge>
-          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">{inProgressCount} in progress</Badge>
-          <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs">{submittedCount} submitted</Badge>
-          <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs">{approvedCount} approved</Badge>
+          <button type="button" onClick={() => setFilterStatus(filterStatus === "not_started" ? "all" : "not_started")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "not_started" ? "ring-2 ring-ring " : ""}bg-muted text-muted-foreground hover:opacity-80`}>{notStartedCount} not started</button>
+          <button type="button" onClick={() => setFilterStatus(filterStatus === "in_progress" ? "all" : "in_progress")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "in_progress" ? "ring-2 ring-ring " : ""}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:opacity-80`}>{inProgressCount} in progress</button>
+          <button type="button" onClick={() => setFilterStatus(filterStatus === "submitted" ? "all" : "submitted")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "submitted" ? "ring-2 ring-ring " : ""}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 hover:opacity-80`}>{submittedCount} submitted</button>
+          <button type="button" onClick={() => setFilterStatus(filterStatus === "approved" ? "all" : "approved")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "approved" ? "ring-2 ring-ring " : ""}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:opacity-80`}>{approvedCount} approved</button>
         </div>
       </div>
 
@@ -320,16 +322,6 @@ export function AdminTaskDashboard({
                 {staffList.map((s) => (<SelectItem key={s.id} value={s.id}>{s.full_name || "Unnamed"}</SelectItem>))}
               </SelectContent>
             </Select>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-full sm:w-[140px]"><SelectValue placeholder="All Types" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="task">Tasks</SelectItem>
-                <SelectItem value="meeting">Meetings</SelectItem>
-                <SelectItem value="event">Events</SelectItem>
-                <SelectItem value="holiday">Holidays</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-full sm:w-[150px]"><SelectValue placeholder="All Status" /></SelectTrigger>
               <SelectContent>
@@ -343,8 +335,8 @@ export function AdminTaskDashboard({
             </Select>
             <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full sm:w-[150px]" />
             <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full sm:w-[150px]" />
-            {(filterStaff !== "all" || filterType !== "all" || filterStatus !== "all" || dateFrom || dateTo) && (
-              <Button variant="ghost" size="sm" onClick={() => { setFilterStaff("all"); setFilterType("all"); setFilterStatus("all"); setDateFrom(""); setDateTo(""); }} className="gap-1 text-xs col-span-2 sm:col-auto">
+            {(filterStaff !== "all" || filterStatus !== "all" || dateFrom || dateTo) && (
+              <Button variant="ghost" size="sm" onClick={() => { setFilterStaff("all"); setFilterStatus("all"); setDateFrom(""); setDateTo(""); }} className="gap-1 text-xs col-span-2 sm:col-auto">
                 <X className="h-3 w-3" /> Clear
               </Button>
             )}
