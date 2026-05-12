@@ -58,18 +58,21 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm border border-border shadow-none">
         <CardContent className="p-6 space-y-6">
-          <div className="text-center space-y-3">
-            <div className="inline-flex items-center justify-center h-16 w-16 rounded-xl bg-secondary/10 mx-auto overflow-hidden border border-border">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center h-20 w-20 rounded-xl bg-secondary/10 mx-auto overflow-hidden border border-border">
               {logoUrl ? (
                 <img src={logoUrl} alt="Company logo" className="h-full w-full object-contain" />
               ) : (
-                <GraduationCap className="h-8 w-8 text-secondary" />
+                <GraduationCap className="h-10 w-10 text-secondary" />
               )}
             </div>
-            <h1 className="text-base md:text-lg font-bold font-display underline underline-offset-4 decoration-2">
-              Aye Yait Tharyar Smart HR
-            </h1>
-            <p className="text-sm text-muted-foreground">Sign in to your account</p>
+            <div className="mt-8 space-y-2">
+              <p className="text-xs font-bold text-foreground">Welcome to</p>
+              <h1 className="text-base md:text-lg font-bold font-display underline underline-offset-4 decoration-2">
+                Aye Yait Tharyar Smart HR
+              </h1>
+              <p className="text-sm text-muted-foreground">Sign in to your account</p>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
