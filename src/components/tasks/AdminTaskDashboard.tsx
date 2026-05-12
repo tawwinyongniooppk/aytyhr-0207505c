@@ -424,9 +424,29 @@ export function AdminTaskDashboard({
         </TabsContent>
 
         <TabsContent value="by-date">
-          {byDate.length === 0 ? <EmptyState /> : (
-            <div className="space-y-4">
-              {byDate.map(([date, items]) => (
+          <div className="space-y-4">
+            {/* Deadline section: tasks within 48 hours */}
+            <Card className="border-2 border-destructive/40 shadow-sm">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-base font-semibold flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-4 w-4" /> Deadline (within 48 hours)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                {deadlineItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">No tasks due within the next 48 hours.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {deadlineItems.map((item) => (
+                      <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {byDate.length === 0 ? <EmptyState /> : (
+              byDate.map(([date, items]) => (
                 <Card key={date} className="border border-border shadow-sm">
                   <CardHeader className="pb-2 pt-4 px-4">
                     <CardTitle className="text-base font-semibold">
@@ -436,14 +456,14 @@ export function AdminTaskDashboard({
                   <CardContent className="p-4 pt-0">
                     <div className="space-y-1">
                       {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} />
+                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
                       ))}
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>
