@@ -272,9 +272,14 @@ export default function CalendarPage() {
 
     // Per-assignee monthly cap (weekly=1 weighted unit, biweekly=2; cap 4/month).
     const newWeight = form.frequency === "weekly" ? 1 : 2;
-    const candidateIds = form.allStaff ? staffList.map((s) => s.id) : form.assignedIds;
+    const isEveryone = form.assignMode === "everyone";
+    const candidateIds = isEveryone ? staffList.map((s) => s.id) : form.assignedIds;
     if (candidateIds.length === 0) {
       toast({ title: "Select at least one assignee", variant: "destructive" });
+      return;
+    }
+    if (!isEveryone && candidateIds.length !== 1) {
+      toast({ title: "Pick exactly one staff member for this mode", variant: "destructive" });
       return;
     }
     // Refresh load for the target month before validating.
@@ -307,8 +312,8 @@ export default function CalendarPage() {
     const blocked = candidateIds.filter((id) => (freshLoad[id] || 0) + newWeight > MONTHLY_WEIGHT_CAP);
     if (blocked.length > 0) {
       toast({
-        title: "Monthly assignment limit reached",
-        description: `Cannot assign — over the 4-units/month cap for: ${blocked.map((id) => nameById[id] || "user").join(", ")}.`,
+        title: "Monthly assignment limit reached (4/4)",
+        description: `Blocked: ${blocked.map((id) => nameById[id] || "user").join(", ")}. Other staff can still be assigned.`,
         variant: "destructive",
       });
       return;
@@ -316,7 +321,12 @@ export default function CalendarPage() {
 
     setSubmitting(true);
     try {
-      const isAllStaff = form.allStaff;
+      // Mode → visibility:
+      //  - everyone: assigned to all staff (private record, but every staff has an assignment)
+      //  - single_private: assigned to one staff, only that staff sees it
+      //  - single_public: assigned to one staff, visible to the whole team
+      const visibility = form.assignMode === "single_public" ? "public" : "private";
+      const isAllStaff = form.assignMode === "everyone";
 
       const { data: ev, error } = await supabase
         .from("calendar_events")
@@ -326,7 +336,7 @@ export default function CalendarPage() {
           start_date: form.start_date,
           end_date: deadline,
           event_type: "task",
-          visibility: "private",
+          visibility,
           created_by: user.id,
           assigned_to_all: isAllStaff,
         } as any)
@@ -335,7 +345,7 @@ export default function CalendarPage() {
       if (error) throw error;
 
       if (ev) {
-        const ids = form.allStaff ? staffList.map((s) => s.id) : form.assignedIds;
+        const ids = isAllStaff ? staffList.map((s) => s.id) : form.assignedIds;
         if (ids.length > 0) {
           const { error: assignErr } = await supabase.from("calendar_event_assignments").insert(
             ids.map((uid) => ({ event_id: ev.id, user_id: uid, submission_status: "not_started" }))
@@ -345,7 +355,7 @@ export default function CalendarPage() {
       }
 
       toast({ title: "Task created successfully" });
-      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [], frequency: "weekly" });
+      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [], frequency: "weekly", assignMode: "everyone" });
       setOpen(false);
       loadEvents();
     } catch {
