@@ -385,8 +385,8 @@ export function AdminTaskDashboard({
           {byStaff.length === 0 ? <EmptyState /> : (
             <div className="space-y-4">
               {byStaff.map(([staffId, items]) => (
-                <Card key={staffId} className="border border-border shadow-sm">
-                  <CardHeader className="pb-2 pt-4 px-4">
+                <Card key={staffId} className="border border-border shadow-sm overflow-hidden">
+                  <CardHeader className="pb-2 pt-4 px-4 bg-gradient-to-r from-primary/5 to-transparent border-b border-border">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base font-semibold">{staffNames[staffId] || "Unknown"}</CardTitle>
                       <div className="flex items-center gap-2">
