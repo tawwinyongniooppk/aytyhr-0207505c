@@ -335,8 +335,8 @@ export function AdminTaskDashboard({
             </Select>
             <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full sm:w-[150px]" />
             <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full sm:w-[150px]" />
-            {(filterStaff !== "all" || filterType !== "all" || filterStatus !== "all" || dateFrom || dateTo) && (
-              <Button variant="ghost" size="sm" onClick={() => { setFilterStaff("all"); setFilterType("all"); setFilterStatus("all"); setDateFrom(""); setDateTo(""); }} className="gap-1 text-xs col-span-2 sm:col-auto">
+            {(filterStaff !== "all" || filterStatus !== "all" || dateFrom || dateTo) && (
+              <Button variant="ghost" size="sm" onClick={() => { setFilterStaff("all"); setFilterStatus("all"); setDateFrom(""); setDateTo(""); }} className="gap-1 text-xs col-span-2 sm:col-auto">
                 <X className="h-3 w-3" /> Clear
               </Button>
             )}
