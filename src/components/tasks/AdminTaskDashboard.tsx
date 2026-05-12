@@ -447,9 +447,10 @@ export function AdminTaskDashboard({
 
             {byDate.length === 0 ? <EmptyState /> : (
               byDate.map(([date, items]) => (
-                <Card key={date} className="border border-border shadow-sm">
-                  <CardHeader className="pb-2 pt-4 px-4">
-                    <CardTitle className="text-base font-semibold">
+                <Card key={date} className="border border-border shadow-sm overflow-hidden">
+                  <CardHeader className="pb-2 pt-4 px-4 bg-gradient-to-r from-accent/5 to-transparent border-b border-border">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4 text-accent" />
                       {new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "short", day: "numeric" })}
                     </CardTitle>
                   </CardHeader>
