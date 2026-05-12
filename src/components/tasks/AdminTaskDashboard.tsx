@@ -483,7 +483,8 @@ function getRowBg(item: { status: string; dueDate?: string | null }, nowDate: st
   return "bg-muted/30 border-l-2 border-l-muted-foreground/30";
 }
 
-function ItemRow({ item, showStaff, approvingId, onApprove, nowDate }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; nowDate: string }) {
+function ItemRow({ item, showStaff, approvingId, onApprove, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
+  const assignedByName = item.assignedById ? (staffNames?.[item.assignedById] || "Admin") : "Admin";
   return (
     <div className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(item, nowDate)}`}>
       <div className="flex-1 min-w-0">
@@ -491,10 +492,12 @@ function ItemRow({ item, showStaff, approvingId, onApprove, nowDate }: { item: U
           <p className={`text-sm font-medium ${item.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{item.title}</p>
           <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[item.type] || ""}`}>{item.type}</Badge>
         </div>
-        {item.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>}
-        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+        {item.description && <p className={`text-xs text-muted-foreground mt-1 ${detailed ? "" : "line-clamp-2"}`}>{item.description}</p>}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
           {showStaff && <span>👤 {item.staffName}</span>}
-          {item.dueDate && <span>⏰ Due: {item.dueDate}</span>}
+          <span>✍️ Assigned by: {assignedByName}</span>
+          {item.startDate && <span>📅 Start: {item.startDate}</span>}
+          {item.dueDate && <span>⏰ End: {item.dueDate}</span>}
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
