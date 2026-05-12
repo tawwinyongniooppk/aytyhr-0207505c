@@ -376,9 +376,9 @@ export function AdminTaskDashboard({
 
       {/* Tabs */}
       <Tabs defaultValue="by-staff" className="w-full">
-        <TabsList className="w-full grid grid-cols-2">
-          <TabsTrigger value="by-staff" className="gap-1"><Users className="h-4 w-4" /> By Staff</TabsTrigger>
-          <TabsTrigger value="by-date" className="gap-1"><CalendarDays className="h-4 w-4" /> By Date</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-2 h-11 p-1 bg-muted/60 rounded-xl">
+          <TabsTrigger value="by-staff" className="gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm font-semibold"><Users className="h-4 w-4" /> By Staff</TabsTrigger>
+          <TabsTrigger value="by-date" className="gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm font-semibold"><CalendarDays className="h-4 w-4" /> By Date</TabsTrigger>
         </TabsList>
 
         <TabsContent value="by-staff">
