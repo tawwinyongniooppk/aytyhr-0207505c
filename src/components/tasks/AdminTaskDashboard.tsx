@@ -303,10 +303,10 @@ export function AdminTaskDashboard({
       <div>
         <h1 className="text-2xl font-bold font-display">Task Monitor</h1>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <Badge variant="secondary" className="bg-muted text-muted-foreground text-xs">{notStartedCount} not started</Badge>
-          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">{inProgressCount} in progress</Badge>
-          <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs">{submittedCount} submitted</Badge>
-          <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs">{approvedCount} approved</Badge>
+          <button type="button" onClick={() => setFilterStatus(filterStatus === "not_started" ? "all" : "not_started")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "not_started" ? "ring-2 ring-ring " : ""}bg-muted text-muted-foreground hover:opacity-80`}>{notStartedCount} not started</button>
+          <button type="button" onClick={() => setFilterStatus(filterStatus === "in_progress" ? "all" : "in_progress")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "in_progress" ? "ring-2 ring-ring " : ""}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:opacity-80`}>{inProgressCount} in progress</button>
+          <button type="button" onClick={() => setFilterStatus(filterStatus === "submitted" ? "all" : "submitted")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "submitted" ? "ring-2 ring-ring " : ""}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 hover:opacity-80`}>{submittedCount} submitted</button>
+          <button type="button" onClick={() => setFilterStatus(filterStatus === "approved" ? "all" : "approved")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "approved" ? "ring-2 ring-ring " : ""}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:opacity-80`}>{approvedCount} approved</button>
         </div>
       </div>
 
