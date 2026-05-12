@@ -388,7 +388,7 @@ export function AdminTaskDashboard({
                 <Card key={staffId} className="border border-border shadow-sm overflow-hidden">
                   <CardHeader className="pb-2 pt-4 px-4 bg-gradient-to-r from-primary/5 to-transparent border-b border-border">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base font-semibold">{staffNames[staffId] || "Unknown"}</CardTitle>
+                      <CardTitle className="text-base font-semibold flex items-center gap-2"><Users className="h-4 w-4 text-primary" />{staffNames[staffId] || "Unknown"}</CardTitle>
                       <div className="flex items-center gap-2">
                         {notAcceptedByStaff[staffId] ? (
                           <Badge variant="secondary" className="bg-muted text-muted-foreground text-xs gap-1">
