@@ -58,9 +58,11 @@ interface UnifiedItem {
   description: string;
   type: "task" | "meeting" | "event" | "holiday";
   date: string;
+  startDate?: string | null;
   dueDate?: string | null;
   staffId: string;
   staffName: string;
+  assignedById?: string | null;
   status: "not_started" | "in_progress" | "submitted" | "approved" | "overdue";
   source: "task" | "calendar";
   sourceId: string;
