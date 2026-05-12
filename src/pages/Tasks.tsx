@@ -49,20 +49,25 @@ interface EventAssignment {
   approved_by: string | null;
 }
 
-// Lightweight cleanup: delete tasks/attendance older than 32 days. Runs once per browser session.
+// Retention: keep current month + first 2 days into new month.
+// On day 3+ of a new month, the previous month's task records & logs are deleted.
 async function runRetentionCleanup() {
   try {
     if (sessionStorage.getItem("retention_cleanup_done") === "1") return;
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 32);
-    const cutoffIso = cutoff.toISOString();
-    const cutoffDate = cutoffIso.split("T")[0];
-    // Leave logs/records: retain 1 month + 2 days (~32 days). Current balance
-    // lives in a separate `leave_balances` table and is intentionally NOT touched.
+    const now = new Date();
+    const day = now.getDate();
+    // If day <= 2, cutoff = start of previous month (keep previous month).
+    // If day >= 3, cutoff = start of current month (purge previous month).
+    const cutoffMonth = day <= 2
+      ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      : new Date(now.getFullYear(), now.getMonth(), 1);
+    const cutoffDate = `${cutoffMonth.getFullYear()}-${String(cutoffMonth.getMonth() + 1).padStart(2, "0")}-01`;
+    const cutoffIso = `${cutoffDate}T00:00:00.000Z`;
     await Promise.all([
       supabase.from("tasks").delete().lt("created_at", cutoffIso),
       supabase.from("attendance").delete().lt("date", cutoffDate),
       supabase.from("leave_requests").delete().lt("date", cutoffDate),
+      supabase.from("calendar_events").delete().eq("event_type", "task").lt("start_date", cutoffDate),
     ]);
     sessionStorage.setItem("retention_cleanup_done", "1");
   } catch (e) {
