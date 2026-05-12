@@ -58,9 +58,11 @@ interface UnifiedItem {
   description: string;
   type: "task" | "meeting" | "event" | "holiday";
   date: string;
+  startDate?: string | null;
   dueDate?: string | null;
   staffId: string;
   staffName: string;
+  assignedById?: string | null;
   status: "not_started" | "in_progress" | "submitted" | "approved" | "overdue";
   source: "task" | "calendar";
   sourceId: string;
@@ -150,9 +152,11 @@ export function AdminTaskDashboard({
         description: t.description,
         type: "task",
         date: t.created_at.split("T")[0],
+        startDate: t.created_at.split("T")[0],
         dueDate: t.due_date,
         staffId: t.assignee_id,
         staffName: staffNames[t.assignee_id] || "Unknown",
+        assignedById: t.assigned_by,
         status: getItemStatus(t.submission_status || "not_submitted", t.due_date),
         source: "task",
         sourceId: t.id,
@@ -170,9 +174,11 @@ export function AdminTaskDashboard({
             description: ev.description,
             type: evType,
             date: ev.start_date,
+            startDate: ev.start_date,
             dueDate: ev.end_date,
             staffId: s.id,
             staffName: s.full_name || "Unknown",
+            assignedById: (ev as any).created_by,
             status: getItemStatus(assignment?.submission_status || "not_started", ev.end_date),
             source: "calendar",
             sourceId: ev.id,
@@ -188,9 +194,11 @@ export function AdminTaskDashboard({
             description: ev.description,
             type: evType,
             date: ev.start_date,
+            startDate: ev.start_date,
             dueDate: ev.end_date,
             staffId: a.user_id,
             staffName: staffNames[a.user_id] || "Unknown",
+            assignedById: (ev as any).created_by,
             status: getItemStatus(a.submission_status || "not_started", ev.end_date),
             source: "calendar",
             sourceId: ev.id,
@@ -237,8 +245,12 @@ export function AdminTaskDashboard({
       if (!map[item.staffId]) map[item.staffId] = [];
       map[item.staffId].push(item);
     });
-    return Object.entries(map).sort((a, b) => (staffNames[a[0]] || "").localeCompare(staffNames[b[0]] || ""));
-  }, [filtered, staffNames]);
+    // Always show every staff in IT-Manager-defined sequence (filtered by staff filter if set)
+    const ordered = staffList
+      .filter((s) => filterStaff === "all" || s.id === filterStaff)
+      .map((s) => [s.id, map[s.id] || []] as [string, UnifiedItem[]]);
+    return ordered;
+  }, [filtered, staffList, filterStaff]);
 
   const byDate = useMemo(() => {
     const map: Record<string, UnifiedItem[]> = {};
@@ -248,6 +260,24 @@ export function AdminTaskDashboard({
       map[key].push(item);
     });
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtered]);
+
+  // Deadline tasks = active items with a due date within 48 hours (2 days), sorted by deadline ascending
+  const deadlineItems = useMemo(() => {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+    return filtered
+      .filter((i) => {
+        if (i.status === "approved") return false;
+        if (!i.dueDate) return false;
+        const d = new Date(i.dueDate + "T23:59:59");
+        return d.getTime() <= cutoff.getTime();
+      })
+      .sort((a, b) => {
+        const da = new Date((a.dueDate || "") + "T23:59:59").getTime();
+        const db = new Date((b.dueDate || "") + "T23:59:59").getTime();
+        return da - db;
+      });
   }, [filtered]);
 
   const notStartedCount = unifiedItems.filter(i => i.status === "not_started" || i.status === "overdue").length;
@@ -374,11 +404,18 @@ export function AdminTaskDashboard({
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
-                    <div className="space-y-1">
-                      {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} />
-                      ))}
-                    </div>
+                    {items.length === 0 ? (
+                      <div className="flex items-center gap-2 py-3 px-3 rounded-lg bg-destructive/10 border-l-2 border-l-destructive text-destructive text-sm font-medium">
+                        <AlertTriangle className="h-4 w-4" />
+                        No tasks assigned to this staff member.
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {items.map((item) => (
+                          <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} detailed />
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -387,9 +424,29 @@ export function AdminTaskDashboard({
         </TabsContent>
 
         <TabsContent value="by-date">
-          {byDate.length === 0 ? <EmptyState /> : (
-            <div className="space-y-4">
-              {byDate.map(([date, items]) => (
+          <div className="space-y-4">
+            {/* Deadline section: tasks within 48 hours */}
+            <Card className="border-2 border-destructive/40 shadow-sm">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-base font-semibold flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-4 w-4" /> Deadline (within 48 hours)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                {deadlineItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">No tasks due within the next 48 hours.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {deadlineItems.map((item) => (
+                      <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {byDate.length === 0 ? <EmptyState /> : (
+              byDate.map(([date, items]) => (
                 <Card key={date} className="border border-border shadow-sm">
                   <CardHeader className="pb-2 pt-4 px-4">
                     <CardTitle className="text-base font-semibold">
@@ -399,14 +456,14 @@ export function AdminTaskDashboard({
                   <CardContent className="p-4 pt-0">
                     <div className="space-y-1">
                       {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} />
+                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
                       ))}
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>
@@ -426,7 +483,8 @@ function getRowBg(item: { status: string; dueDate?: string | null }, nowDate: st
   return "bg-muted/30 border-l-2 border-l-muted-foreground/30";
 }
 
-function ItemRow({ item, showStaff, approvingId, onApprove, nowDate }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; nowDate: string }) {
+function ItemRow({ item, showStaff, approvingId, onApprove, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
+  const assignedByName = item.assignedById ? (staffNames?.[item.assignedById] || "Admin") : "Admin";
   return (
     <div className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(item, nowDate)}`}>
       <div className="flex-1 min-w-0">
@@ -434,10 +492,12 @@ function ItemRow({ item, showStaff, approvingId, onApprove, nowDate }: { item: U
           <p className={`text-sm font-medium ${item.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{item.title}</p>
           <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[item.type] || ""}`}>{item.type}</Badge>
         </div>
-        {item.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>}
-        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+        {item.description && <p className={`text-xs text-muted-foreground mt-1 ${detailed ? "" : "line-clamp-2"}`}>{item.description}</p>}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
           {showStaff && <span>👤 {item.staffName}</span>}
-          {item.dueDate && <span>⏰ Due: {item.dueDate}</span>}
+          <span>✍️ Assigned by: {assignedByName}</span>
+          {item.startDate && <span>📅 Start: {item.startDate}</span>}
+          {item.dueDate && <span>⏰ End: {item.dueDate}</span>}
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">

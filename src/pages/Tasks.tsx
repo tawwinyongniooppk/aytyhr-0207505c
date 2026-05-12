@@ -106,7 +106,7 @@ export default function Tasks() {
     try {
       const [tasksRes, profilesRes, evRes, assRes] = await Promise.all([
         supabase.from("tasks").select("*").order("created_at", { ascending: false }),
-        supabase.from("profiles").select("id, full_name, role"),
+        supabase.from("profiles").select("id, full_name, role, sequence").order("sequence", { ascending: true }).order("full_name", { ascending: true }),
         supabase.from("calendar_events").select("*").order("start_date", { ascending: false }),
         supabase.from("calendar_event_assignments").select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by"),
       ]);
