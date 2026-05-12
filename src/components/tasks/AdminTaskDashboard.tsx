@@ -245,8 +245,12 @@ export function AdminTaskDashboard({
       if (!map[item.staffId]) map[item.staffId] = [];
       map[item.staffId].push(item);
     });
-    return Object.entries(map).sort((a, b) => (staffNames[a[0]] || "").localeCompare(staffNames[b[0]] || ""));
-  }, [filtered, staffNames]);
+    // Always show every staff in IT-Manager-defined sequence (filtered by staff filter if set)
+    const ordered = staffList
+      .filter((s) => filterStaff === "all" || s.id === filterStaff)
+      .map((s) => [s.id, map[s.id] || []] as [string, UnifiedItem[]]);
+    return ordered;
+  }, [filtered, staffList, filterStaff]);
 
   const byDate = useMemo(() => {
     const map: Record<string, UnifiedItem[]> = {};
@@ -256,6 +260,24 @@ export function AdminTaskDashboard({
       map[key].push(item);
     });
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtered]);
+
+  // Deadline tasks = active items with a due date within 48 hours (2 days), sorted by deadline ascending
+  const deadlineItems = useMemo(() => {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+    return filtered
+      .filter((i) => {
+        if (i.status === "approved") return false;
+        if (!i.dueDate) return false;
+        const d = new Date(i.dueDate + "T23:59:59");
+        return d.getTime() <= cutoff.getTime();
+      })
+      .sort((a, b) => {
+        const da = new Date((a.dueDate || "") + "T23:59:59").getTime();
+        const db = new Date((b.dueDate || "") + "T23:59:59").getTime();
+        return da - db;
+      });
   }, [filtered]);
 
   const notStartedCount = unifiedItems.filter(i => i.status === "not_started" || i.status === "overdue").length;
