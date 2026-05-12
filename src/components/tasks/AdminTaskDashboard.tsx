@@ -119,7 +119,6 @@ export function AdminTaskDashboard({
 }: AdminTaskDashboardProps) {
   const { user } = useAuth();
   const [filterStaff, setFilterStaff] = useState("all");
-  const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
