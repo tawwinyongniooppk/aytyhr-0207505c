@@ -219,14 +219,17 @@ export function AdminTaskDashboard({
   const filtered = useMemo(() => {
     const f = unifiedItems.filter((item) => {
       if (filterStaff !== "all" && item.staffId !== filterStaff) return false;
-      if (filterType !== "all" && item.type !== filterType) return false;
-      if (filterStatus !== "all" && item.status !== filterStatus) return false;
+      if (filterStatus !== "all") {
+        if (filterStatus === "not_started") {
+          if (item.status !== "not_started" && item.status !== "overdue") return false;
+        } else if (item.status !== filterStatus) return false;
+      }
       if (dateFrom && item.date < dateFrom) return false;
       if (dateTo && item.date > dateTo) return false;
       return true;
     });
     return sortByPriority(f);
-  }, [unifiedItems, filterStaff, filterType, filterStatus, dateFrom, dateTo]);
+  }, [unifiedItems, filterStaff, filterStatus, dateFrom, dateTo]);
 
   const byStaff = useMemo(() => {
     const map: Record<string, UnifiedItem[]> = {};
