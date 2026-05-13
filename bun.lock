@@ -42,6 +42,7 @@
         "embla-carousel-react": "^8.6.0",
         "input-otp": "^1.4.2",
         "lucide-react": "^0.462.0",
+        "myanmar-calendar": "^1.1.0",
         "next-themes": "^0.3.0",
         "react": "^18.3.1",
         "react-day-picker": "^8.10.1",
@@ -1175,6 +1176,10 @@
     "minipass": ["minipass@7.1.3", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/minipass/-/minipass-7.1.3.tgz", {}, "sha512-tEBHqDnIoM/1rXME1zgka9g6Q2lcoCkxHLuc7ODJ5BxbP5d4c2Z5cGgtXAku59200Cx7diuHTOYfSBD8n6mm8A=="],
 
     "ms": ["ms@2.1.3", "", {}, "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="],
+
+    "myanmar-calendar": ["myanmar-calendar@1.1.0", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/myanmar-calendar/-/myanmar-calendar-1.1.0.tgz", { "dependencies": { "myanmar-numbers": "^2.1.3" } }, "sha512-HNiBfQzIPZ1O5lXweutyLkt+ORpDQN2ZPGvXgPJeGcB4GhzgExaxUjS89kRN3Q02OhaFDoVY0LmD5TEMsnABlA=="],
+
+    "myanmar-numbers": ["myanmar-numbers@2.1.3", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/myanmar-numbers/-/myanmar-numbers-2.1.3.tgz", {}, "sha512-cy8KZyCDy6fYFx54Sel71WVqpSn6u8mbN+xiqyd4/1ujVy2cWL350AO4OD5RwIs3GL+I2ExNHSIbjTYAHRDuEQ=="],
 
     "mz": ["mz@2.7.0", "", { "dependencies": { "any-promise": "^1.0.0", "object-assign": "^4.0.1", "thenify-all": "^1.0.0" } }, "sha512-z81GNO7nnYMEhrGh9LeymoE4+Yr0Wn5McHIZMK5cfQCl+NDX08sCZgUc9/6MHni9IWuFLm1Z3HTCXu2z9fN62Q=="],
 

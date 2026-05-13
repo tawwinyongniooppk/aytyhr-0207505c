@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { toast } from "@/hooks/use-toast";
+import { toMyanmarDate, getMyanmarHoliday } from "@/lib/mmCalendar";
 
 interface CalEvent {
   id: string;
@@ -233,6 +234,7 @@ export default function CalendarPage() {
 
   function isHolidayDate(dateStr: string) {
     if (!dateStr) return false;
+    if (getMyanmarHoliday(dateStr)) return true;
     return events.some(
       (e) => e.event_type === "holiday" && e.start_date <= dateStr && e.end_date >= dateStr
     );
@@ -547,26 +549,46 @@ export default function CalendarPage() {
         </CardContent>
       </Card>
 
-      {/* Monthly Calendar Grid */}
-      <Card className="border border-border shadow-none">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <Button variant="ghost" size="icon" onClick={() => setCurrentDate(new Date(year, month - 1, 1))}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <CardTitle className="text-base font-display">
-            {currentDate.toLocaleString("default", { month: "long", year: "numeric" })}
-          </CardTitle>
-          <Button variant="ghost" size="icon" onClick={() => setCurrentDate(new Date(year, month + 1, 1))}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+      {/* iOS-style Monthly Calendar */}
+      <Card className="border border-border shadow-sm overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3 pt-4 px-4">
+          <div className="flex items-baseline gap-2">
+            <CardTitle className="text-2xl font-semibold tracking-tight">
+              {currentDate.toLocaleString("default", { month: "long" })}
+            </CardTitle>
+            <span className="text-2xl font-light text-muted-foreground">{year}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-3 text-xs font-semibold text-primary hover:bg-primary/10"
+              onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date().toISOString().split("T")[0]); }}
+            >
+              Today
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(new Date(year, month - 1, 1))}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(new Date(year, month + 1, 1))}>
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-7 gap-px">
-            {daysOfWeek.map((d) => (
-              <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">{d}</div>
+        <CardContent className="px-2 sm:px-3 pb-3">
+          <div className="grid grid-cols-7 border-b border-border/60">
+            {daysOfWeek.map((d, i) => (
+              <div
+                key={d}
+                className={`text-center text-[11px] font-medium tracking-wider uppercase py-2 ${i === 0 ? "text-destructive/80" : "text-muted-foreground"}`}
+              >
+                {d}
+              </div>
             ))}
+          </div>
+          <div className="grid grid-cols-7">
             {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`empty-${i}`} className="h-12 md:h-16" />
+              <div key={`empty-${i}`} className="h-14 sm:h-20 border-b border-border/40" />
             ))}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
@@ -574,26 +596,41 @@ export default function CalendarPage() {
               const dayEvents = getEventsForDay(day);
               const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
               const isSelected = selectedDate === dateStr;
-              const weekdayName = WEEKDAY_NAMES[new Date(year, month, day).getDay()];
-              const isOffDay = !!mySchedule && mySchedule[weekdayName] && mySchedule[weekdayName].active === false;
+              const dow = new Date(year, month, day).getDay();
+              const weekdayName = WEEKDAY_NAMES[dow];
+              const mmHoliday = getMyanmarHoliday(dateStr);
+              const isScheduledOff = !!mySchedule && mySchedule[weekdayName] && mySchedule[weekdayName].active === false;
+              const isOffDay = isScheduledOff || !!mmHoliday;
+              const mmDateText = toMyanmarDate(new Date(year, month, day));
+              const mmDayOnly = mmDateText.split(" ")[0] || "";
+              const isSunday = dow === 0;
+
+              const numClasses = [
+                "flex items-center justify-center h-7 w-7 rounded-full text-sm font-medium leading-none",
+                isToday ? "bg-destructive text-destructive-foreground" :
+                  isSelected ? "bg-foreground text-background" :
+                    (mmHoliday || isSunday) ? "text-destructive" : "text-foreground",
+              ].join(" ");
 
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDate(dateStr)}
-                  className={`h-12 md:h-16 flex flex-col items-center justify-start pt-1 rounded-md text-sm transition-colors
-                    ${isOffDay ? "bg-destructive/15 text-destructive" : ""}
-                    ${isSelected ? "ring-2 ring-secondary bg-secondary/10" : ""}
-                    ${isToday && !isSelected ? "bg-accent" : ""}
-                    hover:bg-accent/50`}
+                  title={mmHoliday || undefined}
+                  className="relative h-14 sm:h-20 flex flex-col items-center justify-start pt-1.5 border-b border-border/40 transition-colors hover:bg-muted/40"
                 >
-                  <span className={`${isToday ? "font-bold text-secondary" : ""}`}>{day}</span>
-                  <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
+                  <span className={numClasses}>{day}</span>
+                  {mmDayOnly && (
+                    <span className={`text-[10px] mt-0.5 leading-none ${mmHoliday || isSunday ? "text-destructive/70" : "text-muted-foreground"}`} lang="my">
+                      {mmDayOnly}
+                    </span>
+                  )}
+                  <div className="flex gap-0.5 mt-auto mb-1.5 flex-wrap justify-center px-1">
                     {isOffDay && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-destructive" title="Day off" />
+                      <div className="h-1 w-1 rounded-full bg-destructive" />
                     )}
                     {dayEvents.slice(0, 3).map((e) => (
-                      <div key={e.id} className={`h-1.5 w-1.5 rounded-full ${EVENT_DOT_COLORS[e.event_type] || "bg-muted-foreground"}`} title={e.title} />
+                      <div key={e.id} className={`h-1 w-1 rounded-full ${EVENT_DOT_COLORS[e.event_type] || "bg-muted-foreground"}`} title={e.title} />
                     ))}
                   </div>
                 </button>
@@ -603,68 +640,80 @@ export default function CalendarPage() {
         </CardContent>
       </Card>
 
-      {/* Daily View */}
-      {selectedDate && (
-        <Card className="border border-border shadow-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-display flex items-center gap-2">
-              <CalIcon className="h-4 w-4" />
-              {new Date(selectedDate + "T00:00:00").toLocaleDateString("default", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(() => {
-              const weekdayName = WEEKDAY_NAMES[new Date(selectedDate + "T00:00:00").getDay()];
-              const isOffDay = !!mySchedule && mySchedule[weekdayName] && mySchedule[weekdayName].active === false;
-              return (
-                <div className="space-y-3">
-                  {isOffDay && (
-                    <div className="flex items-start gap-3 p-3 rounded-lg border border-destructive/40 bg-destructive/10">
-                      <Badge className="bg-destructive text-destructive-foreground shrink-0 mt-0.5">holiday</Badge>
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm">Day off</p>
-                        {!isStaff && offStaffByWeekday[weekdayName]?.length ? (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Off for: {offStaffByWeekday[weekdayName].join(", ")}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground mt-1">{weekdayName} is set as a non-working day in your schedule.</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {selectedDayEvents.map((e) => (
-                    <div key={e.id} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card">
-                      <Badge className={`${EVENT_COLORS[e.event_type] || "bg-muted"} shrink-0 mt-0.5`}>
-                        {e.event_type}
-                      </Badge>
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm">{e.title}</p>
-                        {e.description && <p className="text-xs text-muted-foreground mt-1">{e.description}</p>}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {e.start_date === e.end_date ? e.start_date : `${e.start_date} → ${e.end_date}`}
-                          {e.visibility === "private" && " • 🔒 Private"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  {!isOffDay && selectedDayEvents.length === 0 && (
-                    <p className="text-sm text-muted-foreground py-4 text-center">No events on this date</p>
-                  )}
+      {/* Daily View — iOS style */}
+      {selectedDate && (() => {
+        const sd = new Date(selectedDate + "T00:00:00");
+        const weekdayName = WEEKDAY_NAMES[sd.getDay()];
+        const isScheduledOff = !!mySchedule && mySchedule[weekdayName] && mySchedule[weekdayName].active === false;
+        const mmHoliday = getMyanmarHoliday(selectedDate);
+        const isOffDay = isScheduledOff || !!mmHoliday;
+        const mmDate = toMyanmarDate(sd);
+
+        return (
+          <Card className="border border-border shadow-sm">
+            <CardHeader className="pb-2 pt-4">
+              <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{weekdayName}</p>
+                  <CardTitle className="text-xl font-semibold flex items-baseline gap-2">
+                    <CalIcon className="h-4 w-4 text-muted-foreground" />
+                    {sd.toLocaleDateString("default", { month: "long", day: "numeric", year: "numeric" })}
+                  </CardTitle>
                 </div>
-              );
-            })()}
-          </CardContent>
-        </Card>
-      )}
+                {mmDate && (
+                  <p className="text-sm text-muted-foreground" lang="my">{mmDate}</p>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {isOffDay && (
+                  <div className="flex items-start gap-3 p-3 rounded-xl border border-destructive/30 bg-destructive/5">
+                    <Badge className="bg-destructive text-destructive-foreground shrink-0 mt-0.5">Off Day</Badge>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm">{mmHoliday || "Day off"}</p>
+                      {mmHoliday ? (
+                        <p className="text-xs text-muted-foreground mt-1">Myanmar gazette / public holiday — automatically marked as Off Day.</p>
+                      ) : !isStaff && offStaffByWeekday[weekdayName]?.length ? (
+                        <p className="text-xs text-muted-foreground mt-1">Off for: {offStaffByWeekday[weekdayName].join(", ")}</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1">{weekdayName} is set as a non-working day in your schedule.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {selectedDayEvents.map((e) => (
+                  <div key={e.id} className="flex items-start gap-3 p-3 rounded-xl border border-border bg-card">
+                    <Badge className={`${EVENT_COLORS[e.event_type] || "bg-muted"} shrink-0 mt-0.5 capitalize`}>
+                      {e.event_type}
+                    </Badge>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm">{e.title}</p>
+                      {e.description && <p className="text-xs text-muted-foreground mt-1">{e.description}</p>}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {e.start_date === e.end_date ? e.start_date : `${e.start_date} → ${e.end_date}`}
+                        {e.visibility === "private" && " • 🔒 Private"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {!isOffDay && selectedDayEvents.length === 0 && (
+                  <p className="text-sm text-muted-foreground py-6 text-center">No events on this date</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Legend */}
-      <div className="flex gap-4 flex-wrap text-xs text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-destructive" /> Holiday</span>
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-blue-500" /> Meeting</span>
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-green-500" /> Event</span>
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-orange-500" /> Task</span>
+      <div className="flex gap-4 flex-wrap text-xs text-muted-foreground px-1">
+        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-destructive" /> Holiday / Off Day</span>
+        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-500" /> Meeting</span>
+        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-green-500" /> Event</span>
+        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-orange-500" /> Task</span>
       </div>
+
     </div>
   );
 }
