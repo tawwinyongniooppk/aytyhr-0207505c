@@ -1,7 +1,8 @@
 // Myanmar calendar helpers + gazette / public holiday list.
 // Holidays here are treated as automatic Off Days in the calendar UI.
 
-// @ts-expect-error – plain CommonJS package, no TS types
+// @ts-ignore – plain CommonJS package, no TS types
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 import mcal from "myanmar-calendar";
 
 export function toMyanmarDate(date: Date): string {
