@@ -234,6 +234,7 @@ export default function CalendarPage() {
 
   function isHolidayDate(dateStr: string) {
     if (!dateStr) return false;
+    if (getMyanmarHoliday(dateStr)) return true;
     return events.some(
       (e) => e.event_type === "holiday" && e.start_date <= dateStr && e.end_date >= dateStr
     );
