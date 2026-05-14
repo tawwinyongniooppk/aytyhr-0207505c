@@ -228,7 +228,12 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
               {sortedTasks.map((task) => (
                 <div key={task.id} className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(task.status, task.due_date)}`}>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${task.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{task.title}</p>
+                    <p className={`text-sm font-medium flex items-center gap-2 ${task.status === "approved" ? "line-through text-muted-foreground" : ""}`}>
+                      {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && (
+                        <span className="h-2 w-2 rounded-full bg-destructive ring-2 ring-destructive/20 animate-pulse shrink-0" title="Not yet accepted" />
+                      )}
+                      {task.title}
+                    </p>
                     {task.description && <p className="text-xs text-muted-foreground mt-1">{task.description}</p>}
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                       {task.due_date && <span>⏰ Due: {task.due_date}</span>}
@@ -258,7 +263,12 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
               {sortedCalTasks.map((task) => (
                 <div key={task.id} className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(task.status, task.dueDate)}`}>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${task.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{task.title}</p>
+                    <p className={`text-sm font-medium flex items-center gap-2 ${task.status === "approved" ? "line-through text-muted-foreground" : ""}`}>
+                      {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && (
+                        <span className="h-2 w-2 rounded-full bg-destructive ring-2 ring-destructive/20 animate-pulse shrink-0" title="Not yet accepted" />
+                      )}
+                      {task.title}
+                    </p>
                     {task.description && <p className="text-xs text-muted-foreground mt-1">{task.description}</p>}
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                       {task.startDate && <span>📅 Start: {task.startDate}</span>}

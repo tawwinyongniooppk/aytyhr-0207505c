@@ -227,11 +227,7 @@ export function AdminTaskDashboard({
   const filtered = useMemo(() => {
     const f = unifiedItems.filter((item) => {
       if (filterStaff !== "all" && item.staffId !== filterStaff) return false;
-      if (filterStatus !== "all") {
-        if (filterStatus === "not_started") {
-          if (item.status !== "not_started" && item.status !== "overdue") return false;
-        } else if (item.status !== filterStatus) return false;
-      }
+      if (filterStatus !== "all" && item.status !== filterStatus) return false;
       if (dateFrom && item.date < dateFrom) return false;
       if (dateTo && item.date > dateTo) return false;
       return true;
@@ -280,10 +276,11 @@ export function AdminTaskDashboard({
       });
   }, [filtered]);
 
-  const notStartedCount = unifiedItems.filter(i => i.status === "not_started" || i.status === "overdue").length;
+  const notStartedCount = unifiedItems.filter(i => i.status === "not_started").length;
   const inProgressCount = unifiedItems.filter(i => i.status === "in_progress").length;
   const submittedCount = unifiedItems.filter(i => i.status === "submitted").length;
   const approvedCount = unifiedItems.filter(i => i.status === "approved").length;
+  const overdueCount = unifiedItems.filter(i => i.status === "overdue").length;
 
   const incompleteByStaff = useMemo(() => {
     const map: Record<string, number> = {};
@@ -337,6 +334,7 @@ export function AdminTaskDashboard({
           <button type="button" onClick={() => setFilterStatus(filterStatus === "in_progress" ? "all" : "in_progress")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "in_progress" ? "ring-2 ring-ring " : ""}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:opacity-80`}>{inProgressCount} in progress</button>
           <button type="button" onClick={() => setFilterStatus(filterStatus === "submitted" ? "all" : "submitted")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "submitted" ? "ring-2 ring-ring " : ""}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 hover:opacity-80`}>{submittedCount} submitted</button>
           <button type="button" onClick={() => setFilterStatus(filterStatus === "approved" ? "all" : "approved")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "approved" ? "ring-2 ring-ring " : ""}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:opacity-80`}>{approvedCount} approved</button>
+          <button type="button" onClick={() => setFilterStatus(filterStatus === "overdue" ? "all" : "overdue")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "overdue" ? "ring-2 ring-ring " : ""}bg-destructive text-destructive-foreground hover:opacity-80`}>{overdueCount} overdue</button>
         </div>
       </div>
 
@@ -376,9 +374,10 @@ export function AdminTaskDashboard({
 
       {/* Tabs */}
       <Tabs defaultValue="by-staff" className="w-full">
-        <TabsList className="w-full grid grid-cols-2 h-11 p-1 bg-muted/60 rounded-xl">
+        <TabsList className="w-full grid grid-cols-3 h-11 p-1 bg-muted/60 rounded-xl">
           <TabsTrigger value="by-staff" className="gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm font-semibold"><Users className="h-4 w-4" /> By Staff</TabsTrigger>
           <TabsTrigger value="by-date" className="gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm font-semibold"><CalendarDays className="h-4 w-4" /> By Date</TabsTrigger>
+          <TabsTrigger value="deadline" className="gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:text-destructive data-[state=active]:shadow-sm font-semibold relative"><AlertTriangle className="h-4 w-4" /> Deadline{deadlineItems.length > 0 && <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">{deadlineItems.length}</span>}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="by-staff">
@@ -425,26 +424,6 @@ export function AdminTaskDashboard({
 
         <TabsContent value="by-date">
           <div className="space-y-4">
-            {/* Deadline section: tasks within 48 hours */}
-            <Card className="border-2 border-destructive/40 shadow-sm">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-base font-semibold flex items-center gap-2 text-destructive">
-                  <AlertTriangle className="h-4 w-4" /> Deadline (within 48 hours)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                {deadlineItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">No tasks due within the next 48 hours.</p>
-                ) : (
-                  <div className="space-y-1">
-                    {deadlineItems.map((item) => (
-                      <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             {byDate.length === 0 ? <EmptyState /> : (
               byDate.map(([date, items]) => (
                 <Card key={date} className="border border-border shadow-sm overflow-hidden">
@@ -465,6 +444,27 @@ export function AdminTaskDashboard({
               ))
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="deadline">
+          <Card className="border-2 border-destructive/40 shadow-sm">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-base font-semibold flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-4 w-4" /> Deadline (within 48 hours)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              {deadlineItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">No tasks due within the next 48 hours.</p>
+              ) : (
+                <div className="space-y-1">
+                  {deadlineItems.map((item) => (
+                    <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
