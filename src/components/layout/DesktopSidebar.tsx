@@ -3,6 +3,7 @@ import { LayoutDashboard, Users, Clock, CalendarDays, ClipboardList, FileText, S
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
+import { useNotifications } from "@/hooks/useNotifications";
 
 const allNavItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
@@ -23,6 +24,7 @@ const allNavItems = [
 export function DesktopSidebar() {
   const { profile, isAdmin, isAssistant, isStaff, isItManager } = useProfile();
   const { signOut } = useAuth();
+  const { hasFor } = useNotifications();
 
   const navItems = allNavItems.filter((item: any) => {
     if (item.itManagerOnly) return isItManager;
@@ -66,7 +68,12 @@ export function DesktopSidebar() {
               )
             }
           >
-            <item.icon className="h-4 w-4" />
+            <div className="relative">
+              <item.icon className="h-4 w-4" />
+              {hasFor(item.to) && (
+                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive ring-2 ring-secondary animate-pulse" />
+              )}
+            </div>
             <span>{item.label}</span>
           </NavLink>
         ))}
