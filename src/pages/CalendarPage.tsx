@@ -198,6 +198,7 @@ export default function CalendarPage() {
   async function loadAssignmentLoad(dateStr: string) {
     try {
       const { monthStart, nextMonthStart } = monthBoundsFor(dateStr);
+      const todayStr = new Date().toISOString().split("T")[0];
       const { data: taskEvents } = await supabase
         .from("calendar_events")
         .select("id, start_date, end_date")
@@ -205,14 +206,15 @@ export default function CalendarPage() {
         .gte("start_date", monthStart)
         .lt("start_date", nextMonthStart);
       const evList = (taskEvents as { id: string; start_date: string; end_date: string }[]) || [];
-      if (evList.length === 0) { setAssignmentLoad({}); return; }
+      if (evList.length === 0) { setAssignmentLoad({}); setMemberStats({}); return; }
       const evMap = new Map(evList.map((e) => [e.id, e]));
       const { data: ass } = await supabase
         .from("calendar_event_assignments")
-        .select("user_id, event_id")
+        .select("user_id, event_id, submission_status")
         .in("event_id", evList.map((e) => e.id));
       const load: Record<string, { weekly: number; biweekly: number; weighted: number }> = {};
-      for (const a of (ass as { user_id: string; event_id: string }[]) || []) {
+      const stats: Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }> = {};
+      for (const a of (ass as { user_id: string; event_id: string; submission_status: string }[]) || []) {
         const ev = evMap.get(a.event_id);
         if (!ev) continue;
         const days = Math.round(
@@ -223,8 +225,22 @@ export default function CalendarPage() {
         if (isBiweekly) { entry.biweekly += 1; entry.weighted += 2; }
         else { entry.weekly += 1; entry.weighted += 1; }
         load[a.user_id] = entry;
+
+        const s = stats[a.user_id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
+        s.newTask += 1;
+        const status = a.submission_status || "not_started";
+        const accepted = status === "in_progress" || status === "submitted" || status === "approved";
+        const submittedReached = status === "submitted" || status === "approved";
+        const isOverdue = ev.end_date < todayStr && status !== "approved";
+        if (accepted) s.inProgress += 1;
+        if (submittedReached) s.submitted += 1;
+        if (isOverdue) s.overdue += 1;
+        if (status === "rejected") s.reject += 1;
+        if (status === "approved") s.allDone += 1;
+        stats[a.user_id] = s;
       }
       setAssignmentLoad(load);
+      setMemberStats(stats);
     } catch { /* ignore */ }
   }
 
