@@ -509,10 +509,11 @@ export default function CalendarPage() {
                     Monthly cap per person: 4 Units (weekly = 1 Unit, bi-weekly = 2 Units). When a member reaches 4/4, only that member is blocked.
                   </p>
 
-                  <div className="border border-border rounded-md p-3 max-h-48 overflow-y-auto space-y-1.5 bg-muted/20">
-                    {staffList.length === 0 && <p className="text-sm text-muted-foreground">No staff found</p>}
+                  <div className="border border-border rounded-md p-2 max-h-72 overflow-y-auto space-y-2 bg-muted/20">
+                    {staffList.length === 0 && <p className="text-sm text-muted-foreground p-2">No staff found</p>}
                     {staffList.map((s) => {
                       const l = assignmentLoad[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
+                      const stats = memberStats[s.id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
                       const newWeight = form.frequency === "weekly" ? 1 : 2;
                       const willExceed = l.weighted + newWeight > MONTHLY_WEIGHT_CAP;
                       const atCap = l.weighted >= MONTHLY_WEIGHT_CAP;
@@ -522,22 +523,41 @@ export default function CalendarPage() {
                         if (atCap) return;
                         setForm((f) => ({ ...f, assignedIds: selected ? [] : [s.id] }));
                       };
+                      const cols: Array<{ label: string; value: number; cls: string }> = [
+                        { label: "New Task", value: stats.newTask, cls: "bg-muted text-muted-foreground" },
+                        { label: "In Progress", value: stats.inProgress, cls: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
+                        { label: "Submitted", value: stats.submitted, cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" },
+                        { label: "Overdue", value: stats.overdue, cls: "bg-destructive/10 text-destructive" },
+                        { label: "Reject", value: stats.reject, cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+                        { label: "All Done", value: stats.allDone, cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+                      ];
                       return (
                         <div
                           key={s.id}
                           onClick={selectable ? pickOne : undefined}
-                          className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-sm ${selectable ? "cursor-pointer hover:bg-background" : ""} ${selected && selectable ? "bg-primary/10 ring-1 ring-primary/40" : ""} ${atCap ? "opacity-60" : ""}`}
+                          className={`rounded-md border bg-background px-3 py-2 ${selectable ? "cursor-pointer hover:bg-muted/40" : ""} ${selected && selectable ? "ring-1 ring-primary border-primary/40 bg-primary/5" : "border-border"} ${atCap ? "opacity-70" : ""}`}
                         >
-                          <span className="flex items-center gap-2">
-                            {selectable && (
-                              <Checkbox checked={selected} disabled={atCap} onCheckedChange={pickOne} />
-                            )}
-                            <span className="font-medium">{s.full_name || "Unnamed"}</span>
-                          </span>
-                          <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold ${atCap ? "bg-destructive/15 text-destructive" : willExceed ? "bg-warning/15 text-warning" : "bg-accent/15 text-accent"}`}>
-                            {l.weighted} / {MONTHLY_WEIGHT_CAP} Unit{l.weighted === 1 ? "" : "s"}
-                            {atCap && " · Full"}
-                          </span>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="flex items-center gap-2 min-w-0">
+                              {selectable && (
+                                <Checkbox checked={selected} disabled={atCap} onCheckedChange={pickOne} />
+                              )}
+                              <span className="text-[10px] font-bold text-muted-foreground w-5 shrink-0">#{s.sequence ?? "—"}</span>
+                              <span className="font-medium text-sm truncate">{s.full_name || "Unnamed"}</span>
+                            </span>
+                            <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${atCap ? "bg-destructive/15 text-destructive" : willExceed ? "bg-warning/15 text-warning" : "bg-accent/15 text-accent"}`}>
+                              {l.weighted}/{MONTHLY_WEIGHT_CAP} Unit{l.weighted === 1 ? "" : "s"}
+                              {atCap && " · Full"}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-6 gap-1 mt-2">
+                            {cols.map((c) => (
+                              <div key={c.label} className={`flex flex-col items-center justify-center rounded px-1 py-1 ${c.cls}`}>
+                                <span className="text-[9px] uppercase tracking-wider opacity-80 leading-none">{c.label}</span>
+                                <span className="text-sm font-bold leading-tight mt-0.5">{c.value}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       );
                     })}
