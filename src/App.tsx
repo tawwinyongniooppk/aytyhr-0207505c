@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
+import { NotificationProvider } from "@/hooks/useNotifications";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Suspense, lazy } from "react";
@@ -66,6 +67,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <NotificationProvider>
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<RoleRedirect />} />
@@ -85,6 +87,7 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
+            </NotificationProvider>
           </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>
