@@ -374,9 +374,10 @@ export function AdminTaskDashboard({
 
       {/* Tabs */}
       <Tabs defaultValue="by-staff" className="w-full">
-        <TabsList className="w-full grid grid-cols-2 h-11 p-1 bg-muted/60 rounded-xl">
+        <TabsList className="w-full grid grid-cols-3 h-11 p-1 bg-muted/60 rounded-xl">
           <TabsTrigger value="by-staff" className="gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm font-semibold"><Users className="h-4 w-4" /> By Staff</TabsTrigger>
           <TabsTrigger value="by-date" className="gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm font-semibold"><CalendarDays className="h-4 w-4" /> By Date</TabsTrigger>
+          <TabsTrigger value="deadline" className="gap-1.5 rounded-lg data-[state=active]:bg-background data-[state=active]:text-destructive data-[state=active]:shadow-sm font-semibold relative"><AlertTriangle className="h-4 w-4" /> Deadline{deadlineItems.length > 0 && <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">{deadlineItems.length}</span>}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="by-staff">
@@ -423,26 +424,6 @@ export function AdminTaskDashboard({
 
         <TabsContent value="by-date">
           <div className="space-y-4">
-            {/* Deadline section: tasks within 48 hours */}
-            <Card className="border-2 border-destructive/40 shadow-sm">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-base font-semibold flex items-center gap-2 text-destructive">
-                  <AlertTriangle className="h-4 w-4" /> Deadline (within 48 hours)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                {deadlineItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">No tasks due within the next 48 hours.</p>
-                ) : (
-                  <div className="space-y-1">
-                    {deadlineItems.map((item) => (
-                      <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             {byDate.length === 0 ? <EmptyState /> : (
               byDate.map(([date, items]) => (
                 <Card key={date} className="border border-border shadow-sm overflow-hidden">
@@ -463,6 +444,27 @@ export function AdminTaskDashboard({
               ))
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="deadline">
+          <Card className="border-2 border-destructive/40 shadow-sm">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-base font-semibold flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-4 w-4" /> Deadline (within 48 hours)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              {deadlineItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">No tasks due within the next 48 hours.</p>
+              ) : (
+                <div className="space-y-1">
+                  {deadlineItems.map((item) => (
+                    <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
