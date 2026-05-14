@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { cn } from "@/lib/utils";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface Profile {
   id: string;
@@ -45,6 +46,7 @@ interface TopDeduction {
 export default function Dashboard() {
   const { user } = useAuth();
   const { canViewSalary } = useProfile();
+  const { hasFor } = useNotifications();
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRow[]>([]);
@@ -184,7 +186,12 @@ export default function Dashboard() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
-                <card.icon className={cn("h-4 w-4", card.accent)} />
+                <div className="relative">
+                  <card.icon className={cn("h-4 w-4", card.accent)} />
+                  {hasFor(card.to) && (
+                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-card animate-pulse" />
+                  )}
+                </div>
               </div>
               <div className="flex items-end justify-between gap-2">
                 <p className="text-xl font-bold font-display">{card.value}</p>
