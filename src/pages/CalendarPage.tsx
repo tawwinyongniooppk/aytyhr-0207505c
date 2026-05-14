@@ -32,6 +32,7 @@ interface StaffProfile {
   id: string;
   full_name: string;
   work_schedule?: any;
+  sequence?: number;
 }
 
 const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -67,6 +68,7 @@ export default function CalendarPage() {
   const [submitting, setSubmitting] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [assignmentLoad, setAssignmentLoad] = useState<Record<string, { weekly: number; biweekly: number; weighted: number }>>({});
+  const [memberStats, setMemberStats] = useState<Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }>>({});
 
   const [form, setForm] = useState({
     title: "",
@@ -176,9 +178,11 @@ export default function CalendarPage() {
       const roles = isAssistant ? ["staff"] : ["staff", "assistant"];
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name, role")
-        .in("role", roles);
-      setStaffList(data || []);
+        .select("id, full_name, role, sequence")
+        .in("role", roles)
+        .order("sequence", { ascending: true })
+        .order("full_name", { ascending: true });
+      setStaffList((data as StaffProfile[]) || []);
     } catch { /* ignore */ }
   }
 
