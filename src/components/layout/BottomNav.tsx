@@ -3,6 +3,7 @@ import { LayoutDashboard, Clock, Wallet, ClipboardList, LogOut, FileText, UserPl
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
+import { useNotifications } from "@/hooks/useNotifications";
 
 const allNavItems: any[] = [
   // Admin order: Dashboard, Staff, Leave, Calendar, Tasks, Salaries & Bonuses
@@ -23,6 +24,7 @@ const allNavItems: any[] = [
 export function BottomNav() {
   const { isAdmin, isAssistant, isStaff, isItManager } = useProfile();
   const { signOut } = useAuth();
+  const { hasFor } = useNotifications();
 
   const navItems = allNavItems.filter((item) => {
     if (item.itManagerOnly) return isItManager;
@@ -53,7 +55,12 @@ export function BottomNav() {
               )
             }
           >
-            <item.icon className="h-5 w-5" />
+            <div className="relative">
+              <item.icon className="h-5 w-5" />
+              {hasFor(item.to) && (
+                <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-card animate-pulse" />
+              )}
+            </div>
             <span>{item.label}</span>
           </NavLink>
         ))}
