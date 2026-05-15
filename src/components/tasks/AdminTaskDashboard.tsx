@@ -555,6 +555,23 @@ function ItemRow({ item, showStaff, approvingId, onApprove, onEdit, nowDate, sta
         <Badge variant="secondary" className={`text-xs ${STATUS_COLORS[item.status] || ""}`}>
           {STATUS_ICONS[item.status]}{STATUS_LABELS[item.status]}
         </Badge>
+        {onEdit && (item.type === "task" || item.source === "task") && (
+          item.status === "not_started" ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs gap-1"
+              onClick={() => onEdit(item)}
+              title="Edit (allowed until member accepts)"
+            >
+              <Pencil className="h-3 w-3" /> Edit
+            </Button>
+          ) : (
+            <Badge variant="secondary" className="text-[10px] gap-1 bg-muted text-muted-foreground" title="Locked — member already accepted">
+              <Lock className="h-3 w-3" /> Locked
+            </Badge>
+          )
+        )}
         {item.status === "submitted" && (
           <Button
             size="sm"
