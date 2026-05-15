@@ -321,6 +321,14 @@ export default function CalendarPage() {
       toast({ title: "ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ", variant: "destructive" });
       return;
     }
+    if (!isAllowedAssignDate(form.start_date)) {
+      toast({
+        title: "Assignment not allowed on this date",
+        description: "Tasks can only be assigned on day 1–3, 8–10, 15–17, or 22–24 of the month.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const deadline = computeDeadline(form.start_date, form.frequency);
 
