@@ -483,7 +483,7 @@ export function AdminTaskDashboard({
                   <CardContent className="p-4 pt-0">
                     <div className="space-y-1">
                       {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
+                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
                       ))}
                     </div>
                   </CardContent>
