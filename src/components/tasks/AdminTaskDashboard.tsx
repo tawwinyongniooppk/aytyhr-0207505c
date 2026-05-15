@@ -506,7 +506,7 @@ export function AdminTaskDashboard({
               ) : (
                 <div className="space-y-1">
                   {deadlineItems.map((item) => (
-                    <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
+                    <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
                   ))}
                 </div>
               )}
