@@ -66,7 +66,7 @@ export default function Tasks() {
 
   useEffect(() => {
     if (!user) return;
-    runRetentionCleanup();
+    
     loadData();
   }, [user, isAdmin, isStaff]);
 
