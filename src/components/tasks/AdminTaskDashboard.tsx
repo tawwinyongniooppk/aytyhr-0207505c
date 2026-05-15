@@ -514,6 +514,33 @@ export function AdminTaskDashboard({
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Task Title</Label>
+              <Input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
+            </div>
+            <div>
+              <Label>Description / Task Content</Label>
+              <Textarea rows={5} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Editing is allowed only while the member has not yet accepted the task. Once accepted (In Progress), the task is locked.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button onClick={saveEdit} disabled={savingEdit}>
+              {savingEdit && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
