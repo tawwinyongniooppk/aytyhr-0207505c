@@ -128,6 +128,50 @@ export function AdminTaskDashboard({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<UnifiedItem | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", description: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  function openEdit(item: UnifiedItem) {
+    if (item.status !== "not_started") {
+      toast.error("Locked — member already accepted this task");
+      return;
+    }
+    setEditing(item);
+    setEditForm({ title: item.title, description: item.description || "" });
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    if (editing.status !== "not_started") {
+      toast.error("Locked — member already accepted this task");
+      return;
+    }
+    if (!editForm.title.trim()) { toast.error("Title is required"); return; }
+    setSavingEdit(true);
+    try {
+      if (editing.source === "task") {
+        const { error } = await supabase
+          .from("tasks")
+          .update({ title: editForm.title, description: editForm.description })
+          .eq("id", editing.sourceId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("calendar_events")
+          .update({ title: editForm.title, description: editForm.description })
+          .eq("id", editing.sourceId);
+        if (error) throw error;
+      }
+      toast.success("Task updated");
+      setEditing(null);
+      onRefresh();
+    } catch {
+      toast.error("Failed to update task");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   const nowDate = new Date().toISOString().split("T")[0];
 
