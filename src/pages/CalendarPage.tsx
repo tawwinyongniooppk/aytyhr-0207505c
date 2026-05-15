@@ -213,6 +213,14 @@ export default function CalendarPage() {
     try {
       const { monthStart, nextMonthStart } = monthBoundsFor(dateStr);
       const todayStr = new Date().toISOString().split("T")[0];
+      const today = new Date();
+      const targetMonth = new Date(monthStart + "T00:00:00");
+      const isCurrentMonth =
+        today.getFullYear() === targetMonth.getFullYear() &&
+        today.getMonth() === targetMonth.getMonth();
+      const isPastMonth = targetMonth < new Date(today.getFullYear(), today.getMonth(), 1);
+      const todayDay = today.getDate();
+
       const { data: taskEvents } = await supabase
         .from("calendar_events")
         .select("id, start_date, end_date")
@@ -220,14 +228,19 @@ export default function CalendarPage() {
         .gte("start_date", monthStart)
         .lt("start_date", nextMonthStart);
       const evList = (taskEvents as { id: string; start_date: string; end_date: string }[]) || [];
-      if (evList.length === 0) { setAssignmentLoad({}); setMemberStats({}); return; }
       const evMap = new Map(evList.map((e) => [e.id, e]));
-      const { data: ass } = await supabase
-        .from("calendar_event_assignments")
-        .select("user_id, event_id, submission_status")
-        .in("event_id", evList.map((e) => e.id));
+      const { data: ass } = evList.length
+        ? await supabase
+            .from("calendar_event_assignments")
+            .select("user_id, event_id, submission_status")
+            .in("event_id", evList.map((e) => e.id))
+        : { data: [] as any };
+
       const load: Record<string, { weekly: number; biweekly: number; weighted: number }> = {};
       const stats: Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }> = {};
+      // Track which windows each member has assignments in
+      const memberWindows: Record<string, Set<number>> = {};
+
       for (const a of (ass as { user_id: string; event_id: string; submission_status: string }[]) || []) {
         const ev = evMap.get(a.event_id);
         if (!ev) continue;
@@ -239,6 +252,13 @@ export default function CalendarPage() {
         if (isBiweekly) { entry.biweekly += 1; entry.weighted += 2; }
         else { entry.weekly += 1; entry.weighted += 1; }
         load[a.user_id] = entry;
+
+        const startDay = new Date(ev.start_date + "T00:00:00").getDate();
+        const winIdx = ASSIGN_WINDOWS.findIndex((w) => w.days.includes(startDay));
+        if (winIdx >= 0) {
+          if (!memberWindows[a.user_id]) memberWindows[a.user_id] = new Set();
+          memberWindows[a.user_id].add(winIdx);
+        }
 
         const s = stats[a.user_id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
         s.newTask += 1;
@@ -253,6 +273,27 @@ export default function CalendarPage() {
         if (status === "approved") s.allDone += 1;
         stats[a.user_id] = s;
       }
+
+      // Auto All Done: for each window whose close-day has passed without an assignment for that member,
+      // grant +1 unit and +1 All Done. Applies to current month (windows past close day) and past months (all 4 windows).
+      for (const s of staffList) {
+        const taken = memberWindows[s.id] || new Set<number>();
+        const entry = load[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
+        const st = stats[s.id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
+        let auto = 0;
+        ASSIGN_WINDOWS.forEach((w, idx) => {
+          if (taken.has(idx)) return;
+          const passed = isPastMonth || (isCurrentMonth && todayDay > w.close);
+          if (passed) auto += 1;
+        });
+        if (auto > 0) {
+          entry.weighted = Math.min(MONTHLY_WEIGHT_CAP, entry.weighted + auto);
+          st.allDone += auto;
+        }
+        load[s.id] = entry;
+        stats[s.id] = st;
+      }
+
       setAssignmentLoad(load);
       setMemberStats(stats);
     } catch { /* ignore */ }
