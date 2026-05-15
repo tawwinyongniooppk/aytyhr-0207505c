@@ -531,7 +531,7 @@ function getRowBg(item: { status: string; dueDate?: string | null }, nowDate: st
   return "bg-muted/30 border-l-2 border-l-muted-foreground/30";
 }
 
-function ItemRow({ item, showStaff, approvingId, onApprove, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
+function ItemRow({ item, showStaff, approvingId, onApprove, onEdit, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; onEdit?: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
   const assignedByName = item.assignedById ? (staffNames?.[item.assignedById] || "Admin") : "Admin";
   return (
     <div className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(item, nowDate)}`}>
