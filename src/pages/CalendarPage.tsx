@@ -268,32 +268,9 @@ export default function CalendarPage() {
     }
 
     const deadline = computeDeadline(form.start_date, form.frequency);
-    const monthlyCap = form.frequency === "weekly" ? 4 : 2;
-
-    // Quota: count tasks created by this user whose start_date falls in the same month.
-    const monthStart = form.start_date.slice(0, 7) + "-01";
-    const nextMonthStart = (() => {
-      const d = new Date(monthStart + "T00:00:00");
-      d.setMonth(d.getMonth() + 1);
-      return d.toISOString().split("T")[0];
-    })();
-    const existingThisMonth = events.filter(
-      (e) =>
-        e.event_type === "task" &&
-        e.created_by === user.id &&
-        e.start_date >= monthStart &&
-        e.start_date < nextMonthStart
-    ).length;
-    if (existingThisMonth >= monthlyCap) {
-      toast({
-        title: "Monthly task limit reached",
-        description: `You can assign at most ${monthlyCap} ${form.frequency === "weekly" ? "weekly" : "bi-weekly"} tasks per month.`,
-        variant: "destructive",
-      });
-      return;
-    }
 
     // Per-assignee monthly cap (weekly=1 weighted unit, biweekly=2; cap 4/month).
+    // No global per-creator cap — each member is tracked independently.
     const newWeight = form.frequency === "weekly" ? 1 : 2;
     const isEveryone = form.assignMode === "everyone";
     const candidateIds = isEveryone ? staffList.map((s) => s.id) : form.assignedIds;
