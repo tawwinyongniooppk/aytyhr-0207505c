@@ -537,8 +537,8 @@ export default function CalendarPage() {
                     value={form.start_date}
                     onChange={(e) => setForm({ ...form, start_date: e.target.value })}
                   />
-                  {form.start_date && isHolidayDate(form.start_date) && (
-                    <p className="text-xs text-destructive mt-1">ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ</p>
+                  {getStartDateError() && (
+                    <p className="text-xs text-destructive mt-1 font-medium">{getStartDateError()}</p>
                   )}
                   {form.start_date && !isHolidayDate(form.start_date) && !isAllowedAssignDate(form.start_date) && (
                     <p className="text-xs text-destructive mt-1">
