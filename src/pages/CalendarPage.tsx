@@ -363,20 +363,48 @@ export default function CalendarPage() {
   }
 
   const OFF_DAY_WARNING = "Off Day or Holiday cannot be used as a task start date. Please select a working day.";
+  const OVERLAP_WARNING = "This date is already occupied by another task.";
+  const UNFINISHED_WARNING = "You cannot assign a new task on a day that belongs to an unfinished 1/4 Unit or 2/4 Task.";
+  const MONTH_RANGE_WARNING = "Task dates can only be edited within the current month.";
+  const FUTURE_MONTH_WARNING = "Future month task planning is not allowed.";
+
+  function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
+    return aStart <= bEnd && bStart <= aEnd;
+  }
 
   function getStartDateError(): string | null {
     const d = form.start_date;
     if (!d) return null;
+
+    // Month-range checks first for create/edit
+    const { start: cmStart, end: cmEnd } = currentMonthRange();
+    if (d > cmEnd) return FUTURE_MONTH_WARNING;
+    if (d < cmStart) return MONTH_RANGE_WARNING;
+
+    // Holiday → Company → Individual off-day
     if (isHolidayDate(d)) return OFF_DAY_WARNING;
     if (isCompanyOffDate(d)) return OFF_DAY_WARNING;
+    const candidates = form.assignMode === "everyone"
+      ? staffList.map((s) => s.id)
+      : form.assignedIds.slice(0, 1);
     if (form.assignMode !== "everyone") {
-      const id = form.assignedIds[0];
+      const id = candidates[0];
       if (id && isIndividualOffDate(d, id)) return OFF_DAY_WARNING;
-    } else {
-      // Everyone mode: block if any candidate is individually off
-      const anyOff = staffList.some((s) => isIndividualOffDate(d, s.id));
-      if (anyOff) return OFF_DAY_WARNING;
+    } else if (staffList.some((s) => isIndividualOffDate(d, s.id))) {
+      return OFF_DAY_WARNING;
     }
+
+    // Overlap with existing task ranges for any candidate
+    const newEnd = computeDeadline(d, form.frequency);
+    for (const uid of candidates) {
+      const ranges = monthTaskRanges[uid] || [];
+      for (const r of ranges) {
+        if (!rangesOverlap(d, newEnd, r.start, r.end)) continue;
+        if (r.status !== "approved") return UNFINISHED_WARNING;
+        return OVERLAP_WARNING;
+      }
+    }
+
     return null;
   }
 
