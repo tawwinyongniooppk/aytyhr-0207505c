@@ -357,8 +357,9 @@ export default function CalendarPage() {
 
   async function handleCreate() {
     if (!form.title || !form.start_date || !user) return;
-    if (isHolidayDate(form.start_date)) {
-      toast({ title: "ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ", variant: "destructive" });
+    const offErr = getStartDateError();
+    if (offErr) {
+      toast({ title: offErr, variant: "destructive" });
       return;
     }
     if (!isAllowedAssignDate(form.start_date)) {
