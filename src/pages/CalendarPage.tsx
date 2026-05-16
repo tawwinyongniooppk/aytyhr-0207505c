@@ -64,13 +64,11 @@ export default function CalendarPage() {
   const [staffList, setStaffList] = useState<StaffProfile[]>([]);
   const [mySchedule, setMySchedule] = useState<Record<string, { active: boolean }> | null>(null);
   const [offStaffByWeekday, setOffStaffByWeekday] = useState<Record<string, string[]>>({});
-  const [staffSchedules, setStaffSchedules] = useState<Record<string, Record<string, { active: boolean }>>>({});
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [assignmentLoad, setAssignmentLoad] = useState<Record<string, { weekly: number; biweekly: number; weighted: number }>>({});
   const [memberStats, setMemberStats] = useState<Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }>>({});
-  const [monthTaskRanges, setMonthTaskRanges] = useState<Record<string, Array<{ start: string; end: string; status: string }>>>({});
 
   const [form, setForm] = useState({
     title: "",
@@ -93,27 +91,7 @@ export default function CalendarPage() {
 
   function computeDeadline(startDate: string, frequency: "weekly" | "biweekly") {
     if (!startDate) return "";
-    // February shortens the deadline window.
-    const isFeb = new Date(startDate + "T00:00:00").getMonth() === 1;
-    const base = frequency === "weekly" ? 6 : 13;
-    const feb = frequency === "weekly" ? 4 : 11;
-    return addDaysISO(startDate, isFeb ? feb : base);
-  }
-
-  function currentMonthRange() {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    const start = `${y}-${String(m + 1).padStart(2, "0")}-01`;
-    const last = new Date(y, m + 1, 0).getDate();
-    const end = `${y}-${String(m + 1).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
-    return { start, end };
-  }
-
-  function isWithinCurrentMonth(dateStr: string) {
-    if (!dateStr) return false;
-    const { start, end } = currentMonthRange();
-    return dateStr >= start && dateStr <= end;
+    return addDaysISO(startDate, frequency === "weekly" ? 6 : 13);
   }
 
   const year = currentDate.getFullYear();
@@ -151,15 +129,11 @@ export default function CalendarPage() {
       if (!isStaff) {
         const { data } = await supabase
           .from("profiles")
-          .select("id, full_name, work_schedule, role")
+          .select("full_name, work_schedule, role")
           .eq("role", "staff");
-        const rows = (data || []) as Array<{ id: string; full_name: string; work_schedule: any }>;
+        const rows = (data || []) as Array<{ full_name: string; work_schedule: any }>;
         const byDay: Record<string, string[]> = {};
         const merged: Record<string, { active: boolean }> = {};
-        const schedules: Record<string, Record<string, { active: boolean }>> = {};
-        for (const r of rows) {
-          if (r.work_schedule) schedules[r.id] = r.work_schedule as any;
-        }
         for (const day of WEEKDAY_NAMES) {
           const offNames = rows
             .filter((r) => r.work_schedule && r.work_schedule[day] && r.work_schedule[day].active === false)
@@ -169,7 +143,6 @@ export default function CalendarPage() {
           merged[day] = { active: offNames.length === 0 };
         }
         setOffStaffByWeekday(byDay);
-        setStaffSchedules(schedules);
         setMySchedule(merged);
         return;
       }
@@ -215,20 +188,6 @@ export default function CalendarPage() {
 
   // Per-assignee monthly load: weekly=1 weighted unit, biweekly=2; cap = 4 weighted units / month / person.
   const MONTHLY_WEIGHT_CAP = 4;
-  // Assignment is allowed only on these days of the month
-  const ALLOWED_ASSIGN_DAYS = [1, 2, 3, 8, 9, 10, 15, 16, 17, 22, 23, 24];
-  // Each window = 1 unit. Closing day (last allowed day of window) used for auto All Done.
-  const ASSIGN_WINDOWS: Array<{ days: number[]; close: number }> = [
-    { days: [1, 2, 3], close: 3 },
-    { days: [8, 9, 10], close: 10 },
-    { days: [15, 16, 17], close: 17 },
-    { days: [22, 23, 24], close: 24 },
-  ];
-  function isAllowedAssignDate(dateStr: string) {
-    if (!dateStr) return false;
-    const d = new Date(dateStr + "T00:00:00").getDate();
-    return ALLOWED_ASSIGN_DAYS.includes(d);
-  }
   function monthBoundsFor(dateStr: string) {
     const monthStart = (dateStr || new Date().toISOString().split("T")[0]).slice(0, 7) + "-01";
     const d = new Date(monthStart + "T00:00:00");
@@ -240,14 +199,6 @@ export default function CalendarPage() {
     try {
       const { monthStart, nextMonthStart } = monthBoundsFor(dateStr);
       const todayStr = new Date().toISOString().split("T")[0];
-      const today = new Date();
-      const targetMonth = new Date(monthStart + "T00:00:00");
-      const isCurrentMonth =
-        today.getFullYear() === targetMonth.getFullYear() &&
-        today.getMonth() === targetMonth.getMonth();
-      const isPastMonth = targetMonth < new Date(today.getFullYear(), today.getMonth(), 1);
-      const todayDay = today.getDate();
-
       const { data: taskEvents } = await supabase
         .from("calendar_events")
         .select("id, start_date, end_date")
@@ -255,20 +206,14 @@ export default function CalendarPage() {
         .gte("start_date", monthStart)
         .lt("start_date", nextMonthStart);
       const evList = (taskEvents as { id: string; start_date: string; end_date: string }[]) || [];
+      if (evList.length === 0) { setAssignmentLoad({}); setMemberStats({}); return; }
       const evMap = new Map(evList.map((e) => [e.id, e]));
-      const { data: ass } = evList.length
-        ? await supabase
-            .from("calendar_event_assignments")
-            .select("user_id, event_id, submission_status")
-            .in("event_id", evList.map((e) => e.id))
-        : { data: [] as any };
-
+      const { data: ass } = await supabase
+        .from("calendar_event_assignments")
+        .select("user_id, event_id, submission_status")
+        .in("event_id", evList.map((e) => e.id));
       const load: Record<string, { weekly: number; biweekly: number; weighted: number }> = {};
       const stats: Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }> = {};
-      // Track which windows each member has assignments in
-      const memberWindows: Record<string, Set<number>> = {};
-      const ranges: Record<string, Array<{ start: string; end: string; status: string }>> = {};
-
       for (const a of (ass as { user_id: string; event_id: string; submission_status: string }[]) || []) {
         const ev = evMap.get(a.event_id);
         if (!ev) continue;
@@ -280,15 +225,6 @@ export default function CalendarPage() {
         if (isBiweekly) { entry.biweekly += 1; entry.weighted += 2; }
         else { entry.weekly += 1; entry.weighted += 1; }
         load[a.user_id] = entry;
-        if (!ranges[a.user_id]) ranges[a.user_id] = [];
-        ranges[a.user_id].push({ start: ev.start_date, end: ev.end_date, status: a.submission_status || "not_started" });
-
-        const startDay = new Date(ev.start_date + "T00:00:00").getDate();
-        const winIdx = ASSIGN_WINDOWS.findIndex((w) => w.days.includes(startDay));
-        if (winIdx >= 0) {
-          if (!memberWindows[a.user_id]) memberWindows[a.user_id] = new Set();
-          memberWindows[a.user_id].add(winIdx);
-        }
 
         const s = stats[a.user_id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
         s.newTask += 1;
@@ -303,29 +239,7 @@ export default function CalendarPage() {
         if (status === "approved") s.allDone += 1;
         stats[a.user_id] = s;
       }
-
-      // Auto All Done: for each window whose close-day has passed without an assignment for that member,
-      // grant +1 unit and +1 All Done. Applies to current month (windows past close day) and past months (all 4 windows).
-      for (const s of staffList) {
-        const taken = memberWindows[s.id] || new Set<number>();
-        const entry = load[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
-        const st = stats[s.id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
-        let auto = 0;
-        ASSIGN_WINDOWS.forEach((w, idx) => {
-          if (taken.has(idx)) return;
-          const passed = isPastMonth || (isCurrentMonth && todayDay > w.close);
-          if (passed) auto += 1;
-        });
-        if (auto > 0) {
-          entry.weighted = Math.min(MONTHLY_WEIGHT_CAP, entry.weighted + auto);
-          st.allDone += auto;
-        }
-        load[s.id] = entry;
-        stats[s.id] = st;
-      }
-
       setAssignmentLoad(load);
-      setMonthTaskRanges(ranges);
       setMemberStats(stats);
     } catch { /* ignore */ }
   }
@@ -346,81 +260,10 @@ export default function CalendarPage() {
     );
   }
 
-  function isCompanyOffDate(dateStr: string) {
-    if (!dateStr) return false;
-    const weekday = WEEKDAY_NAMES[new Date(dateStr + "T00:00:00").getDay()];
-    const schedules = Object.values(staffSchedules);
-    if (schedules.length === 0) return false;
-    return schedules.every((sch) => sch?.[weekday]?.active === false);
-  }
-
-  function isIndividualOffDate(dateStr: string, staffId: string) {
-    if (!dateStr || !staffId) return false;
-    const weekday = WEEKDAY_NAMES[new Date(dateStr + "T00:00:00").getDay()];
-    const sch = staffSchedules[staffId];
-    if (!sch) return false;
-    return sch[weekday]?.active === false;
-  }
-
-  const OFF_DAY_WARNING = "Off Day or Holiday cannot be used as a task start date. Please select a working day.";
-  const OVERLAP_WARNING = "This date is already occupied by another task.";
-  const UNFINISHED_WARNING = "You cannot assign a new task on a day that belongs to an unfinished 1/4 Unit or 2/4 Task.";
-  const MONTH_RANGE_WARNING = "Task dates can only be edited within the current month.";
-  const FUTURE_MONTH_WARNING = "Future month task planning is not allowed.";
-
-  function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
-    return aStart <= bEnd && bStart <= aEnd;
-  }
-
-  function getStartDateError(): string | null {
-    const d = form.start_date;
-    if (!d) return null;
-
-    // Month-range checks first for create/edit
-    const { start: cmStart, end: cmEnd } = currentMonthRange();
-    if (d > cmEnd) return FUTURE_MONTH_WARNING;
-    if (d < cmStart) return MONTH_RANGE_WARNING;
-
-    // Holiday → Company → Individual off-day
-    if (isHolidayDate(d)) return OFF_DAY_WARNING;
-    if (isCompanyOffDate(d)) return OFF_DAY_WARNING;
-    const candidates = form.assignMode === "everyone"
-      ? staffList.map((s) => s.id)
-      : form.assignedIds.slice(0, 1);
-    if (form.assignMode !== "everyone") {
-      const id = candidates[0];
-      if (id && isIndividualOffDate(d, id)) return OFF_DAY_WARNING;
-    } else if (staffList.some((s) => isIndividualOffDate(d, s.id))) {
-      return OFF_DAY_WARNING;
-    }
-
-    // Overlap with existing task ranges for any candidate
-    const newEnd = computeDeadline(d, form.frequency);
-    for (const uid of candidates) {
-      const ranges = monthTaskRanges[uid] || [];
-      for (const r of ranges) {
-        if (!rangesOverlap(d, newEnd, r.start, r.end)) continue;
-        if (r.status !== "approved") return UNFINISHED_WARNING;
-        return OVERLAP_WARNING;
-      }
-    }
-
-    return null;
-  }
-
   async function handleCreate() {
     if (!form.title || !form.start_date || !user) return;
-    const offErr = getStartDateError();
-    if (offErr) {
-      toast({ title: offErr, variant: "destructive" });
-      return;
-    }
-    if (!isAllowedAssignDate(form.start_date)) {
-      toast({
-        title: "Assignment not allowed on this date",
-        description: "Tasks can only be assigned on day 1–3, 8–10, 15–17, or 22–24 of the month.",
-        variant: "destructive",
-      });
+    if (isHolidayDate(form.start_date)) {
+      toast({ title: "ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ", variant: "destructive" });
       return;
     }
 
@@ -590,17 +433,9 @@ export default function CalendarPage() {
                     value={form.start_date}
                     onChange={(e) => setForm({ ...form, start_date: e.target.value })}
                   />
-                  {getStartDateError() && (
-                    <p className="text-xs text-destructive mt-1 font-medium">{getStartDateError()}</p>
+                  {form.start_date && isHolidayDate(form.start_date) && (
+                    <p className="text-xs text-destructive mt-1">ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ</p>
                   )}
-                  {form.start_date && !getStartDateError() && !isAllowedAssignDate(form.start_date) && (
-                    <p className="text-xs text-destructive mt-1">
-                      Tasks can only be assigned on day 1–3, 8–10, 15–17, or 22–24 of the month.
-                    </p>
-                  )}
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Allowed assignment days: 1, 2, 3 · 8, 9, 10 · 15, 16, 17 · 22, 23, 24
-                  </p>
                 </div>
                 <div>
                   <Label>Frequency</Label>
@@ -707,7 +542,7 @@ export default function CalendarPage() {
                 </div>
                 <Button
                   onClick={handleCreate}
-                  disabled={submitting || !form.title || !form.start_date || !!getStartDateError() || !isAllowedAssignDate(form.start_date)}
+                  disabled={submitting || !form.title || !form.start_date || isHolidayDate(form.start_date)}
                   className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90"
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}

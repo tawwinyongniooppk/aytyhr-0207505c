@@ -3,13 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Users, CalendarDays, Filter, AlertTriangle, X, CheckCircle2, Clock, Eye, Pencil, Lock } from "lucide-react";
+import { Loader2, Users, CalendarDays, Filter, AlertTriangle, X, CheckCircle2, Clock, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -128,50 +125,6 @@ export function AdminTaskDashboard({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<UnifiedItem | null>(null);
-  const [editForm, setEditForm] = useState({ title: "", description: "" });
-  const [savingEdit, setSavingEdit] = useState(false);
-
-  function openEdit(item: UnifiedItem) {
-    if (item.status !== "not_started") {
-      toast.error("Locked — member already accepted this task");
-      return;
-    }
-    setEditing(item);
-    setEditForm({ title: item.title, description: item.description || "" });
-  }
-
-  async function saveEdit() {
-    if (!editing) return;
-    if (editing.status !== "not_started") {
-      toast.error("Locked — member already accepted this task");
-      return;
-    }
-    if (!editForm.title.trim()) { toast.error("Title is required"); return; }
-    setSavingEdit(true);
-    try {
-      if (editing.source === "task") {
-        const { error } = await supabase
-          .from("tasks")
-          .update({ title: editForm.title, description: editForm.description })
-          .eq("id", editing.sourceId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("calendar_events")
-          .update({ title: editForm.title, description: editForm.description })
-          .eq("id", editing.sourceId);
-        if (error) throw error;
-      }
-      toast.success("Task updated");
-      setEditing(null);
-      onRefresh();
-    } catch {
-      toast.error("Failed to update task");
-    } finally {
-      setSavingEdit(false);
-    }
-  }
 
   const nowDate = new Date().toISOString().split("T")[0];
 
@@ -458,7 +411,7 @@ export function AdminTaskDashboard({
                     ) : (
                       <div className="space-y-1">
                         {items.map((item) => (
-                          <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} detailed />
+                          <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} detailed />
                         ))}
                       </div>
                     )}
@@ -483,7 +436,7 @@ export function AdminTaskDashboard({
                   <CardContent className="p-4 pt-0">
                     <div className="space-y-1">
                       {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
+                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
                       ))}
                     </div>
                   </CardContent>
@@ -506,7 +459,7 @@ export function AdminTaskDashboard({
               ) : (
                 <div className="space-y-1">
                   {deadlineItems.map((item) => (
-                    <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
+                    <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
                   ))}
                 </div>
               )}
@@ -514,33 +467,6 @@ export function AdminTaskDashboard({
           </Card>
         </TabsContent>
       </Tabs>
-
-      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Task</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label>Task Title</Label>
-              <Input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
-            </div>
-            <div>
-              <Label>Description / Task Content</Label>
-              <Textarea rows={5} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Editing is allowed only while the member has not yet accepted the task. Once accepted (In Progress), the task is locked.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
-            <Button onClick={saveEdit} disabled={savingEdit}>
-              {savingEdit && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -558,7 +484,7 @@ function getRowBg(item: { status: string; dueDate?: string | null }, nowDate: st
   return "bg-muted/30 border-l-2 border-l-muted-foreground/30";
 }
 
-function ItemRow({ item, showStaff, approvingId, onApprove, onEdit, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; onEdit?: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
+function ItemRow({ item, showStaff, approvingId, onApprove, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
   const assignedByName = item.assignedById ? (staffNames?.[item.assignedById] || "Admin") : "Admin";
   return (
     <div className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(item, nowDate)}`}>
@@ -582,23 +508,6 @@ function ItemRow({ item, showStaff, approvingId, onApprove, onEdit, nowDate, sta
         <Badge variant="secondary" className={`text-xs ${STATUS_COLORS[item.status] || ""}`}>
           {STATUS_ICONS[item.status]}{STATUS_LABELS[item.status]}
         </Badge>
-        {onEdit && (item.type === "task" || item.source === "task") && (
-          item.status === "not_started" ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-xs gap-1"
-              onClick={() => onEdit(item)}
-              title="Edit (allowed until member accepts)"
-            >
-              <Pencil className="h-3 w-3" /> Edit
-            </Button>
-          ) : (
-            <Badge variant="secondary" className="text-[10px] gap-1 bg-muted text-muted-foreground" title="Locked — member already accepted">
-              <Lock className="h-3 w-3" /> Locked
-            </Badge>
-          )
-        )}
         {item.status === "submitted" && (
           <Button
             size="sm"
