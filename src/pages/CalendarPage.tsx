@@ -130,11 +130,15 @@ export default function CalendarPage() {
       if (!isStaff) {
         const { data } = await supabase
           .from("profiles")
-          .select("full_name, work_schedule, role")
+          .select("id, full_name, work_schedule, role")
           .eq("role", "staff");
-        const rows = (data || []) as Array<{ full_name: string; work_schedule: any }>;
+        const rows = (data || []) as Array<{ id: string; full_name: string; work_schedule: any }>;
         const byDay: Record<string, string[]> = {};
         const merged: Record<string, { active: boolean }> = {};
+        const schedules: Record<string, Record<string, { active: boolean }>> = {};
+        for (const r of rows) {
+          if (r.work_schedule) schedules[r.id] = r.work_schedule as any;
+        }
         for (const day of WEEKDAY_NAMES) {
           const offNames = rows
             .filter((r) => r.work_schedule && r.work_schedule[day] && r.work_schedule[day].active === false)
@@ -144,6 +148,7 @@ export default function CalendarPage() {
           merged[day] = { active: offNames.length === 0 };
         }
         setOffStaffByWeekday(byDay);
+        setStaffSchedules(schedules);
         setMySchedule(merged);
         return;
       }
