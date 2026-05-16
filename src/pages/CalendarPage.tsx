@@ -267,6 +267,7 @@ export default function CalendarPage() {
       const stats: Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }> = {};
       // Track which windows each member has assignments in
       const memberWindows: Record<string, Set<number>> = {};
+      const ranges: Record<string, Array<{ start: string; end: string; status: string }>> = {};
 
       for (const a of (ass as { user_id: string; event_id: string; submission_status: string }[]) || []) {
         const ev = evMap.get(a.event_id);
