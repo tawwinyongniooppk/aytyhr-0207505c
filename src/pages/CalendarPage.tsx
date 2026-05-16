@@ -70,6 +70,7 @@ export default function CalendarPage() {
   const [filterType, setFilterType] = useState("all");
   const [assignmentLoad, setAssignmentLoad] = useState<Record<string, { weekly: number; biweekly: number; weighted: number }>>({});
   const [memberStats, setMemberStats] = useState<Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }>>({});
+  const [monthTaskRanges, setMonthTaskRanges] = useState<Record<string, Array<{ start: string; end: string; status: string }>>>({});
 
   const [form, setForm] = useState({
     title: "",
@@ -92,7 +93,27 @@ export default function CalendarPage() {
 
   function computeDeadline(startDate: string, frequency: "weekly" | "biweekly") {
     if (!startDate) return "";
-    return addDaysISO(startDate, frequency === "weekly" ? 6 : 13);
+    // February shortens the deadline window.
+    const isFeb = new Date(startDate + "T00:00:00").getMonth() === 1;
+    const base = frequency === "weekly" ? 6 : 13;
+    const feb = frequency === "weekly" ? 4 : 11;
+    return addDaysISO(startDate, isFeb ? feb : base);
+  }
+
+  function currentMonthRange() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const start = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+    const last = new Date(y, m + 1, 0).getDate();
+    const end = `${y}-${String(m + 1).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
+    return { start, end };
+  }
+
+  function isWithinCurrentMonth(dateStr: string) {
+    if (!dateStr) return false;
+    const { start, end } = currentMonthRange();
+    return dateStr >= start && dateStr <= end;
   }
 
   const year = currentDate.getFullYear();
@@ -246,6 +267,7 @@ export default function CalendarPage() {
       const stats: Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }> = {};
       // Track which windows each member has assignments in
       const memberWindows: Record<string, Set<number>> = {};
+      const ranges: Record<string, Array<{ start: string; end: string; status: string }>> = {};
 
       for (const a of (ass as { user_id: string; event_id: string; submission_status: string }[]) || []) {
         const ev = evMap.get(a.event_id);
@@ -258,6 +280,8 @@ export default function CalendarPage() {
         if (isBiweekly) { entry.biweekly += 1; entry.weighted += 2; }
         else { entry.weekly += 1; entry.weighted += 1; }
         load[a.user_id] = entry;
+        if (!ranges[a.user_id]) ranges[a.user_id] = [];
+        ranges[a.user_id].push({ start: ev.start_date, end: ev.end_date, status: a.submission_status || "not_started" });
 
         const startDay = new Date(ev.start_date + "T00:00:00").getDate();
         const winIdx = ASSIGN_WINDOWS.findIndex((w) => w.days.includes(startDay));
@@ -301,6 +325,7 @@ export default function CalendarPage() {
       }
 
       setAssignmentLoad(load);
+      setMonthTaskRanges(ranges);
       setMemberStats(stats);
     } catch { /* ignore */ }
   }
@@ -338,20 +363,48 @@ export default function CalendarPage() {
   }
 
   const OFF_DAY_WARNING = "Off Day or Holiday cannot be used as a task start date. Please select a working day.";
+  const OVERLAP_WARNING = "This date is already occupied by another task.";
+  const UNFINISHED_WARNING = "You cannot assign a new task on a day that belongs to an unfinished 1/4 Unit or 2/4 Task.";
+  const MONTH_RANGE_WARNING = "Task dates can only be edited within the current month.";
+  const FUTURE_MONTH_WARNING = "Future month task planning is not allowed.";
+
+  function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
+    return aStart <= bEnd && bStart <= aEnd;
+  }
 
   function getStartDateError(): string | null {
     const d = form.start_date;
     if (!d) return null;
+
+    // Month-range checks first for create/edit
+    const { start: cmStart, end: cmEnd } = currentMonthRange();
+    if (d > cmEnd) return FUTURE_MONTH_WARNING;
+    if (d < cmStart) return MONTH_RANGE_WARNING;
+
+    // Holiday → Company → Individual off-day
     if (isHolidayDate(d)) return OFF_DAY_WARNING;
     if (isCompanyOffDate(d)) return OFF_DAY_WARNING;
+    const candidates = form.assignMode === "everyone"
+      ? staffList.map((s) => s.id)
+      : form.assignedIds.slice(0, 1);
     if (form.assignMode !== "everyone") {
-      const id = form.assignedIds[0];
+      const id = candidates[0];
       if (id && isIndividualOffDate(d, id)) return OFF_DAY_WARNING;
-    } else {
-      // Everyone mode: block if any candidate is individually off
-      const anyOff = staffList.some((s) => isIndividualOffDate(d, s.id));
-      if (anyOff) return OFF_DAY_WARNING;
+    } else if (staffList.some((s) => isIndividualOffDate(d, s.id))) {
+      return OFF_DAY_WARNING;
     }
+
+    // Overlap with existing task ranges for any candidate
+    const newEnd = computeDeadline(d, form.frequency);
+    for (const uid of candidates) {
+      const ranges = monthTaskRanges[uid] || [];
+      for (const r of ranges) {
+        if (!rangesOverlap(d, newEnd, r.start, r.end)) continue;
+        if (r.status !== "approved") return UNFINISHED_WARNING;
+        return OVERLAP_WARNING;
+      }
+    }
+
     return null;
   }
 
