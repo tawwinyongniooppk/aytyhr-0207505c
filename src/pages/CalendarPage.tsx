@@ -64,6 +64,7 @@ export default function CalendarPage() {
   const [staffList, setStaffList] = useState<StaffProfile[]>([]);
   const [mySchedule, setMySchedule] = useState<Record<string, { active: boolean }> | null>(null);
   const [offStaffByWeekday, setOffStaffByWeekday] = useState<Record<string, string[]>>({});
+  const [staffSchedules, setStaffSchedules] = useState<Record<string, Record<string, { active: boolean }>>>({});
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [filterType, setFilterType] = useState("all");
@@ -129,11 +130,15 @@ export default function CalendarPage() {
       if (!isStaff) {
         const { data } = await supabase
           .from("profiles")
-          .select("full_name, work_schedule, role")
+          .select("id, full_name, work_schedule, role")
           .eq("role", "staff");
-        const rows = (data || []) as Array<{ full_name: string; work_schedule: any }>;
+        const rows = (data || []) as Array<{ id: string; full_name: string; work_schedule: any }>;
         const byDay: Record<string, string[]> = {};
         const merged: Record<string, { active: boolean }> = {};
+        const schedules: Record<string, Record<string, { active: boolean }>> = {};
+        for (const r of rows) {
+          if (r.work_schedule) schedules[r.id] = r.work_schedule as any;
+        }
         for (const day of WEEKDAY_NAMES) {
           const offNames = rows
             .filter((r) => r.work_schedule && r.work_schedule[day] && r.work_schedule[day].active === false)
@@ -143,6 +148,7 @@ export default function CalendarPage() {
           merged[day] = { active: offNames.length === 0 };
         }
         setOffStaffByWeekday(byDay);
+        setStaffSchedules(schedules);
         setMySchedule(merged);
         return;
       }
@@ -315,10 +321,45 @@ export default function CalendarPage() {
     );
   }
 
+  function isCompanyOffDate(dateStr: string) {
+    if (!dateStr) return false;
+    const weekday = WEEKDAY_NAMES[new Date(dateStr + "T00:00:00").getDay()];
+    const schedules = Object.values(staffSchedules);
+    if (schedules.length === 0) return false;
+    return schedules.every((sch) => sch?.[weekday]?.active === false);
+  }
+
+  function isIndividualOffDate(dateStr: string, staffId: string) {
+    if (!dateStr || !staffId) return false;
+    const weekday = WEEKDAY_NAMES[new Date(dateStr + "T00:00:00").getDay()];
+    const sch = staffSchedules[staffId];
+    if (!sch) return false;
+    return sch[weekday]?.active === false;
+  }
+
+  const OFF_DAY_WARNING = "Off Day or Holiday cannot be used as a task start date. Please select a working day.";
+
+  function getStartDateError(): string | null {
+    const d = form.start_date;
+    if (!d) return null;
+    if (isHolidayDate(d)) return OFF_DAY_WARNING;
+    if (isCompanyOffDate(d)) return OFF_DAY_WARNING;
+    if (form.assignMode !== "everyone") {
+      const id = form.assignedIds[0];
+      if (id && isIndividualOffDate(d, id)) return OFF_DAY_WARNING;
+    } else {
+      // Everyone mode: block if any candidate is individually off
+      const anyOff = staffList.some((s) => isIndividualOffDate(d, s.id));
+      if (anyOff) return OFF_DAY_WARNING;
+    }
+    return null;
+  }
+
   async function handleCreate() {
     if (!form.title || !form.start_date || !user) return;
-    if (isHolidayDate(form.start_date)) {
-      toast({ title: "ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ", variant: "destructive" });
+    const offErr = getStartDateError();
+    if (offErr) {
+      toast({ title: offErr, variant: "destructive" });
       return;
     }
     if (!isAllowedAssignDate(form.start_date)) {
@@ -496,10 +537,10 @@ export default function CalendarPage() {
                     value={form.start_date}
                     onChange={(e) => setForm({ ...form, start_date: e.target.value })}
                   />
-                  {form.start_date && isHolidayDate(form.start_date) && (
-                    <p className="text-xs text-destructive mt-1">ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ</p>
+                  {getStartDateError() && (
+                    <p className="text-xs text-destructive mt-1 font-medium">{getStartDateError()}</p>
                   )}
-                  {form.start_date && !isHolidayDate(form.start_date) && !isAllowedAssignDate(form.start_date) && (
+                  {form.start_date && !getStartDateError() && !isAllowedAssignDate(form.start_date) && (
                     <p className="text-xs text-destructive mt-1">
                       Tasks can only be assigned on day 1–3, 8–10, 15–17, or 22–24 of the month.
                     </p>
@@ -613,7 +654,7 @@ export default function CalendarPage() {
                 </div>
                 <Button
                   onClick={handleCreate}
-                  disabled={submitting || !form.title || !form.start_date || isHolidayDate(form.start_date) || !isAllowedAssignDate(form.start_date)}
+                  disabled={submitting || !form.title || !form.start_date || !!getStartDateError() || !isAllowedAssignDate(form.start_date)}
                   className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90"
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
