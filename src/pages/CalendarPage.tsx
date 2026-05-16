@@ -92,7 +92,27 @@ export default function CalendarPage() {
 
   function computeDeadline(startDate: string, frequency: "weekly" | "biweekly") {
     if (!startDate) return "";
-    return addDaysISO(startDate, frequency === "weekly" ? 6 : 13);
+    // February shortens the deadline window.
+    const isFeb = new Date(startDate + "T00:00:00").getMonth() === 1;
+    const base = frequency === "weekly" ? 6 : 13;
+    const feb = frequency === "weekly" ? 4 : 11;
+    return addDaysISO(startDate, isFeb ? feb : base);
+  }
+
+  function currentMonthRange() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const start = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+    const last = new Date(y, m + 1, 0).getDate();
+    const end = `${y}-${String(m + 1).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
+    return { start, end };
+  }
+
+  function isWithinCurrentMonth(dateStr: string) {
+    if (!dateStr) return false;
+    const { start, end } = currentMonthRange();
+    return dateStr >= start && dateStr <= end;
   }
 
   const year = currentDate.getFullYear();
