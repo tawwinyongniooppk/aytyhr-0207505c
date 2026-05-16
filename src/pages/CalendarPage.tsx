@@ -325,6 +325,7 @@ export default function CalendarPage() {
       }
 
       setAssignmentLoad(load);
+      setMonthTaskRanges(ranges);
       setMemberStats(stats);
     } catch { /* ignore */ }
   }
