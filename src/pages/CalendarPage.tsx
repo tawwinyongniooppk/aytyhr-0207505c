@@ -321,6 +321,40 @@ export default function CalendarPage() {
     );
   }
 
+  function isCompanyOffDate(dateStr: string) {
+    if (!dateStr) return false;
+    const weekday = WEEKDAY_NAMES[new Date(dateStr + "T00:00:00").getDay()];
+    const schedules = Object.values(staffSchedules);
+    if (schedules.length === 0) return false;
+    return schedules.every((sch) => sch?.[weekday]?.active === false);
+  }
+
+  function isIndividualOffDate(dateStr: string, staffId: string) {
+    if (!dateStr || !staffId) return false;
+    const weekday = WEEKDAY_NAMES[new Date(dateStr + "T00:00:00").getDay()];
+    const sch = staffSchedules[staffId];
+    if (!sch) return false;
+    return sch[weekday]?.active === false;
+  }
+
+  const OFF_DAY_WARNING = "Off Day or Holiday cannot be used as a task start date. Please select a working day.";
+
+  function getStartDateError(): string | null {
+    const d = form.start_date;
+    if (!d) return null;
+    if (isHolidayDate(d)) return OFF_DAY_WARNING;
+    if (isCompanyOffDate(d)) return OFF_DAY_WARNING;
+    if (form.assignMode !== "everyone") {
+      const id = form.assignedIds[0];
+      if (id && isIndividualOffDate(d, id)) return OFF_DAY_WARNING;
+    } else {
+      // Everyone mode: block if any candidate is individually off
+      const anyOff = staffList.some((s) => isIndividualOffDate(d, s.id));
+      if (anyOff) return OFF_DAY_WARNING;
+    }
+    return null;
+  }
+
   async function handleCreate() {
     if (!form.title || !form.start_date || !user) return;
     if (isHolidayDate(form.start_date)) {
