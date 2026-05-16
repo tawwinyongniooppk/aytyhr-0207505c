@@ -64,6 +64,7 @@ export default function CalendarPage() {
   const [staffList, setStaffList] = useState<StaffProfile[]>([]);
   const [mySchedule, setMySchedule] = useState<Record<string, { active: boolean }> | null>(null);
   const [offStaffByWeekday, setOffStaffByWeekday] = useState<Record<string, string[]>>({});
+  const [staffSchedules, setStaffSchedules] = useState<Record<string, Record<string, { active: boolean }>>>({});
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [filterType, setFilterType] = useState("all");
