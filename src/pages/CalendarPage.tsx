@@ -540,7 +540,7 @@ export default function CalendarPage() {
                   {getStartDateError() && (
                     <p className="text-xs text-destructive mt-1 font-medium">{getStartDateError()}</p>
                   )}
-                  {form.start_date && !isHolidayDate(form.start_date) && !isAllowedAssignDate(form.start_date) && (
+                  {form.start_date && !getStartDateError() && !isAllowedAssignDate(form.start_date) && (
                     <p className="text-xs text-destructive mt-1">
                       Tasks can only be assigned on day 1–3, 8–10, 15–17, or 22–24 of the month.
                     </p>
