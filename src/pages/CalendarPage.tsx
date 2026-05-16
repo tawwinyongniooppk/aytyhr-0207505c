@@ -280,6 +280,8 @@ export default function CalendarPage() {
         if (isBiweekly) { entry.biweekly += 1; entry.weighted += 2; }
         else { entry.weekly += 1; entry.weighted += 1; }
         load[a.user_id] = entry;
+        if (!ranges[a.user_id]) ranges[a.user_id] = [];
+        ranges[a.user_id].push({ start: ev.start_date, end: ev.end_date, status: a.submission_status || "not_started" });
 
         const startDay = new Date(ev.start_date + "T00:00:00").getDate();
         const winIdx = ASSIGN_WINDOWS.findIndex((w) => w.days.includes(startDay));
