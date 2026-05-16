@@ -70,6 +70,7 @@ export default function CalendarPage() {
   const [filterType, setFilterType] = useState("all");
   const [assignmentLoad, setAssignmentLoad] = useState<Record<string, { weekly: number; biweekly: number; weighted: number }>>({});
   const [memberStats, setMemberStats] = useState<Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }>>({});
+  const [monthTaskRanges, setMonthTaskRanges] = useState<Record<string, Array<{ start: string; end: string; status: string }>>>({});
 
   const [form, setForm] = useState({
     title: "",
