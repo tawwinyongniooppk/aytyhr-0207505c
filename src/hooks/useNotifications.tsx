@@ -172,9 +172,21 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     channel.on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "calendar_event_assignments" },
-      (payload) => {
+      async (payload) => {
         const row: any = payload.new;
-        if (isStaff && row.user_id === user.id) bump("calendar");
+        if (!isStaff || row.user_id !== user.id) return;
+        // Inspect linked event to decide which menu gets the red dot.
+        try {
+          const { data } = await supabase
+            .from("calendar_events")
+            .select("event_type")
+            .eq("id", row.event_id)
+            .maybeSingle();
+          if (data?.event_type === "task") bump("tasks");
+          else bump("calendar");
+        } catch {
+          bump("calendar");
+        }
       },
     );
 
