@@ -219,12 +219,14 @@ export default function CalendarPage() {
       const evList = (taskEvents as { id: string; start_date: string; end_date: string }[]) || [];
       // Don't early-return on empty list — we still want to compute auto All-Done units.
       const evMap = new Map(evList.map((e) => [e.id, e]));
-      const ass = evList.length === 0
-        ? { data: [] as Array<{ user_id: string; event_id: string; submission_status: string }> }
-        : await supabase
-            .from("calendar_event_assignments")
-            .select("user_id, event_id, submission_status")
-            .in("event_id", evList.map((e) => e.id));
+      let assList: Array<{ user_id: string; event_id: string; submission_status: string }> = [];
+      if (evList.length > 0) {
+        const { data: ass } = await supabase
+          .from("calendar_event_assignments")
+          .select("user_id, event_id, submission_status")
+          .in("event_id", evList.map((e) => e.id));
+        assList = (ass as any) || [];
+      }
       const load: Record<string, { weekly: number; biweekly: number; weighted: number }> = {};
       const stats: Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }> = {};
       for (const a of (ass as { user_id: string; event_id: string; submission_status: string }[]) || []) {
