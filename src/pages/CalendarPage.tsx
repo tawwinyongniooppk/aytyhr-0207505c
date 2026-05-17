@@ -496,6 +496,14 @@ export default function CalendarPage() {
                   {form.start_date && isHolidayDate(form.start_date) && (
                     <p className="text-xs text-destructive mt-1">ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ</p>
                   )}
+                  {form.start_date && !isHolidayDate(form.start_date) && !isAllowedAssignDate(form.start_date) && (
+                    <p className="text-xs text-destructive mt-1">
+                      Task assignment is only allowed on days 1–3, 8–10, 15–17, and 22–24 of each month.
+                    </p>
+                  )}
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Allowed days: 1–3, 8–10, 15–17, 22–24.
+                  </p>
                 </div>
                 <div>
                   <Label>Frequency</Label>
