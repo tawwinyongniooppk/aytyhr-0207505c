@@ -3,10 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Users, CalendarDays, Filter, AlertTriangle, X, CheckCircle2, Clock, Eye } from "lucide-react";
+import { Loader2, Users, CalendarDays, Filter, AlertTriangle, X, CheckCircle2, Clock, Eye, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -125,8 +128,43 @@ export function AdminTaskDashboard({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [editItem, setEditItem] = useState<UnifiedItem | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", description: "" });
+  const [editSaving, setEditSaving] = useState(false);
 
   const nowDate = new Date().toISOString().split("T")[0];
+
+  function openEdit(item: UnifiedItem) {
+    setEditItem(item);
+    setEditForm({ title: item.title, description: item.description || "" });
+  }
+
+  async function saveEdit() {
+    if (!editItem) return;
+    setEditSaving(true);
+    try {
+      if (editItem.source === "task") {
+        const { error } = await supabase
+          .from("tasks")
+          .update({ title: editForm.title, description: editForm.description })
+          .eq("id", editItem.sourceId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("calendar_events")
+          .update({ title: editForm.title, description: editForm.description })
+          .eq("id", editItem.sourceId);
+        if (error) throw error;
+      }
+      toast.success("Task updated");
+      setEditItem(null);
+      onRefresh();
+    } catch {
+      toast.error("Failed to update task");
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   function getItemStatus(submissionStatus: string, dueDate?: string | null): UnifiedItem["status"] {
     if (submissionStatus === "approved") return "approved";
@@ -411,7 +449,7 @@ export function AdminTaskDashboard({
                     ) : (
                       <div className="space-y-1">
                         {items.map((item) => (
-                          <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} detailed />
+                          <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} detailed />
                         ))}
                       </div>
                     )}
@@ -436,7 +474,7 @@ export function AdminTaskDashboard({
                   <CardContent className="p-4 pt-0">
                     <div className="space-y-1">
                       {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
+                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
                       ))}
                     </div>
                   </CardContent>
@@ -459,7 +497,7 @@ export function AdminTaskDashboard({
               ) : (
                 <div className="space-y-1">
                   {deadlineItems.map((item) => (
-                    <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} nowDate={nowDate} staffNames={staffNames} />
+                    <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
                   ))}
                 </div>
               )}
@@ -467,6 +505,38 @@ export function AdminTaskDashboard({
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!editItem} onOpenChange={(o) => !o && setEditItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Title</Label>
+              <Input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
+            </div>
+            <div>
+              <Label>Description / Task Content</Label>
+              <Textarea
+                rows={5}
+                value={editForm.description}
+                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Editing is allowed only while the member has not yet accepted the task (status: Not Started).
+              Once accepted or set to In Progress, the task is locked.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditItem(null)}>Cancel</Button>
+            <Button onClick={saveEdit} disabled={editSaving || !editForm.title.trim()}>
+              {editSaving && <Loader2 className="h-3 w-3 animate-spin mr-1" />} Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -484,14 +554,18 @@ function getRowBg(item: { status: string; dueDate?: string | null }, nowDate: st
   return "bg-muted/30 border-l-2 border-l-muted-foreground/30";
 }
 
-function ItemRow({ item, showStaff, approvingId, onApprove, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
+function ItemRow({ item, showStaff, approvingId, onApprove, onEdit, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; onEdit?: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
   const assignedByName = item.assignedById ? (staffNames?.[item.assignedById] || "Admin") : "Admin";
+  const canEdit = onEdit && item.status === "not_started";
   return (
     <div className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(item, nowDate)}`}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className={`text-sm font-medium ${item.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{item.title}</p>
           <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[item.type] || ""}`}>{item.type}</Badge>
+          {!canEdit && item.status !== "approved" && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground" title="Locked once member accepts">🔒 Locked</Badge>
+          )}
         </div>
         {item.description && <p className={`text-xs text-muted-foreground mt-1 ${detailed ? "" : "line-clamp-2"}`}>{item.description}</p>}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
@@ -508,6 +582,17 @@ function ItemRow({ item, showStaff, approvingId, onApprove, nowDate, staffNames,
         <Badge variant="secondary" className={`text-xs ${STATUS_COLORS[item.status] || ""}`}>
           {STATUS_ICONS[item.status]}{STATUS_LABELS[item.status]}
         </Badge>
+        {canEdit && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs gap-1"
+            onClick={() => onEdit!(item)}
+            title="Edit (allowed until member accepts)"
+          >
+            <Pencil className="h-3 w-3" /> Edit
+          </Button>
+        )}
         {item.status === "submitted" && (
           <Button
             size="sm"

@@ -188,6 +188,17 @@ export default function CalendarPage() {
 
   // Per-assignee monthly load: weekly=1 weighted unit, biweekly=2; cap = 4 weighted units / month / person.
   const MONTHLY_WEIGHT_CAP = 4;
+  // Admin/Assistant can only assign tasks on these days of the month.
+  const ALLOWED_ASSIGN_DAYS = [1, 2, 3, 8, 9, 10, 15, 16, 17, 22, 23, 24];
+  // Assignment windows for "auto All-Done if no task assigned in window".
+  const ASSIGN_WINDOWS: Array<[number, number]> = [
+    [1, 3], [8, 10], [15, 17], [22, 24],
+  ];
+  function isAllowedAssignDate(dateStr: string) {
+    if (!dateStr) return false;
+    const d = new Date(dateStr + "T00:00:00");
+    return ALLOWED_ASSIGN_DAYS.includes(d.getDate());
+  }
   function monthBoundsFor(dateStr: string) {
     const monthStart = (dateStr || new Date().toISOString().split("T")[0]).slice(0, 7) + "-01";
     const d = new Date(monthStart + "T00:00:00");
@@ -206,15 +217,19 @@ export default function CalendarPage() {
         .gte("start_date", monthStart)
         .lt("start_date", nextMonthStart);
       const evList = (taskEvents as { id: string; start_date: string; end_date: string }[]) || [];
-      if (evList.length === 0) { setAssignmentLoad({}); setMemberStats({}); return; }
+      // Don't early-return on empty list — we still want to compute auto All-Done units.
       const evMap = new Map(evList.map((e) => [e.id, e]));
-      const { data: ass } = await supabase
-        .from("calendar_event_assignments")
-        .select("user_id, event_id, submission_status")
-        .in("event_id", evList.map((e) => e.id));
+      let assList: Array<{ user_id: string; event_id: string; submission_status: string }> = [];
+      if (evList.length > 0) {
+        const { data: ass } = await supabase
+          .from("calendar_event_assignments")
+          .select("user_id, event_id, submission_status")
+          .in("event_id", evList.map((e) => e.id));
+        assList = (ass as any) || [];
+      }
       const load: Record<string, { weekly: number; biweekly: number; weighted: number }> = {};
       const stats: Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }> = {};
-      for (const a of (ass as { user_id: string; event_id: string; submission_status: string }[]) || []) {
+      for (const a of assList) {
         const ev = evMap.get(a.event_id);
         if (!ev) continue;
         const days = Math.round(
@@ -239,6 +254,47 @@ export default function CalendarPage() {
         if (status === "approved") s.allDone += 1;
         stats[a.user_id] = s;
       }
+      // Auto-mark missed assignment windows as "All Done" for every staff member.
+      // A window is "missed" only if its last day is strictly before today AND
+      // the target month equals the current month (no auto-done for past/future months snapshots).
+      const refDate = new Date(dateStr + "T00:00:00");
+      const today = new Date();
+      const sameMonth =
+        refDate.getFullYear() === today.getFullYear() &&
+        refDate.getMonth() === today.getMonth();
+      if (sameMonth) {
+        const todayDay = today.getDate();
+        for (const s of staffList) {
+          const entry = load[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
+          const st = stats[s.id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
+          // Find which windows this staff already has an assignment in (by start_date day).
+          const occupiedWindows = new Set<number>();
+          for (const ev of evList) {
+            const startDay = new Date(ev.start_date + "T00:00:00").getDate();
+            for (let i = 0; i < ASSIGN_WINDOWS.length; i++) {
+              const [lo, hi] = ASSIGN_WINDOWS[i];
+              if (startDay >= lo && startDay <= hi) {
+                // Did this staff have an assignment for this event?
+                const hasAssign = assList.some(
+                  (a) => a.event_id === ev.id && a.user_id === s.id,
+                );
+                if (hasAssign) occupiedWindows.add(i);
+              }
+            }
+          }
+          for (let i = 0; i < ASSIGN_WINDOWS.length; i++) {
+            const [, hi] = ASSIGN_WINDOWS[i];
+            if (hi < todayDay && !occupiedWindows.has(i)) {
+              // Window has passed and no task was assigned: count as auto All-Done.
+              entry.weighted += 1;
+              entry.weekly += 1;
+              st.allDone += 1;
+            }
+          }
+          load[s.id] = entry;
+          stats[s.id] = st;
+        }
+      }
       setAssignmentLoad(load);
       setMemberStats(stats);
     } catch { /* ignore */ }
@@ -249,7 +305,7 @@ export default function CalendarPage() {
     if (!open) return;
     loadAssignmentLoad(form.start_date || new Date().toISOString().split("T")[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, form.start_date, isStaff]);
+  }, [open, form.start_date, isStaff, staffList]);
 
 
   function isHolidayDate(dateStr: string) {
@@ -264,6 +320,14 @@ export default function CalendarPage() {
     if (!form.title || !form.start_date || !user) return;
     if (isHolidayDate(form.start_date)) {
       toast({ title: "ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ", variant: "destructive" });
+      return;
+    }
+    if (!isAllowedAssignDate(form.start_date)) {
+      toast({
+        title: "Task assignment not allowed on this date",
+        description: "Tasks can only be assigned on days 1–3, 8–10, 15–17, and 22–24 of each month.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -436,6 +500,14 @@ export default function CalendarPage() {
                   {form.start_date && isHolidayDate(form.start_date) && (
                     <p className="text-xs text-destructive mt-1">ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ</p>
                   )}
+                  {form.start_date && !isHolidayDate(form.start_date) && !isAllowedAssignDate(form.start_date) && (
+                    <p className="text-xs text-destructive mt-1">
+                      Task assignment is only allowed on days 1–3, 8–10, 15–17, and 22–24 of each month.
+                    </p>
+                  )}
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Allowed days: 1–3, 8–10, 15–17, 22–24.
+                  </p>
                 </div>
                 <div>
                   <Label>Frequency</Label>
@@ -542,7 +614,7 @@ export default function CalendarPage() {
                 </div>
                 <Button
                   onClick={handleCreate}
-                  disabled={submitting || !form.title || !form.start_date || isHolidayDate(form.start_date)}
+                  disabled={submitting || !form.title || !form.start_date || isHolidayDate(form.start_date) || !isAllowedAssignDate(form.start_date)}
                   className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90"
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
