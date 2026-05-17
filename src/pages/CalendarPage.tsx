@@ -250,6 +250,47 @@ export default function CalendarPage() {
         if (status === "approved") s.allDone += 1;
         stats[a.user_id] = s;
       }
+      // Auto-mark missed assignment windows as "All Done" for every staff member.
+      // A window is "missed" only if its last day is strictly before today AND
+      // the target month equals the current month (no auto-done for past/future months snapshots).
+      const refDate = new Date(dateStr + "T00:00:00");
+      const today = new Date();
+      const sameMonth =
+        refDate.getFullYear() === today.getFullYear() &&
+        refDate.getMonth() === today.getMonth();
+      if (sameMonth) {
+        const todayDay = today.getDate();
+        for (const s of staffList) {
+          const entry = load[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
+          const st = stats[s.id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
+          // Find which windows this staff already has an assignment in (by start_date day).
+          const occupiedWindows = new Set<number>();
+          for (const ev of evList) {
+            const startDay = new Date(ev.start_date + "T00:00:00").getDate();
+            for (let i = 0; i < ASSIGN_WINDOWS.length; i++) {
+              const [lo, hi] = ASSIGN_WINDOWS[i];
+              if (startDay >= lo && startDay <= hi) {
+                // Did this staff have an assignment for this event?
+                const hasAssign = (ass as any[] || []).some(
+                  (a) => a.event_id === ev.id && a.user_id === s.id,
+                );
+                if (hasAssign) occupiedWindows.add(i);
+              }
+            }
+          }
+          for (let i = 0; i < ASSIGN_WINDOWS.length; i++) {
+            const [, hi] = ASSIGN_WINDOWS[i];
+            if (hi < todayDay && !occupiedWindows.has(i)) {
+              // Window has passed and no task was assigned: count as auto All-Done.
+              entry.weighted += 1;
+              entry.weekly += 1;
+              st.allDone += 1;
+            }
+          }
+          load[s.id] = entry;
+          stats[s.id] = st;
+        }
+      }
       setAssignmentLoad(load);
       setMemberStats(stats);
     } catch { /* ignore */ }
@@ -260,7 +301,7 @@ export default function CalendarPage() {
     if (!open) return;
     loadAssignmentLoad(form.start_date || new Date().toISOString().split("T")[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, form.start_date, isStaff]);
+  }, [open, form.start_date, isStaff, staffList]);
 
 
   function isHolidayDate(dateStr: string) {
