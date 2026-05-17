@@ -275,7 +275,7 @@ export default function CalendarPage() {
               const [lo, hi] = ASSIGN_WINDOWS[i];
               if (startDay >= lo && startDay <= hi) {
                 // Did this staff have an assignment for this event?
-                const hasAssign = (ass as any[] || []).some(
+                const hasAssign = assList.some(
                   (a) => a.event_id === ev.id && a.user_id === s.id,
                 );
                 if (hasAssign) occupiedWindows.add(i);
