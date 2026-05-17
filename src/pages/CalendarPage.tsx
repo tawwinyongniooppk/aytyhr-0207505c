@@ -217,7 +217,7 @@ export default function CalendarPage() {
         .gte("start_date", monthStart)
         .lt("start_date", nextMonthStart);
       const evList = (taskEvents as { id: string; start_date: string; end_date: string }[]) || [];
-      if (evList.length === 0) { setAssignmentLoad({}); setMemberStats({}); return; }
+      // Don't early-return on empty list — we still want to compute auto All-Done units.
       const evMap = new Map(evList.map((e) => [e.id, e]));
       const { data: ass } = await supabase
         .from("calendar_event_assignments")
