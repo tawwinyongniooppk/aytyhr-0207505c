@@ -128,8 +128,43 @@ export function AdminTaskDashboard({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [editItem, setEditItem] = useState<UnifiedItem | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", description: "" });
+  const [editSaving, setEditSaving] = useState(false);
 
   const nowDate = new Date().toISOString().split("T")[0];
+
+  function openEdit(item: UnifiedItem) {
+    setEditItem(item);
+    setEditForm({ title: item.title, description: item.description || "" });
+  }
+
+  async function saveEdit() {
+    if (!editItem) return;
+    setEditSaving(true);
+    try {
+      if (editItem.source === "task") {
+        const { error } = await supabase
+          .from("tasks")
+          .update({ title: editForm.title, description: editForm.description })
+          .eq("id", editItem.sourceId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("calendar_events")
+          .update({ title: editForm.title, description: editForm.description })
+          .eq("id", editItem.sourceId);
+        if (error) throw error;
+      }
+      toast.success("Task updated");
+      setEditItem(null);
+      onRefresh();
+    } catch {
+      toast.error("Failed to update task");
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   function getItemStatus(submissionStatus: string, dueDate?: string | null): UnifiedItem["status"] {
     if (submissionStatus === "approved") return "approved";
