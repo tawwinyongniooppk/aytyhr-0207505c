@@ -188,6 +188,17 @@ export default function CalendarPage() {
 
   // Per-assignee monthly load: weekly=1 weighted unit, biweekly=2; cap = 4 weighted units / month / person.
   const MONTHLY_WEIGHT_CAP = 4;
+  // Admin/Assistant can only assign tasks on these days of the month.
+  const ALLOWED_ASSIGN_DAYS = [1, 2, 3, 8, 9, 10, 15, 16, 17, 22, 23, 24];
+  // Assignment windows for "auto All-Done if no task assigned in window".
+  const ASSIGN_WINDOWS: Array<[number, number]> = [
+    [1, 3], [8, 10], [15, 17], [22, 24],
+  ];
+  function isAllowedAssignDate(dateStr: string) {
+    if (!dateStr) return false;
+    const d = new Date(dateStr + "T00:00:00");
+    return ALLOWED_ASSIGN_DAYS.includes(d.getDate());
+  }
   function monthBoundsFor(dateStr: string) {
     const monthStart = (dateStr || new Date().toISOString().split("T")[0]).slice(0, 7) + "-01";
     const d = new Date(monthStart + "T00:00:00");
