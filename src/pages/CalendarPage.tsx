@@ -229,7 +229,7 @@ export default function CalendarPage() {
       }
       const load: Record<string, { weekly: number; biweekly: number; weighted: number }> = {};
       const stats: Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }> = {};
-      for (const a of (ass as { user_id: string; event_id: string; submission_status: string }[]) || []) {
+      for (const a of assList) {
         const ev = evMap.get(a.event_id);
         if (!ev) continue;
         const days = Math.round(
