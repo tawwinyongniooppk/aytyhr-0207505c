@@ -522,14 +522,18 @@ function getRowBg(item: { status: string; dueDate?: string | null }, nowDate: st
   return "bg-muted/30 border-l-2 border-l-muted-foreground/30";
 }
 
-function ItemRow({ item, showStaff, approvingId, onApprove, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
+function ItemRow({ item, showStaff, approvingId, onApprove, onEdit, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; onEdit?: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
   const assignedByName = item.assignedById ? (staffNames?.[item.assignedById] || "Admin") : "Admin";
+  const canEdit = onEdit && item.status === "not_started";
   return (
     <div className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(item, nowDate)}`}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className={`text-sm font-medium ${item.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{item.title}</p>
           <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[item.type] || ""}`}>{item.type}</Badge>
+          {!canEdit && item.status !== "approved" && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground" title="Locked once member accepts">🔒 Locked</Badge>
+          )}
         </div>
         {item.description && <p className={`text-xs text-muted-foreground mt-1 ${detailed ? "" : "line-clamp-2"}`}>{item.description}</p>}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
@@ -546,6 +550,17 @@ function ItemRow({ item, showStaff, approvingId, onApprove, nowDate, staffNames,
         <Badge variant="secondary" className={`text-xs ${STATUS_COLORS[item.status] || ""}`}>
           {STATUS_ICONS[item.status]}{STATUS_LABELS[item.status]}
         </Badge>
+        {canEdit && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs gap-1"
+            onClick={() => onEdit!(item)}
+            title="Edit (allowed until member accepts)"
+          >
+            <Pencil className="h-3 w-3" /> Edit
+          </Button>
+        )}
         {item.status === "submitted" && (
           <Button
             size="sm"
