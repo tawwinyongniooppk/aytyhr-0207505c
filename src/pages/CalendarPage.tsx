@@ -610,7 +610,7 @@ export default function CalendarPage() {
                 </div>
                 <Button
                   onClick={handleCreate}
-                  disabled={submitting || !form.title || !form.start_date || isHolidayDate(form.start_date)}
+                  disabled={submitting || !form.title || !form.start_date || isHolidayDate(form.start_date) || !isAllowedAssignDate(form.start_date)}
                   className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90"
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
