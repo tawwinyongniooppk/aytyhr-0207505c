@@ -629,6 +629,7 @@ export function AdminTaskDashboard({
 
 function getRowBg(item: { status: string; dueDate?: string | null }, nowDate: string) {
   if (item.status === "approved") return "bg-blue-50 dark:bg-blue-950/20";
+  if (item.status === "rejected") return "bg-red-50 dark:bg-red-950/20 border-l-2 border-l-red-500";
   if (item.status === "submitted") return "bg-orange-50 dark:bg-orange-950/20";
   if (item.status === "in_progress") return "bg-green-50 dark:bg-green-950/20 border-l-2 border-l-green-500";
   if (item.status === "overdue") return "bg-destructive/10 border-l-2 border-l-destructive";
