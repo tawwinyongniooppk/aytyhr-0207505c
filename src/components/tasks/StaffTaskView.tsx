@@ -149,6 +149,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
     ...t,
     dueDate: t.due_date,
     status: t.submission_status === "approved" ? "approved"
+      : t.submission_status === "rejected" ? "rejected"
       : t.submission_status === "submitted" ? "submitted"
       : t.submission_status === "in_progress" ? "in_progress"
       : (t.due_date && t.due_date < now) ? "overdue" : "not_started",
@@ -165,7 +166,9 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
     assignedBy: event.created_by,
     assignedToAll: !!event.assigned_to_all,
     submission_status: assignment.submission_status,
+    rejection_reason: (assignment as any).rejection_reason || null,
     status: assignment.submission_status === "approved" ? "approved"
+      : assignment.submission_status === "rejected" ? "rejected"
       : assignment.submission_status === "submitted" ? "submitted"
       : assignment.submission_status === "in_progress" ? "in_progress"
       : (event.end_date && event.end_date < now) ? "overdue" : "not_started",
