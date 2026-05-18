@@ -182,6 +182,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
 
   function getStatusBadge(status: string) {
     if (status === "approved") return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs shrink-0"><CheckCircle2 className="h-3 w-3 mr-1" />Approved</Badge>;
+    if (status === "rejected") return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs shrink-0"><AlertTriangle className="h-3 w-3 mr-1" />Rejected</Badge>;
     if (status === "submitted") return <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs shrink-0"><Clock className="h-3 w-3 mr-1" />Submitted</Badge>;
     if (status === "in_progress") return <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs shrink-0"><Clock className="h-3 w-3 mr-1" />In Progress</Badge>;
     if (status === "overdue") return <Badge className="bg-destructive text-destructive-foreground text-xs shrink-0"><AlertTriangle className="h-3 w-3 mr-1" />Overdue</Badge>;
