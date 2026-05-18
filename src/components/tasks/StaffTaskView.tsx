@@ -124,10 +124,10 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
   async function handleSubmitTask(taskId: string) {
     setSubmittingTaskId(taskId);
     try {
-      const { error } = await supabase.from("tasks").update({ submission_status: "submitted", submitted_at: new Date().toISOString(), completed: true }).eq("id", taskId);
+      const { error } = await supabase.from("tasks").update({ submission_status: "submitted", submitted_at: new Date().toISOString(), completed: true, rejection_reason: null, rejected_at: null, rejected_by: null }).eq("id", taskId);
       if (error) throw error;
       toast.success("Task submitted successfully");
-      setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, submission_status: "submitted", completed: true } : t));
+      setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, submission_status: "submitted", completed: true, rejection_reason: null } : t));
     } catch { toast.error("Failed to submit task"); }
     finally { setSubmittingTaskId(null); }
   }
