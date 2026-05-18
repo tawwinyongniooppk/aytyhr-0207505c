@@ -263,7 +263,7 @@ export function AdminTaskDashboard({
   // Sort by deadline priority: overdue first, then nearest deadline
   function sortByPriority(items: UnifiedItem[]): UnifiedItem[] {
     return [...items].sort((a, b) => {
-      const statusOrder: Record<string, number> = { overdue: 0, not_started: 1, in_progress: 2, submitted: 3, approved: 4 };
+      const statusOrder: Record<string, number> = { overdue: 0, rejected: 1, not_started: 2, in_progress: 3, submitted: 4, approved: 5 };
       const sa = statusOrder[a.status] ?? 1;
       const sb = statusOrder[b.status] ?? 1;
       if (sa !== sb) return sa - sb;
