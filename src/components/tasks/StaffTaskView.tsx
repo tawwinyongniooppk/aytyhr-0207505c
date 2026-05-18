@@ -135,11 +135,33 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
   async function handleSubmitAssignment(assignmentId: string) {
     setSubmittingId(assignmentId);
     try {
-      const { error } = await supabase.from("calendar_event_assignments").update({ submission_status: "submitted", submitted_at: new Date().toISOString() }).eq("id", assignmentId);
+      const { error } = await supabase.from("calendar_event_assignments").update({ submission_status: "submitted", submitted_at: new Date().toISOString(), rejection_reason: null, rejected_at: null, rejected_by: null }).eq("id", assignmentId);
       if (error) throw error;
       toast.success("Submitted successfully");
-      setLocalAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, submission_status: "submitted" } : a));
+      setLocalAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, submission_status: "submitted", rejection_reason: null } : a));
     } catch { toast.error("Failed to submit"); }
+    finally { setSubmittingId(null); }
+  }
+
+  async function handleResubmitTask(taskId: string) {
+    setSubmittingTaskId(taskId);
+    try {
+      const { error } = await supabase.from("tasks").update({ submission_status: "in_progress", rejection_reason: null, rejected_at: null, rejected_by: null }).eq("id", taskId);
+      if (error) throw error;
+      toast.success("Re-opened — make corrections and submit again");
+      setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, submission_status: "in_progress", rejection_reason: null } : t));
+    } catch { toast.error("Failed to reopen task"); }
+    finally { setSubmittingTaskId(null); }
+  }
+
+  async function handleResubmitAssignment(assignmentId: string) {
+    setSubmittingId(assignmentId);
+    try {
+      const { error } = await supabase.from("calendar_event_assignments").update({ submission_status: "in_progress", rejection_reason: null, rejected_at: null, rejected_by: null }).eq("id", assignmentId);
+      if (error) throw error;
+      toast.success("Re-opened — make corrections and submit again");
+      setLocalAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, submission_status: "in_progress", rejection_reason: null } : a));
+    } catch { toast.error("Failed to reopen"); }
     finally { setSubmittingId(null); }
   }
 
