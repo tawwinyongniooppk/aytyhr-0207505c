@@ -252,6 +252,7 @@ export function AdminTaskDashboard({
             source: "calendar",
             sourceId: ev.id,
             assignmentId: a.id,
+            rejectionReason: (a as any).rejection_reason || null,
           });
         });
       }
