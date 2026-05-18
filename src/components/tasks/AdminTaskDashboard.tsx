@@ -371,6 +371,47 @@ export function AdminTaskDashboard({
     }
   }
 
+  function openReject(item: UnifiedItem) {
+    setRejectItem(item);
+    setRejectReason("");
+  }
+
+  async function confirmReject() {
+    if (!user || !rejectItem) return;
+    setRejecting(true);
+    try {
+      const payload = {
+        submission_status: "rejected",
+        rejected_at: new Date().toISOString(),
+        rejected_by: user.id,
+        rejection_reason: rejectReason.trim() || null,
+        approved_at: null,
+        approved_by: null,
+      };
+      if (rejectItem.source === "task") {
+        const { error } = await supabase
+          .from("tasks")
+          .update({ ...payload, completed: false })
+          .eq("id", rejectItem.sourceId);
+        if (error) throw error;
+      } else if (rejectItem.assignmentId) {
+        const { error } = await supabase
+          .from("calendar_event_assignments")
+          .update(payload)
+          .eq("id", rejectItem.assignmentId);
+        if (error) throw error;
+      }
+      toast.success("Task rejected");
+      setRejectItem(null);
+      onRefresh();
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to reject");
+    } finally {
+      setRejecting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
