@@ -67,10 +67,11 @@ interface UnifiedItem {
   staffId: string;
   staffName: string;
   assignedById?: string | null;
-  status: "not_started" | "in_progress" | "submitted" | "approved" | "overdue";
+  status: "not_started" | "in_progress" | "submitted" | "approved" | "overdue" | "rejected";
   source: "task" | "calendar";
   sourceId: string;
   assignmentId?: string;
+  rejectionReason?: string | null;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -86,6 +87,7 @@ const STATUS_COLORS: Record<string, string> = {
   overdue: "bg-destructive text-destructive-foreground",
   submitted: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
   approved: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  rejected: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
@@ -94,6 +96,7 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
   overdue: <AlertTriangle className="h-3 w-3 mr-1" />,
   submitted: <Clock className="h-3 w-3 mr-1" />,
   approved: <CheckCircle2 className="h-3 w-3 mr-1" />,
+  rejected: <XCircle className="h-3 w-3 mr-1" />,
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -102,6 +105,7 @@ const STATUS_LABELS: Record<string, string> = {
   overdue: "Overdue",
   submitted: "Submitted",
   approved: "Approved",
+  rejected: "Rejected",
 };
 
 interface AdminTaskDashboardProps {
