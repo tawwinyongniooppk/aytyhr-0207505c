@@ -20,6 +20,7 @@ interface TaskRow {
   submission_status: string;
   submitted_at?: string | null;
   approved_at?: string | null;
+  rejection_reason?: string | null;
 }
 
 interface CalEvent {
