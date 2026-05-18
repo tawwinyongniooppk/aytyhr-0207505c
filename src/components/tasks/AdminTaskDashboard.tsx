@@ -207,10 +207,7 @@ export function AdminTaskDashboard({
         status: getItemStatus(t.submission_status || "not_submitted", t.due_date),
         source: "task",
         sourceId: t.id,
-      });
-    });
-
-    calendarEvents.forEach((ev) => {
+        rejectionReason: (t as any).rejection_reason || null,
       const evType = (ev.event_type as UnifiedItem["type"]) || "event";
       if (ev.visibility === "public") {
         staffList.forEach((s) => {
