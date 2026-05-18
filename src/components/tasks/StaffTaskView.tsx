@@ -264,8 +264,9 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
                       {task.title}
                     </p>
                     {task.description && <p className="text-xs text-muted-foreground mt-1">{task.description}</p>}
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
-                      {task.due_date && <span>⏰ Due: {task.due_date}</span>}
+                    {task.status === "rejected" && (task as any).rejection_reason && (
+                      <p className="text-xs mt-1 text-red-700 dark:text-red-400"><span className="font-semibold">Rejected:</span> {(task as any).rejection_reason}</p>
+                    )}
                       {task.assigned_by && <span>👤 Assigned by: {staffNames[task.assigned_by] || "Admin"}</span>}
                       <span>🎯 Assigned to: You</span>
                     </div>
