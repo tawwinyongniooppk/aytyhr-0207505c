@@ -427,6 +427,7 @@ export function AdminTaskDashboard({
           <button type="button" onClick={() => setFilterStatus(filterStatus === "submitted" ? "all" : "submitted")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "submitted" ? "ring-2 ring-ring " : ""}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 hover:opacity-80`}>{submittedCount} submitted</button>
           <button type="button" onClick={() => setFilterStatus(filterStatus === "approved" ? "all" : "approved")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "approved" ? "ring-2 ring-ring " : ""}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:opacity-80`}>{approvedCount} approved</button>
           <button type="button" onClick={() => setFilterStatus(filterStatus === "overdue" ? "all" : "overdue")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "overdue" ? "ring-2 ring-ring " : ""}bg-destructive text-destructive-foreground hover:opacity-80`}>{overdueCount} overdue</button>
+          <button type="button" onClick={() => setFilterStatus(filterStatus === "rejected" ? "all" : "rejected")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "rejected" ? "ring-2 ring-ring " : ""}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:opacity-80`}>{rejectedCount} rejected</button>
         </div>
       </div>
 
