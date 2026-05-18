@@ -191,6 +191,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
 
   function getRowBg(status: string, dueDate?: string | null) {
     if (status === "approved") return "bg-blue-50 dark:bg-blue-950/20";
+    if (status === "rejected") return "bg-red-50 dark:bg-red-950/20 border-l-2 border-l-red-500";
     if (status === "submitted") return "bg-orange-50 dark:bg-orange-950/20";
     if (status === "in_progress") return "bg-green-50 dark:bg-green-950/20 border-l-2 border-l-green-500";
     if (status === "overdue") return "bg-destructive/10 border-l-2 border-l-destructive";
