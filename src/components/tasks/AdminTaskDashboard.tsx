@@ -133,6 +133,9 @@ export function AdminTaskDashboard({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectItem, setRejectItem] = useState<UnifiedItem | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
   const [editItem, setEditItem] = useState<UnifiedItem | null>(null);
   const [editForm, setEditForm] = useState({ title: "", description: "" });
   const [editSaving, setEditSaving] = useState(false);
