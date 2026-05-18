@@ -208,6 +208,10 @@ export function AdminTaskDashboard({
         source: "task",
         sourceId: t.id,
         rejectionReason: (t as any).rejection_reason || null,
+      });
+    });
+
+    calendarEvents.forEach((ev) => {
       const evType = (ev.event_type as UnifiedItem["type"]) || "event";
       if (ev.visibility === "public") {
         staffList.forEach((s) => {
