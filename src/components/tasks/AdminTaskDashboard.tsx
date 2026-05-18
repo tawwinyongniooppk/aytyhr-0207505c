@@ -610,7 +610,7 @@ function getRowBg(item: { status: string; dueDate?: string | null }, nowDate: st
   return "bg-muted/30 border-l-2 border-l-muted-foreground/30";
 }
 
-function ItemRow({ item, showStaff, approvingId, onApprove, onEdit, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; onEdit?: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
+function ItemRow({ item, showStaff, approvingId, onApprove, onReject, onEdit, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; onReject?: (item: UnifiedItem) => void; onEdit?: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
   const assignedByName = item.assignedById ? (staffNames?.[item.assignedById] || "Admin") : "Admin";
   const canEdit = onEdit && item.status === "not_started";
   return (
@@ -619,11 +619,14 @@ function ItemRow({ item, showStaff, approvingId, onApprove, onEdit, nowDate, sta
         <div className="flex items-center gap-2 flex-wrap">
           <p className={`text-sm font-medium ${item.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{item.title}</p>
           <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[item.type] || ""}`}>{item.type}</Badge>
-          {!canEdit && item.status !== "approved" && (
+          {!canEdit && item.status !== "approved" && item.status !== "rejected" && (
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground" title="Locked once member accepts">🔒 Locked</Badge>
           )}
         </div>
         {item.description && <p className={`text-xs text-muted-foreground mt-1 ${detailed ? "" : "line-clamp-2"}`}>{item.description}</p>}
+        {item.status === "rejected" && item.rejectionReason && (
+          <p className="text-xs mt-1 text-red-700 dark:text-red-400"><span className="font-semibold">Rejection reason:</span> {item.rejectionReason}</p>
+        )}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
           {showStaff && <span>👤 {item.staffName}</span>}
           <span>✍️ Assigned by: {assignedByName}</span>
@@ -650,16 +653,28 @@ function ItemRow({ item, showStaff, approvingId, onApprove, onEdit, nowDate, sta
           </Button>
         )}
         {item.status === "submitted" && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-xs gap-1 border-accent text-accent hover:bg-accent/10"
-            disabled={approvingId === item.id}
-            onClick={() => onApprove(item)}
-          >
-            {approvingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-            Approve
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs gap-1 border-accent text-accent hover:bg-accent/10"
+              disabled={approvingId === item.id}
+              onClick={() => onApprove(item)}
+            >
+              {approvingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+              Approve
+            </Button>
+            {onReject && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs gap-1 border-destructive text-destructive hover:bg-destructive/10"
+                onClick={() => onReject(item)}
+              >
+                <XCircle className="h-3 w-3" /> Reject
+              </Button>
+            )}
+          </>
         )}
       </div>
     </div>
