@@ -505,7 +505,7 @@ export function AdminTaskDashboard({
                     ) : (
                       <div className="space-y-1">
                         {items.map((item) => (
-                          <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} detailed />
+                          <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} onReject={openReject} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} detailed />
                         ))}
                       </div>
                     )}
@@ -530,7 +530,7 @@ export function AdminTaskDashboard({
                   <CardContent className="p-4 pt-0">
                     <div className="space-y-1">
                       {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
+                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onReject={openReject} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
                       ))}
                     </div>
                   </CardContent>
@@ -553,7 +553,7 @@ export function AdminTaskDashboard({
               ) : (
                 <div className="space-y-1">
                   {deadlineItems.map((item) => (
-                    <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
+                    <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onReject={openReject} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
                   ))}
                 </div>
               )}
