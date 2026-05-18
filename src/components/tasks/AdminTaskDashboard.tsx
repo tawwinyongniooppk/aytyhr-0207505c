@@ -176,6 +176,7 @@ export function AdminTaskDashboard({
 
   function getItemStatus(submissionStatus: string, dueDate?: string | null): UnifiedItem["status"] {
     if (submissionStatus === "approved") return "approved";
+    if (submissionStatus === "rejected") return "rejected";
     if (submissionStatus === "submitted") return "submitted";
     if (submissionStatus === "in_progress") return "in_progress";
     if (dueDate && dueDate < nowDate) return "overdue";
