@@ -43,6 +43,7 @@ interface EventAssignment {
   submitted_at: string | null;
   approved_at: string | null;
   approved_by: string | null;
+  rejection_reason?: string | null;
 }
 
 interface StaffTaskViewProps {
