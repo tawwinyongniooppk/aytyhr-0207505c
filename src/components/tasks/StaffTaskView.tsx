@@ -333,6 +333,12 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
                         Submit
                       </Button>
                     )}
+                    {task.submission_status === "rejected" && (
+                      <Button size="sm" className="text-xs gap-1" disabled={submittingId === task.id} onClick={() => handleResubmitAssignment(task.id)}>
+                        {submittingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                        Fix & Resubmit
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
