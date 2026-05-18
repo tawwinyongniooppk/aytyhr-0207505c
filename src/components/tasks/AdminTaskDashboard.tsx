@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Users, CalendarDays, Filter, AlertTriangle, X, CheckCircle2, Clock, Eye, Pencil } from "lucide-react";
+import { Loader2, Users, CalendarDays, Filter, AlertTriangle, X, CheckCircle2, Clock, Eye, Pencil, XCircle } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -66,10 +67,11 @@ interface UnifiedItem {
   staffId: string;
   staffName: string;
   assignedById?: string | null;
-  status: "not_started" | "in_progress" | "submitted" | "approved" | "overdue";
+  status: "not_started" | "in_progress" | "submitted" | "approved" | "overdue" | "rejected";
   source: "task" | "calendar";
   sourceId: string;
   assignmentId?: string;
+  rejectionReason?: string | null;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -85,6 +87,7 @@ const STATUS_COLORS: Record<string, string> = {
   overdue: "bg-destructive text-destructive-foreground",
   submitted: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
   approved: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  rejected: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
@@ -93,6 +96,7 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
   overdue: <AlertTriangle className="h-3 w-3 mr-1" />,
   submitted: <Clock className="h-3 w-3 mr-1" />,
   approved: <CheckCircle2 className="h-3 w-3 mr-1" />,
+  rejected: <XCircle className="h-3 w-3 mr-1" />,
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -101,6 +105,7 @@ const STATUS_LABELS: Record<string, string> = {
   overdue: "Overdue",
   submitted: "Submitted",
   approved: "Approved",
+  rejected: "Rejected",
 };
 
 interface AdminTaskDashboardProps {
@@ -128,6 +133,9 @@ export function AdminTaskDashboard({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectItem, setRejectItem] = useState<UnifiedItem | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
   const [editItem, setEditItem] = useState<UnifiedItem | null>(null);
   const [editForm, setEditForm] = useState({ title: "", description: "" });
   const [editSaving, setEditSaving] = useState(false);
@@ -168,6 +176,7 @@ export function AdminTaskDashboard({
 
   function getItemStatus(submissionStatus: string, dueDate?: string | null): UnifiedItem["status"] {
     if (submissionStatus === "approved") return "approved";
+    if (submissionStatus === "rejected") return "rejected";
     if (submissionStatus === "submitted") return "submitted";
     if (submissionStatus === "in_progress") return "in_progress";
     if (dueDate && dueDate < nowDate) return "overdue";
@@ -198,6 +207,7 @@ export function AdminTaskDashboard({
         status: getItemStatus(t.submission_status || "not_submitted", t.due_date),
         source: "task",
         sourceId: t.id,
+        rejectionReason: (t as any).rejection_reason || null,
       });
     });
 
@@ -221,6 +231,7 @@ export function AdminTaskDashboard({
             source: "calendar",
             sourceId: ev.id,
             assignmentId: assignment?.id,
+            rejectionReason: (assignment as any)?.rejection_reason || null,
           });
         });
       } else {
@@ -241,6 +252,7 @@ export function AdminTaskDashboard({
             source: "calendar",
             sourceId: ev.id,
             assignmentId: a.id,
+            rejectionReason: (a as any).rejection_reason || null,
           });
         });
       }
@@ -254,7 +266,7 @@ export function AdminTaskDashboard({
   // Sort by deadline priority: overdue first, then nearest deadline
   function sortByPriority(items: UnifiedItem[]): UnifiedItem[] {
     return [...items].sort((a, b) => {
-      const statusOrder: Record<string, number> = { overdue: 0, not_started: 1, in_progress: 2, submitted: 3, approved: 4 };
+      const statusOrder: Record<string, number> = { overdue: 0, rejected: 1, not_started: 2, in_progress: 3, submitted: 4, approved: 5 };
       const sa = statusOrder[a.status] ?? 1;
       const sb = statusOrder[b.status] ?? 1;
       if (sa !== sb) return sa - sb;
@@ -319,6 +331,7 @@ export function AdminTaskDashboard({
   const submittedCount = unifiedItems.filter(i => i.status === "submitted").length;
   const approvedCount = unifiedItems.filter(i => i.status === "approved").length;
   const overdueCount = unifiedItems.filter(i => i.status === "overdue").length;
+  const rejectedCount = unifiedItems.filter(i => i.status === "rejected").length;
 
   const incompleteByStaff = useMemo(() => {
     const map: Record<string, number> = {};
@@ -362,6 +375,47 @@ export function AdminTaskDashboard({
     }
   }
 
+  function openReject(item: UnifiedItem) {
+    setRejectItem(item);
+    setRejectReason("");
+  }
+
+  async function confirmReject() {
+    if (!user || !rejectItem) return;
+    setRejecting(true);
+    try {
+      const payload = {
+        submission_status: "rejected",
+        rejected_at: new Date().toISOString(),
+        rejected_by: user.id,
+        rejection_reason: rejectReason.trim() || null,
+        approved_at: null,
+        approved_by: null,
+      };
+      if (rejectItem.source === "task") {
+        const { error } = await supabase
+          .from("tasks")
+          .update({ ...payload, completed: false })
+          .eq("id", rejectItem.sourceId);
+        if (error) throw error;
+      } else if (rejectItem.assignmentId) {
+        const { error } = await supabase
+          .from("calendar_event_assignments")
+          .update(payload)
+          .eq("id", rejectItem.assignmentId);
+        if (error) throw error;
+      }
+      toast.success("Task rejected");
+      setRejectItem(null);
+      onRefresh();
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to reject");
+    } finally {
+      setRejecting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -373,6 +427,7 @@ export function AdminTaskDashboard({
           <button type="button" onClick={() => setFilterStatus(filterStatus === "submitted" ? "all" : "submitted")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "submitted" ? "ring-2 ring-ring " : ""}bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 hover:opacity-80`}>{submittedCount} submitted</button>
           <button type="button" onClick={() => setFilterStatus(filterStatus === "approved" ? "all" : "approved")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "approved" ? "ring-2 ring-ring " : ""}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:opacity-80`}>{approvedCount} approved</button>
           <button type="button" onClick={() => setFilterStatus(filterStatus === "overdue" ? "all" : "overdue")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "overdue" ? "ring-2 ring-ring " : ""}bg-destructive text-destructive-foreground hover:opacity-80`}>{overdueCount} overdue</button>
+          <button type="button" onClick={() => setFilterStatus(filterStatus === "rejected" ? "all" : "rejected")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "rejected" ? "ring-2 ring-ring " : ""}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:opacity-80`}>{rejectedCount} rejected</button>
         </div>
       </div>
 
@@ -397,6 +452,7 @@ export function AdminTaskDashboard({
                 <SelectItem value="overdue">Overdue</SelectItem>
                 <SelectItem value="submitted">Submitted</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
               </SelectContent>
             </Select>
             <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full sm:w-[150px]" />
@@ -449,7 +505,7 @@ export function AdminTaskDashboard({
                     ) : (
                       <div className="space-y-1">
                         {items.map((item) => (
-                          <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} detailed />
+                          <ItemRow key={item.id} item={item} showStaff={false} approvingId={approvingId} onApprove={handleApprove} onReject={openReject} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} detailed />
                         ))}
                       </div>
                     )}
@@ -474,7 +530,7 @@ export function AdminTaskDashboard({
                   <CardContent className="p-4 pt-0">
                     <div className="space-y-1">
                       {items.map((item) => (
-                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
+                        <ItemRow key={item.id} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onReject={openReject} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
                       ))}
                     </div>
                   </CardContent>
@@ -497,7 +553,7 @@ export function AdminTaskDashboard({
               ) : (
                 <div className="space-y-1">
                   {deadlineItems.map((item) => (
-                    <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
+                    <ItemRow key={`dl-${item.id}`} item={item} showStaff approvingId={approvingId} onApprove={handleApprove} onReject={openReject} onEdit={openEdit} nowDate={nowDate} staffNames={staffNames} />
                   ))}
                 </div>
               )}
@@ -537,12 +593,43 @@ export function AdminTaskDashboard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!rejectItem} onOpenChange={(o) => !o && !rejecting && setRejectItem(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject this task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The task will be marked as <strong>Rejected</strong> and the related 1/4 unit will remain open until the staff member corrects and resubmits it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label>Rejection reason (optional)</Label>
+            <Textarea
+              rows={3}
+              placeholder="Tell the staff what needs to be fixed..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={rejecting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmReject(); }}
+              disabled={rejecting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {rejecting && <Loader2 className="h-3 w-3 animate-spin mr-1" />} Reject
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
 function getRowBg(item: { status: string; dueDate?: string | null }, nowDate: string) {
   if (item.status === "approved") return "bg-blue-50 dark:bg-blue-950/20";
+  if (item.status === "rejected") return "bg-red-50 dark:bg-red-950/20 border-l-2 border-l-red-500";
   if (item.status === "submitted") return "bg-orange-50 dark:bg-orange-950/20";
   if (item.status === "in_progress") return "bg-green-50 dark:bg-green-950/20 border-l-2 border-l-green-500";
   if (item.status === "overdue") return "bg-destructive/10 border-l-2 border-l-destructive";
@@ -554,7 +641,7 @@ function getRowBg(item: { status: string; dueDate?: string | null }, nowDate: st
   return "bg-muted/30 border-l-2 border-l-muted-foreground/30";
 }
 
-function ItemRow({ item, showStaff, approvingId, onApprove, onEdit, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; onEdit?: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
+function ItemRow({ item, showStaff, approvingId, onApprove, onReject, onEdit, nowDate, staffNames, detailed }: { item: UnifiedItem; showStaff: boolean; approvingId: string | null; onApprove: (item: UnifiedItem) => void; onReject?: (item: UnifiedItem) => void; onEdit?: (item: UnifiedItem) => void; nowDate: string; staffNames?: Record<string, string>; detailed?: boolean }) {
   const assignedByName = item.assignedById ? (staffNames?.[item.assignedById] || "Admin") : "Admin";
   const canEdit = onEdit && item.status === "not_started";
   return (
@@ -563,11 +650,14 @@ function ItemRow({ item, showStaff, approvingId, onApprove, onEdit, nowDate, sta
         <div className="flex items-center gap-2 flex-wrap">
           <p className={`text-sm font-medium ${item.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{item.title}</p>
           <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[item.type] || ""}`}>{item.type}</Badge>
-          {!canEdit && item.status !== "approved" && (
+          {!canEdit && item.status !== "approved" && item.status !== "rejected" && (
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground" title="Locked once member accepts">🔒 Locked</Badge>
           )}
         </div>
         {item.description && <p className={`text-xs text-muted-foreground mt-1 ${detailed ? "" : "line-clamp-2"}`}>{item.description}</p>}
+        {item.status === "rejected" && item.rejectionReason && (
+          <p className="text-xs mt-1 text-red-700 dark:text-red-400"><span className="font-semibold">Rejection reason:</span> {item.rejectionReason}</p>
+        )}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
           {showStaff && <span>👤 {item.staffName}</span>}
           <span>✍️ Assigned by: {assignedByName}</span>
@@ -594,16 +684,28 @@ function ItemRow({ item, showStaff, approvingId, onApprove, onEdit, nowDate, sta
           </Button>
         )}
         {item.status === "submitted" && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-xs gap-1 border-accent text-accent hover:bg-accent/10"
-            disabled={approvingId === item.id}
-            onClick={() => onApprove(item)}
-          >
-            {approvingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-            Approve
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs gap-1 border-accent text-accent hover:bg-accent/10"
+              disabled={approvingId === item.id}
+              onClick={() => onApprove(item)}
+            >
+              {approvingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+              Approve
+            </Button>
+            {onReject && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs gap-1 border-destructive text-destructive hover:bg-destructive/10"
+                onClick={() => onReject(item)}
+              >
+                <XCircle className="h-3 w-3" /> Reject
+              </Button>
+            )}
+          </>
         )}
       </div>
     </div>

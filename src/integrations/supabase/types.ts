@@ -86,6 +86,9 @@ export type Database = {
           approved_by: string | null
           event_id: string
           id: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           submission_status: string
           submitted_at: string | null
           user_id: string
@@ -95,6 +98,9 @@ export type Database = {
           approved_by?: string | null
           event_id: string
           id?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           submission_status?: string
           submitted_at?: string | null
           user_id: string
@@ -104,6 +110,9 @@ export type Database = {
           approved_by?: string | null
           event_id?: string
           id?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           submission_status?: string
           submitted_at?: string | null
           user_id?: string
@@ -372,6 +381,9 @@ export type Database = {
           description: string
           due_date: string | null
           id: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           submission_status: string
           submitted_at: string | null
           title: string
@@ -386,6 +398,9 @@ export type Database = {
           description?: string
           due_date?: string | null
           id?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           submission_status?: string
           submitted_at?: string | null
           title: string
@@ -400,6 +415,9 @@ export type Database = {
           description?: string
           due_date?: string | null
           id?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           submission_status?: string
           submitted_at?: string | null
           title?: string
