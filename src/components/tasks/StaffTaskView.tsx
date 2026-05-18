@@ -58,7 +58,7 @@ interface StaffTaskViewProps {
 const nowDate = () => new Date().toISOString().split("T")[0];
 
 function sortByDeadline<T extends { dueDate?: string | null; status: string }>(items: T[]): T[] {
-  const statusOrder: Record<string, number> = { overdue: 0, not_started: 1, in_progress: 2, submitted: 3, approved: 4 };
+  const statusOrder: Record<string, number> = { overdue: 0, rejected: 1, not_started: 2, in_progress: 3, submitted: 4, approved: 5 };
   return [...items].sort((a, b) => {
     const sa = statusOrder[a.status] ?? 1;
     const sb = statusOrder[b.status] ?? 1;
