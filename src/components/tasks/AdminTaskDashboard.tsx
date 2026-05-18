@@ -593,6 +593,36 @@ export function AdminTaskDashboard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!rejectItem} onOpenChange={(o) => !o && !rejecting && setRejectItem(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject this task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The task will be marked as <strong>Rejected</strong> and the related 1/4 unit will remain open until the staff member corrects and resubmits it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label>Rejection reason (optional)</Label>
+            <Textarea
+              rows={3}
+              placeholder="Tell the staff what needs to be fixed..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={rejecting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmReject(); }}
+              disabled={rejecting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {rejecting && <Loader2 className="h-3 w-3 animate-spin mr-1" />} Reject
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
