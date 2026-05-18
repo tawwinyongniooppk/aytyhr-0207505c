@@ -106,19 +106,26 @@ export default function CalendarPage() {
     if (!isStaff) loadStaff();
   }, [user, isStaff, isAssistant]);
 
-  // Realtime: refresh schedule when any relevant profile work_schedule changes
+  // Realtime: refresh schedule when relevant profile work_schedule changes (debounced)
+  const scheduleReloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!user) return;
     const filter = isStaff ? `id=eq.${user.id}` : undefined;
     const channel = supabase
-      .channel("profile-schedule-sync")
+      .channel(`profile-schedule-sync-${user.id}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profiles", ...(filter ? { filter } : {}) },
-        () => { loadMySchedule(); }
+        () => {
+          if (scheduleReloadTimer.current) clearTimeout(scheduleReloadTimer.current);
+          scheduleReloadTimer.current = setTimeout(() => { loadMySchedule(); }, 800);
+        }
       )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (scheduleReloadTimer.current) clearTimeout(scheduleReloadTimer.current);
+      supabase.removeChannel(channel);
+    };
   }, [user, isStaff]);
 
   async function loadMySchedule() {
