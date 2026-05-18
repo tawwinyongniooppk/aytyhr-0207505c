@@ -331,6 +331,7 @@ export function AdminTaskDashboard({
   const submittedCount = unifiedItems.filter(i => i.status === "submitted").length;
   const approvedCount = unifiedItems.filter(i => i.status === "approved").length;
   const overdueCount = unifiedItems.filter(i => i.status === "overdue").length;
+  const rejectedCount = unifiedItems.filter(i => i.status === "rejected").length;
 
   const incompleteByStaff = useMemo(() => {
     const map: Record<string, number> = {};
