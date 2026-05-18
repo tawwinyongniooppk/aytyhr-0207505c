@@ -63,25 +63,38 @@ export default function Tasks() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const { loading: profileLoading } = useProfile();
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleRefetch = useCallback(() => {
+    if (refetchTimer.current) clearTimeout(refetchTimer.current);
+    refetchTimer.current = setTimeout(() => { loadData(); }, 500);
+  }, []);
 
   useEffect(() => {
-    if (!user) return;
-    
+    if (!user || profileLoading) return;
     loadData();
-  }, [user, isAdmin, isStaff]);
-
-  // Realtime subscription so Task Monitor refreshes automatically
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase
-      .channel("tasks-monitor-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_event_assignments" }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events" }, () => loadData())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, isAdmin]);
+  }, [user?.id, profileLoading, isAdmin, isStaff]);
+
+  // Realtime subscription so Task Monitor refreshes automatically (debounced)
+  useEffect(() => {
+    if (!user || profileLoading) return;
+    const channel = supabase
+      .channel(`tasks-monitor-${user.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "tasks" }, scheduleRefetch)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tasks" }, scheduleRefetch)
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "tasks" }, scheduleRefetch)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "calendar_event_assignments" }, scheduleRefetch)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "calendar_event_assignments" }, scheduleRefetch)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "calendar_events" }, scheduleRefetch)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "calendar_events" }, scheduleRefetch)
+      .subscribe();
+    return () => {
+      if (refetchTimer.current) clearTimeout(refetchTimer.current);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, profileLoading]);
 
   async function loadData() {
     setLoading(true);
