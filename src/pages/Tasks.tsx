@@ -54,7 +54,7 @@ interface EventAssignment {
 
 export default function Tasks() {
   const { user } = useAuth();
-  const { isAdmin, isStaff } = useProfile();
+  const { isAdmin, isStaff, loading: profileLoading } = useProfile();
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalEvent[]>([]);
   const [eventAssignments, setEventAssignments] = useState<EventAssignment[]>([]);
@@ -63,7 +63,6 @@ export default function Tasks() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const { loading: profileLoading } = useProfile();
   const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleRefetch = useCallback(() => {
     if (refetchTimer.current) clearTimeout(refetchTimer.current);
