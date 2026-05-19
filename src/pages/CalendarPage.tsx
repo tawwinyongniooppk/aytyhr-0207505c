@@ -164,13 +164,44 @@ export default function CalendarPage() {
   }
 
   async function loadEvents() {
+    if (!user) return;
     try {
-      const { data, error } = await supabase
+      // Restrict to the currently viewed month (with a small buffer for multi-day events).
+      const rangeStart = new Date(year, month, 1);
+      const rangeEnd = new Date(year, month + 1, 0); // last day of month
+      const startStr = rangeStart.toISOString().split("T")[0];
+      const endStr = rangeEnd.toISOString().split("T")[0];
+
+      // Events overlapping the visible month: start_date <= endStr AND end_date >= startStr
+      const baseQuery = supabase
         .from("calendar_events")
         .select("*")
+        .lte("start_date", endStr)
+        .gte("end_date", startStr)
         .order("start_date", { ascending: true });
-      if (error) throw error;
-      setEvents((data as CalEvent[]) || []);
+
+      if (isStaff) {
+        // Staff: fetch only events visible to them in this month.
+        // 1) public / assigned-to-all
+        // 2) events they have a personal assignment to
+        const { data: myAss } = await supabase
+          .from("calendar_event_assignments")
+          .select("event_id")
+          .eq("user_id", user.id);
+        const myEventIds = Array.from(new Set((myAss || []).map((a: any) => a.event_id))).filter(Boolean);
+
+        const orParts = ["visibility.eq.public", "assigned_to_all.eq.true"];
+        if (myEventIds.length > 0) {
+          orParts.push(`id.in.(${myEventIds.join(",")})`);
+        }
+        const { data, error } = await baseQuery.or(orParts.join(","));
+        if (error) throw error;
+        setEvents((data as CalEvent[]) || []);
+      } else {
+        const { data, error } = await baseQuery;
+        if (error) throw error;
+        setEvents((data as CalEvent[]) || []);
+      }
     } catch {
       toast({ title: "Error", description: "Failed to load events", variant: "destructive" });
     } finally {
