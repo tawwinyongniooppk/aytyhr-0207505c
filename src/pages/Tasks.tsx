@@ -75,55 +75,118 @@ export default function Tasks() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, profileLoading, isAdmin, isStaff]);
 
-  // Realtime subscription so Task Monitor refreshes automatically (debounced)
+  // Realtime subscription so Task Monitor refreshes automatically (debounced).
+  // Scope filters to current user when staff to avoid global broadcast storms.
   useEffect(() => {
     if (!user || profileLoading) return;
-    const channel = supabase
-      .channel(`tasks-monitor-${user.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "tasks" }, scheduleRefetch)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tasks" }, scheduleRefetch)
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "tasks" }, scheduleRefetch)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "calendar_event_assignments" }, scheduleRefetch)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "calendar_event_assignments" }, scheduleRefetch)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "calendar_events" }, scheduleRefetch)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "calendar_events" }, scheduleRefetch)
-      .subscribe();
+    const channel = supabase.channel(`tasks-monitor-${user.id}`);
+
+    if (isStaff) {
+      const taskFilter = `assignee_id=eq.${user.id}`;
+      const assignmentFilter = `user_id=eq.${user.id}`;
+      channel
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "tasks", filter: taskFilter }, scheduleRefetch)
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tasks", filter: taskFilter }, scheduleRefetch)
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "tasks", filter: taskFilter }, scheduleRefetch)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "calendar_event_assignments", filter: assignmentFilter }, scheduleRefetch)
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "calendar_event_assignments", filter: assignmentFilter }, scheduleRefetch);
+      // Note: calendar_events changes will surface via their assignment rows for staff.
+    } else {
+      // Admin / assistant: needs visibility across all tasks/events.
+      channel
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "tasks" }, scheduleRefetch)
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tasks" }, scheduleRefetch)
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "tasks" }, scheduleRefetch)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "calendar_event_assignments" }, scheduleRefetch)
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "calendar_event_assignments" }, scheduleRefetch)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "calendar_events" }, scheduleRefetch)
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "calendar_events" }, scheduleRefetch);
+    }
+
+    channel.subscribe();
     return () => {
       if (refetchTimer.current) clearTimeout(refetchTimer.current);
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, profileLoading]);
+  }, [user?.id, profileLoading, isStaff]);
 
   async function loadData() {
+    if (!user) return;
     setLoading(true);
     try {
-      const [tasksRes, profilesRes, evRes, assRes] = await Promise.all([
-        supabase.from("tasks").select("*").order("created_at", { ascending: false }),
-        supabase.from("profiles").select("id, full_name, role, sequence").order("sequence", { ascending: true }).order("full_name", { ascending: true }),
-        supabase.from("calendar_events").select("*").order("start_date", { ascending: false }),
-        supabase.from("calendar_event_assignments").select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by"),
-      ]);
+      // Profiles always needed for name lookups + staff list (admin view).
+      const profilesPromise = supabase
+        .from("profiles")
+        .select("id, full_name, role, sequence")
+        .order("sequence", { ascending: true })
+        .order("full_name", { ascending: true });
 
-      if (tasksRes.error) console.error("[Tasks] tasks fetch error:", tasksRes.error);
-      if (profilesRes.error) console.error("[Tasks] profiles fetch error:", profilesRes.error);
+      if (isStaff) {
+        // Staff: fetch only their own tasks + their own event assignments.
+        // Then fetch only the events referenced by those assignments.
+        const [tasksRes, profilesRes, assRes] = await Promise.all([
+          supabase
+            .from("tasks")
+            .select("*")
+            .eq("assignee_id", user.id)
+            .order("created_at", { ascending: false }),
+          profilesPromise,
+          supabase
+            .from("calendar_event_assignments")
+            .select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by")
+            .eq("user_id", user.id),
+        ]);
 
-      const names: Record<string, string> = {};
-      if (profilesRes.data) {
-        const staff = profilesRes.data.filter((p: any) => p.role === "staff");
-        setStaffList(staff);
-        profilesRes.data.forEach((p: any) => { names[p.id] = p.full_name || "Unknown"; });
-        setStaffNames(names);
+        if (tasksRes.error) console.error("[Tasks] tasks fetch error:", tasksRes.error);
+        if (profilesRes.error) console.error("[Tasks] profiles fetch error:", profilesRes.error);
+
+        const names: Record<string, string> = {};
+        if (profilesRes.data) {
+          profilesRes.data.forEach((p: any) => { names[p.id] = p.full_name || "Unknown"; });
+          setStaffNames(names);
+          setStaffList(profilesRes.data.filter((p: any) => p.role === "staff"));
+        }
+
+        const assignments = (assRes.data as EventAssignment[]) || [];
+        setEventAssignments(assignments);
+        setTasks((tasksRes.data as TaskRow[]) || []);
+
+        const eventIds = Array.from(new Set(assignments.map((a) => a.event_id))).filter(Boolean);
+        if (eventIds.length > 0) {
+          const evRes = await supabase
+            .from("calendar_events")
+            .select("*")
+            .in("id", eventIds)
+            .order("start_date", { ascending: false });
+          setCalendarEvents((evRes.data as CalEvent[]) || []);
+        } else {
+          setCalendarEvents([]);
+        }
+      } else {
+        // Admin / assistant: needs full visibility.
+        const [tasksRes, profilesRes, evRes, assRes] = await Promise.all([
+          supabase.from("tasks").select("*").order("created_at", { ascending: false }),
+          profilesPromise,
+          supabase.from("calendar_events").select("*").order("start_date", { ascending: false }),
+          supabase.from("calendar_event_assignments").select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by"),
+        ]);
+
+        if (tasksRes.error) console.error("[Tasks] tasks fetch error:", tasksRes.error);
+        if (profilesRes.error) console.error("[Tasks] profiles fetch error:", profilesRes.error);
+
+        const names: Record<string, string> = {};
+        if (profilesRes.data) {
+          const staff = profilesRes.data.filter((p: any) => p.role === "staff");
+          setStaffList(staff);
+          profilesRes.data.forEach((p: any) => { names[p.id] = p.full_name || "Unknown"; });
+          setStaffNames(names);
+        }
+
+        setTasks((tasksRes.data as TaskRow[]) || []);
+        setCalendarEvents((evRes.data as CalEvent[]) || []);
+        setEventAssignments((assRes.data as EventAssignment[]) || []);
       }
-
-      if (tasksRes.data) {
-        let filtered = tasksRes.data as TaskRow[];
-        if (isStaff && user) filtered = filtered.filter((t) => t.assignee_id === user.id);
-        setTasks(filtered);
-      }
-
-      setCalendarEvents((evRes.data as CalEvent[]) || []);
-      setEventAssignments((assRes.data as EventAssignment[]) || []);
     } catch (e) {
       console.error("[Tasks] loadData exception:", e);
       toast.error("Failed to load tasks");
