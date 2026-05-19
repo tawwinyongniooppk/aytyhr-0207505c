@@ -112,104 +112,126 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     const channel = supabase.channel(`notif-${user.id}`);
 
-    // ---- Tasks ----
-    channel.on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "tasks" },
-      (payload) => {
-        const row: any = payload.new;
-        if (isStaff && row.assignee_id === user.id) bump("tasks");
-        else if (isAdmin && row.assigned_by !== user.id) bump("tasks");
-      },
-    );
-    channel.on(
-      "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "tasks" },
-      (payload) => {
-        const row: any = payload.new;
-        const old: any = payload.old;
-        if (isAdmin && row.submission_status === "submitted" && old.submission_status !== "submitted") {
-          bump("tasks");
-        }
-        if (isStaff && row.assignee_id === user.id && row.submission_status === "approved" && old.submission_status !== "approved") {
-          bump("tasks");
-        }
-      },
-    );
+    // ===================== STAFF: only own rows =====================
+    if (isStaff) {
+      const mine = `assignee_id=eq.${user.id}`;
+      const mineUser = `user_id=eq.${user.id}`;
 
-    // ---- Leave ----
-    channel.on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "leave_requests" },
-      (payload) => {
-        const row: any = payload.new;
-        if (isAdmin && row.user_id !== user.id) bump("leave");
-        else if (isStaff && row.user_id === user.id) bump("leave", false);
-      },
-    );
-    channel.on(
-      "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "leave_requests" },
-      (payload) => {
-        const row: any = payload.new;
-        const old: any = payload.old;
-        if (isStaff && row.user_id === user.id && row.status !== old.status) {
-          bump("leave");
-        }
-      },
-    );
+      // Tasks assigned to me
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "tasks", filter: mine },
+        () => bump("tasks"),
+      );
+      channel.on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "tasks", filter: mine },
+        (payload) => {
+          const row: any = payload.new;
+          const old: any = payload.old;
+          if (row.submission_status === "approved" && old.submission_status !== "approved") {
+            bump("tasks");
+          }
+        },
+      );
 
-    // ---- Calendar ----
-    channel.on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "calendar_events" },
-      (payload) => {
-        const row: any = payload.new;
-        if (isAdmin && row.created_by !== user.id) bump("calendar");
-        else if (isStaff && (row.visibility === "public" || row.assigned_to_all)) bump("calendar", false);
-      },
-    );
-    channel.on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "calendar_event_assignments" },
-      async (payload) => {
-        const row: any = payload.new;
-        if (!isStaff || row.user_id !== user.id) return;
-        // Inspect linked event to decide which menu gets the red dot.
-        try {
-          const { data } = await supabase
-            .from("calendar_events")
-            .select("event_type")
-            .eq("id", row.event_id)
-            .maybeSingle();
-          if (data?.event_type === "task") bump("tasks");
-          else bump("calendar");
-        } catch {
-          bump("calendar");
-        }
-      },
-    );
+      // My own leave requests (status changes)
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "leave_requests", filter: mineUser },
+        () => bump("leave", false),
+      );
+      channel.on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "leave_requests", filter: mineUser },
+        (payload) => {
+          const row: any = payload.new;
+          const old: any = payload.old;
+          if (row.status !== old.status) bump("leave");
+        },
+      );
 
-    // ---- Attendance ----
-    channel.on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "attendance" },
-      (payload) => {
-        const row: any = payload.new;
-        if (isAdmin && row.user_id !== user.id) bump("attendance", false);
-      },
-    );
-    channel.on(
-      "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "attendance" },
-      (payload) => {
-        const row: any = payload.new;
-        const old: any = payload.old;
-        if (isAdmin && row.user_id !== user.id && !old.check_out_time && row.check_out_time) {
-          bump("attendance", false);
-        }
-      },
-    );
+      // Calendar: public/everyone events — server-side filter on visibility.
+      // (assigned_to_all triggers a personal assignment row, handled below.)
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "calendar_events", filter: "visibility=eq.public" },
+        () => bump("calendar", false),
+      );
+
+      // Personal assignments — bump "tasks" (assignments are used for task flow).
+      // No N+1: we no longer fetch the linked event here.
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "calendar_event_assignments", filter: mineUser },
+        () => bump("tasks"),
+      );
+    }
+
+    // ===================== ADMIN / ASSISTANT =====================
+    if (isAdmin) {
+      // Tasks: any new task not created by me, or submitted by staff.
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "tasks" },
+        (payload) => {
+          const row: any = payload.new;
+          if (row.assigned_by !== user.id) bump("tasks");
+        },
+      );
+      channel.on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "tasks" },
+        (payload) => {
+          const row: any = payload.new;
+          const old: any = payload.old;
+          if (row.submission_status === "submitted" && old.submission_status !== "submitted") {
+            bump("tasks");
+          }
+        },
+      );
+
+      // Leave requests from other users
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "leave_requests" },
+        (payload) => {
+          const row: any = payload.new;
+          if (row.user_id !== user.id) bump("leave");
+        },
+      );
+
+      // Calendar events by others
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "calendar_events" },
+        (payload) => {
+          const row: any = payload.new;
+          if (row.created_by !== user.id) bump("calendar");
+        },
+      );
+
+      // Attendance (admin-only awareness)
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "attendance" },
+        (payload) => {
+          const row: any = payload.new;
+          if (row.user_id !== user.id) bump("attendance", false);
+        },
+      );
+      channel.on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "attendance" },
+        (payload) => {
+          const row: any = payload.new;
+          const old: any = payload.old;
+          if (row.user_id !== user.id && !old.check_out_time && row.check_out_time) {
+            bump("attendance", false);
+          }
+        },
+      );
+    }
 
     channel.subscribe();
     return () => {
