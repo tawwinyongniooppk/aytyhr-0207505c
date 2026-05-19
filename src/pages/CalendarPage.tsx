@@ -104,7 +104,7 @@ export default function CalendarPage() {
     loadEvents();
     loadMySchedule();
     if (!isStaff) loadStaff();
-  }, [user, isStaff, isAssistant]);
+  }, [user, isStaff, isAssistant, year, month]);
 
   // Realtime: refresh schedule when relevant profile work_schedule changes (debounced)
   const scheduleReloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
