@@ -73,6 +73,8 @@ function sortByDeadline<T extends { dueDate?: string | null; status: string }>(i
 
 export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [], staffNames = {} }: StaffTaskViewProps) {
   const { user } = useAuth();
+  const { profile } = useProfile();
+  const staffName = profile?.full_name || "Staff";
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [submittingTaskId, setSubmittingTaskId] = useState<string | null>(null);
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
