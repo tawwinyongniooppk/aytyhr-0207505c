@@ -6,6 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { Loader2, ClipboardList, Send, CheckCircle2, Clock, AlertTriangle, ThumbsUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { notifyAdmins } from "@/lib/push";
 import { toast } from "sonner";
 
 interface TaskRow {
