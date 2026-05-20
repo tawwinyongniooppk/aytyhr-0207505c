@@ -91,7 +91,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Auth check: privileged role OR service-role key.
+    // Auth check: service-role bypasses everything; otherwise any authenticated
+    // user can send, but the targets are restricted to themselves or to
+    // privileged staff (admin/assistant/it_manager). This lets staff notify
+    // admins on submissions and lets users send themselves test pushes,
+    // without allowing user-to-user spam.
     const authHeader = req.headers.get("Authorization") ?? "";
     const isServiceRole = authHeader === `Bearer ${SERVICE_ROLE}`;
     if (!isServiceRole) {
@@ -105,18 +109,36 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      const callerId = who.user.id;
       const { data: prof } = await userClient
         .from("profiles")
         .select("role")
-        .eq("id", who.user.id)
+        .eq("id", callerId)
         .maybeSingle();
-      if (!prof || !["admin", "assistant", "it_manager"].includes(prof.role)) {
-        return new Response(JSON.stringify({ error: "forbidden" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      const callerRole = (prof as { role?: string } | null)?.role ?? "";
+      const isPrivileged = ["admin", "assistant", "it_manager"].includes(callerRole);
+
+      if (!isPrivileged) {
+        const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+        const { data: targetProfiles } = await admin
+          .from("profiles")
+          .select("id, role")
+          .in("id", userIds);
+        const validTargets = new Set(
+          ((targetProfiles as { id: string; role: string }[]) ?? [])
+            .filter((p) => p.id === callerId || ["admin", "assistant", "it_manager"].includes(p.role))
+            .map((p) => p.id),
+        );
+        const allAllowed = userIds.every((id) => validTargets.has(id));
+        if (!allAllowed) {
+          return new Response(JSON.stringify({ error: "forbidden_targets" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
     }
+
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: tokens, error } = await admin
