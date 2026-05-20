@@ -3,16 +3,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { MapPin } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { MapPin, Bell, Loader2 } from "lucide-react";
+import { isPushEnabled, setPushEnabled, sendPush } from "@/lib/push";
+import { requestFcmToken } from "@/lib/firebase";
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [schoolLat, setSchoolLat] = useState("0");
   const [schoolLng, setSchoolLng] = useState("0");
   const [allowedRadius, setAllowedRadius] = useState("50");
   const [saving, setSaving] = useState(false);
+
+  const [pushOn, setPushOn] = useState<boolean>(isPushEnabled());
+  const [pushBusy, setPushBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -63,6 +72,67 @@ export default function SettingsPage() {
     );
   };
 
+  const handleTogglePush = async (next: boolean) => {
+    if (!user) return;
+    setPushBusy(true);
+    try {
+      if (next) {
+        const token = await requestFcmToken();
+        if (!token) {
+          toast({
+            title: "Could not enable notifications",
+            description: "Please allow notification permission in your browser settings.",
+            variant: "destructive",
+          });
+          return;
+        }
+        await supabase.from("fcm_tokens").upsert(
+          {
+            user_id: user.id,
+            token,
+            user_agent: navigator.userAgent,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "token" },
+        );
+        setPushEnabled(true);
+        setPushOn(true);
+        toast({ title: "Push notifications enabled ✓" });
+      } else {
+        const token = await requestFcmToken().catch(() => null);
+        if (token) {
+          await supabase.from("fcm_tokens").delete().eq("token", token);
+        } else {
+          // Best-effort: remove all this user's tokens.
+          await supabase.from("fcm_tokens").delete().eq("user_id", user.id);
+        }
+        setPushEnabled(false);
+        setPushOn(false);
+        toast({ title: "Push notifications disabled" });
+      }
+    } catch (e: any) {
+      toast({ title: "Update failed", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const handleTestPush = async () => {
+    if (!user) return;
+    setTesting(true);
+    try {
+      await sendPush({
+        user_ids: [user.id],
+        title: "Test notification",
+        body: "If you can see this, push notifications are working.",
+        url: "/settings",
+      });
+      toast({ title: "Test sent", description: "Check your device for the push notification." });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -74,6 +144,41 @@ export default function SettingsPage() {
         Per-staff check-in / check-out times, grace period, and salary deduction rate are managed
         on each staff card in <span className="font-medium">Staff Management</span>.
       </p>
+
+      <Card className="border border-border shadow-none">
+        <CardHeader>
+          <CardTitle className="text-base font-display flex items-center gap-2">
+            <Bell className="h-4 w-4" /> Push Notifications
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label className="text-sm">Enable push notifications</Label>
+              <p className="text-xs text-muted-foreground">
+                Receive task, leave, and calendar alerts on this device — even when the app is closed.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {pushBusy && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              <Switch checked={pushOn} disabled={pushBusy} onCheckedChange={handleTogglePush} />
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestPush}
+            disabled={testing || !pushOn}
+          >
+            {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bell className="h-4 w-4 mr-2" />}
+            Test Push Notification
+          </Button>
+          {!pushOn && (
+            <p className="text-xs text-muted-foreground">Enable notifications above to send a test.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="border border-border shadow-none md:col-span-2">

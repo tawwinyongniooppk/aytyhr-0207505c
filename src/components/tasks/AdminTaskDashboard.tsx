@@ -13,6 +13,7 @@ import { Loader2, Users, CalendarDays, Filter, AlertTriangle, X, CheckCircle2, C
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { sendPush } from "@/lib/push";
 import { toast } from "sonner";
 
 interface TaskRow {
@@ -367,6 +368,12 @@ export function AdminTaskDashboard({
         if (error) throw error;
       }
       toast.success("Approved successfully");
+      sendPush({
+        user_ids: [item.staffId],
+        title: "Task approved",
+        body: item.title,
+        url: "/tasks",
+      });
       onRefresh();
     } catch {
       toast.error("Failed to approve");
@@ -374,6 +381,7 @@ export function AdminTaskDashboard({
       setApprovingId(null);
     }
   }
+
 
   function openReject(item: UnifiedItem) {
     setRejectItem(item);
@@ -406,6 +414,12 @@ export function AdminTaskDashboard({
         if (error) throw error;
       }
       toast.success("Task rejected");
+      sendPush({
+        user_ids: [rejectItem.staffId],
+        title: "Task rejected",
+        body: `${rejectItem.title}${rejectReason.trim() ? ` — ${rejectReason.trim()}` : ""}`,
+        url: "/tasks",
+      });
       setRejectItem(null);
       onRefresh();
     } catch (e) {

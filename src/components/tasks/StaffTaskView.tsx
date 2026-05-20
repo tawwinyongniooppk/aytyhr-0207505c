@@ -6,6 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { Loader2, ClipboardList, Send, CheckCircle2, Clock, AlertTriangle, ThumbsUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { notifyAdmins } from "@/lib/push";
 import { toast } from "sonner";
 
 interface TaskRow {
@@ -71,6 +73,8 @@ function sortByDeadline<T extends { dueDate?: string | null; status: string }>(i
 
 export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [], staffNames = {} }: StaffTaskViewProps) {
   const { user } = useAuth();
+  const { profile } = useProfile();
+  const staffName = profile?.full_name || "Staff";
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [submittingTaskId, setSubmittingTaskId] = useState<string | null>(null);
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
@@ -128,6 +132,8 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
       if (error) throw error;
       toast.success("Task submitted successfully");
       setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, submission_status: "submitted", completed: true, rejection_reason: null } : t));
+      const t = localTasks.find(x => x.id === taskId);
+      notifyAdmins("Task submitted for review", `${staffName} submitted: ${t?.title ?? "a task"}`, "/tasks");
     } catch { toast.error("Failed to submit task"); }
     finally { setSubmittingTaskId(null); }
   }
@@ -139,9 +145,11 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
       if (error) throw error;
       toast.success("Submitted successfully");
       setLocalAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, submission_status: "submitted", rejection_reason: null } : a));
+      notifyAdmins("Task submitted for review", `${staffName} submitted a task`, "/tasks");
     } catch { toast.error("Failed to submit"); }
     finally { setSubmittingId(null); }
   }
+
 
   async function handleResubmitTask(taskId: string) {
     setSubmittingTaskId(taskId);

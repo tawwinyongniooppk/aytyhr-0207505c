@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
+import { sendPush, notifyAdmins } from "@/lib/push";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 import { ManualDeductionPanel } from "@/components/ManualDeductionPanel";
@@ -184,6 +185,11 @@ export default function Leave() {
         toast({ title: "Failed to submit", description: error.message, variant: "destructive" });
       } else {
         toast({ title: "Leave request submitted successfully ✓" });
+        notifyAdmins(
+          "New leave request",
+          `${profile?.full_name ?? "Staff"} requested ${type === "partial_leave" ? "partial leave" : "leave"} on ${date}`,
+          "/leave",
+        );
         setDate("");
         setReason("");
         setType("leave");
@@ -269,6 +275,17 @@ export default function Leave() {
               : "Leave approved as Paid ✓"
             : "Leave request rejected",
       });
+      if (selectedRequest) {
+        sendPush({
+          user_ids: [selectedRequest.user_id],
+          title: decision === "approved" ? "Leave approved" : "Leave rejected",
+          body:
+            decision === "approved"
+              ? `Your leave on ${selectedRequest.date} was approved${paymentType ? ` (${paymentType})` : ""}.`
+              : `Your leave on ${selectedRequest.date} was rejected.`,
+          url: "/leave",
+        });
+      }
       setSelectedRequest(null);
       loadData();
     } finally {

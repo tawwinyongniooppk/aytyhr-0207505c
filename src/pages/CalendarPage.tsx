@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { toast } from "@/hooks/use-toast";
+import { sendPush } from "@/lib/push";
 import { toMyanmarDate, getMyanmarHoliday } from "@/lib/mmCalendar";
 
 interface CalEvent {
@@ -457,6 +458,15 @@ export default function CalendarPage() {
       }
 
       toast({ title: "Task created successfully" });
+      const recipientIds = isAllStaff ? staffList.map((s) => s.id) : form.assignedIds;
+      if (recipientIds.length > 0) {
+        sendPush({
+          user_ids: recipientIds,
+          title: form.event_type === "task" ? "New task assigned" : "New calendar event",
+          body: `${form.title} — due ${deadline}`,
+          url: "/calendar",
+        });
+      }
       setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [], frequency: "weekly", assignMode: "everyone" });
       setOpen(false);
       loadEvents();
