@@ -50,9 +50,6 @@ interface EventAssignment {
   approved_by: string | null;
 }
 
-// Task record retention is handled automatically server-side by the
-// purge_old_task_logs() database function, scheduled daily via pg_cron.
-
 export default function Tasks() {
   const { user } = useAuth();
   const { isAdmin, isStaff, loading: profileLoading } = useProfile();
@@ -64,10 +61,16 @@ export default function Tasks() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
   const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // DB ကို တစ်ပြိုင်နက်တည်း အကြိမ်ကြိမ် Request မပို့မိအောင် ကာကွယ်မည့် Ref Guard
+  const isFetchingRef = useRef(false);
+
   const scheduleRefetch = useCallback(() => {
     if (refetchTimer.current) clearTimeout(refetchTimer.current);
-    refetchTimer.current = setTimeout(() => { loadData(); }, 500);
+    refetchTimer.current = setTimeout(() => {
+      loadData();
+    }, 500);
   }, []);
 
   useEffect(() => {
@@ -76,8 +79,7 @@ export default function Tasks() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, profileLoading, isAdmin, isStaff]);
 
-  // Realtime subscription so Task Monitor refreshes automatically (debounced).
-  // Scope filters to current user when staff to avoid global broadcast storms.
+  // Realtime subscription setup
   useEffect(() => {
     if (!user || profileLoading) return;
     const channel = supabase.channel(`tasks-monitor-${user.id}`);
@@ -86,20 +88,46 @@ export default function Tasks() {
       const taskFilter = `assignee_id=eq.${user.id}`;
       const assignmentFilter = `user_id=eq.${user.id}`;
       channel
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "tasks", filter: taskFilter }, scheduleRefetch)
-        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tasks", filter: taskFilter }, scheduleRefetch)
-        .on("postgres_changes", { event: "DELETE", schema: "public", table: "tasks", filter: taskFilter }, scheduleRefetch)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "calendar_event_assignments", filter: assignmentFilter }, scheduleRefetch)
-        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "calendar_event_assignments", filter: assignmentFilter }, scheduleRefetch);
-      // Note: calendar_events changes will surface via their assignment rows for staff.
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "tasks", filter: taskFilter },
+          scheduleRefetch,
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "tasks", filter: taskFilter },
+          scheduleRefetch,
+        )
+        .on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "tasks", filter: taskFilter },
+          scheduleRefetch,
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "calendar_event_assignments", filter: assignmentFilter },
+          scheduleRefetch,
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "calendar_event_assignments", filter: assignmentFilter },
+          scheduleRefetch,
+        );
     } else {
-      // Admin / assistant: needs visibility across all tasks/events.
       channel
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "tasks" }, scheduleRefetch)
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tasks" }, scheduleRefetch)
         .on("postgres_changes", { event: "DELETE", schema: "public", table: "tasks" }, scheduleRefetch)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "calendar_event_assignments" }, scheduleRefetch)
-        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "calendar_event_assignments" }, scheduleRefetch)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "calendar_event_assignments" },
+          scheduleRefetch,
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "calendar_event_assignments" },
+          scheduleRefetch,
+        )
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "calendar_events" }, scheduleRefetch)
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "calendar_events" }, scheduleRefetch);
     }
@@ -114,9 +142,12 @@ export default function Tasks() {
 
   async function loadData() {
     if (!user) return;
+    // အကယ်၍ လက်ရှိမှာ Fetch လုပ်နေတုန်းဆိုရင် ထပ်မလုပ်ဘဲ ကျော်သွားမယ်
+    if (isFetchingRef.current) return;
+
+    isFetchingRef.current = true;
     setLoading(true);
     try {
-      // Profiles always needed for name lookups + staff list (admin view).
       const profilesPromise = supabase
         .from("profiles")
         .select("id, full_name, role, sequence")
@@ -124,14 +155,8 @@ export default function Tasks() {
         .order("full_name", { ascending: true });
 
       if (isStaff) {
-        // Staff: fetch only their own tasks + their own event assignments.
-        // Then fetch only the events referenced by those assignments.
         const [tasksRes, profilesRes, assRes] = await Promise.all([
-          supabase
-            .from("tasks")
-            .select("*")
-            .eq("assignee_id", user.id)
-            .order("created_at", { ascending: false }),
+          supabase.from("tasks").select("*").eq("assignee_id", user.id).order("created_at", { ascending: false }),
           profilesPromise,
           supabase
             .from("calendar_event_assignments")
@@ -144,7 +169,9 @@ export default function Tasks() {
 
         const names: Record<string, string> = {};
         if (profilesRes.data) {
-          profilesRes.data.forEach((p: any) => { names[p.id] = p.full_name || "Unknown"; });
+          profilesRes.data.forEach((p: any) => {
+            names[p.id] = p.full_name || "Unknown";
+          });
           setStaffNames(names);
           setStaffList(profilesRes.data.filter((p: any) => p.role === "staff"));
         }
@@ -165,12 +192,16 @@ export default function Tasks() {
           setCalendarEvents([]);
         }
       } else {
-        // Admin / assistant: needs full visibility.
+        // Admin View - DB ဝန်သက်သာအောင် ပြီးခဲ့သမျှအကုန်လုံး မယူဘဲ အသစ်ဆုံးအခု ၁၀၀/၁၅၀ ဝန်းကျင်ပဲ ကန့်သတ်ယူပါတယ်
         const [tasksRes, profilesRes, evRes, assRes] = await Promise.all([
-          supabase.from("tasks").select("*").order("created_at", { ascending: false }),
+          supabase.from("tasks").select("*").order("created_at", { ascending: false }).limit(150),
           profilesPromise,
-          supabase.from("calendar_events").select("*").order("start_date", { ascending: false }),
-          supabase.from("calendar_event_assignments").select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by"),
+          supabase.from("calendar_events").select("*").order("start_date", { ascending: false }).limit(100),
+          supabase
+            .from("calendar_event_assignments")
+            .select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by")
+            .order("submitted_at", { ascending: false })
+            .limit(150),
         ]);
 
         if (tasksRes.error) console.error("[Tasks] tasks fetch error:", tasksRes.error);
@@ -180,7 +211,9 @@ export default function Tasks() {
         if (profilesRes.data) {
           const staff = profilesRes.data.filter((p: any) => p.role === "staff");
           setStaffList(staff);
-          profilesRes.data.forEach((p: any) => { names[p.id] = p.full_name || "Unknown"; });
+          profilesRes.data.forEach((p: any) => {
+            names[p.id] = p.full_name || "Unknown";
+          });
           setStaffNames(names);
         }
 
@@ -193,10 +226,16 @@ export default function Tasks() {
       toast.error("Failed to load tasks");
     } finally {
       setLoading(false);
+      isFetchingRef.current = false; // Fetching ပြီးဆုံးကြောင်း ပြန်ဖွင့်ပေးပါတယ်
     }
   }
 
-  async function handleAssignTask(form: { title: string; description: string; assignee_id: string; due_date?: string }) {
+  async function handleAssignTask(form: {
+    title: string;
+    description: string;
+    assignee_id: string;
+    due_date?: string;
+  }) {
     if (!form.title || !form.assignee_id || !user) return;
     setSubmitting(true);
     try {
@@ -208,7 +247,10 @@ export default function Tasks() {
       };
       if (form.due_date) insertData.due_date = form.due_date;
       const { error } = await supabase.from("tasks").insert(insertData);
-      if (error) { toast.error("Failed to assign task"); return; }
+      if (error) {
+        toast.error("Failed to assign task");
+        return;
+      }
       toast.success("Task assigned successfully");
       sendPush({
         user_ids: [form.assignee_id],
@@ -226,7 +268,10 @@ export default function Tasks() {
     setTogglingId(id);
     try {
       const { error } = await supabase.from("tasks").update({ completed: !currentValue }).eq("id", id);
-      if (error) { toast.error("Failed to update task"); return; }
+      if (error) {
+        toast.error("Failed to update task");
+        return;
+      }
       const newStatus = !currentValue;
       toast.success(newStatus ? "Task marked as completed" : "Task marked as pending");
       setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: newStatus } : t)));
