@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { toast } from "sonner";
+import { sendPush } from "@/lib/push";
 import { StaffTaskView } from "@/components/tasks/StaffTaskView";
 import { AdminTaskDashboard } from "@/components/tasks/AdminTaskDashboard";
 
@@ -209,6 +210,12 @@ export default function Tasks() {
       const { error } = await supabase.from("tasks").insert(insertData);
       if (error) { toast.error("Failed to assign task"); return; }
       toast.success("Task assigned successfully");
+      sendPush({
+        user_ids: [form.assignee_id],
+        title: "New task assigned",
+        body: form.title,
+        url: "/tasks",
+      });
       loadData();
     } finally {
       setSubmitting(false);
