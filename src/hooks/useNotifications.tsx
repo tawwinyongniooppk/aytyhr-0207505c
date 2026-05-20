@@ -1,252 +1,69 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { createContext, useContext, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useProfile } from "./useProfile";
-
-type Category = "tasks" | "leave" | "calendar" | "attendance";
-
-const ROUTE_CATEGORY: Record<string, Category> = {
-  "/tasks": "tasks",
-  "/leave": "leave",
-  "/calendar": "calendar",
-  "/attendance": "attendance",
-};
+import { getMessagingSafe, onMessage, requestFcmToken } from "@/lib/firebase";
+import { toast } from "sonner";
 
 interface Ctx {
-  counts: Record<Category, number>;
-  hasFor: (route: string) => boolean;
-  markRead: (route: string) => void;
+  // Kept for backward compatibility with nav components.
+  hasFor: (_route: string) => boolean;
+  markRead: (_route: string) => void;
 }
 
-const empty = { tasks: 0, leave: 0, calendar: 0, attendance: 0 };
-
 const NotificationContext = createContext<Ctx>({
-  counts: empty,
   hasFor: () => false,
   markRead: () => {},
 });
 
-function playBeep() {
-  try {
-    const Ctor = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!Ctor) return;
-    const ctx = new Ctor();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.connect(g);
-    g.connect(ctx.destination);
-    o.type = "sine";
-    o.frequency.value = 880;
-    g.gain.setValueAtTime(0.0001, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-    o.start();
-    o.stop(ctx.currentTime + 0.4);
-    setTimeout(() => ctx.close().catch(() => {}), 600);
-  } catch {
-    /* ignore */
-  }
-}
-
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const { isAdmin, isStaff, isItManager, loading } = useProfile();
-  const location = useLocation();
-  const [counts, setCounts] = useState<Record<Category, number>>(empty);
-  const startedAt = useRef<number>(Date.now());
+  const { isItManager, loading } = useProfile();
 
-  const storageKey = useMemo(() => (user ? `notif_seen_${user.id}` : null), [user]);
-
-  function bump(cat: Category, important = true) {
-    // Don't bump for the page the user is currently looking at
-    const currentCat = ROUTE_CATEGORY[location.pathname];
-    if (currentCat === cat) return;
-    setCounts((prev) => ({ ...prev, [cat]: prev[cat] + 1 }));
-    if (storageKey) {
-      try {
-        const raw = JSON.parse(localStorage.getItem(storageKey) || "{}");
-        raw[cat] = (raw[cat] || 0) + 1;
-        localStorage.setItem(storageKey, JSON.stringify(raw));
-      } catch { /* ignore */ }
-    }
-    if (important) playBeep();
-  }
-
-  function markRead(route: string) {
-    const cat = ROUTE_CATEGORY[route];
-    if (!cat) return;
-    setCounts((prev) => (prev[cat] === 0 ? prev : { ...prev, [cat]: 0 }));
-    if (storageKey) {
-      try {
-        const raw = JSON.parse(localStorage.getItem(storageKey) || "{}");
-        raw[cat] = 0;
-        localStorage.setItem(storageKey, JSON.stringify(raw));
-      } catch { /* ignore */ }
-    }
-  }
-
-  // Hydrate persisted unread counts on login
-  useEffect(() => {
-    if (!storageKey) return;
-    try {
-      const raw = JSON.parse(localStorage.getItem(storageKey) || "{}");
-      setCounts({
-        tasks: Number(raw.tasks) || 0,
-        leave: Number(raw.leave) || 0,
-        calendar: Number(raw.calendar) || 0,
-        attendance: Number(raw.attendance) || 0,
-      });
-    } catch { /* ignore */ }
-  }, [storageKey]);
-
-  // Auto-mark current route as read whenever user navigates
-  useEffect(() => {
-    markRead(location.pathname);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
-
+  // Register FCM token + foreground listener once per signed-in session.
   useEffect(() => {
     if (!user || loading || isItManager) return;
-    startedAt.current = Date.now();
+    let unsub: (() => void) | undefined;
+    let cancelled = false;
 
-    const channel = supabase.channel(`notif-${user.id}`);
+    (async () => {
+      const token = await requestFcmToken();
+      if (cancelled || !token) return;
 
-    // ===================== STAFF: only own rows =====================
-    if (isStaff) {
-      const mine = `assignee_id=eq.${user.id}`;
-      const mineUser = `user_id=eq.${user.id}`;
+      // Upsert token (token column is UNIQUE).
+      try {
+        await supabase.from("fcm_tokens").upsert(
+          {
+            user_id: user.id,
+            token,
+            user_agent: navigator.userAgent,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "token" },
+        );
+      } catch (e) {
+        console.error("[fcm] token upsert failed", e);
+      }
 
-      // Tasks assigned to me
-      channel.on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "tasks", filter: mine },
-        () => bump("tasks"),
-      );
-      channel.on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "tasks", filter: mine },
-        (payload) => {
-          const row: any = payload.new;
-          const old: any = payload.old;
-          if (row.submission_status === "approved" && old.submission_status !== "approved") {
-            bump("tasks");
-          }
-        },
-      );
+      // Foreground messages: show a toast since the SW won't fire when focused.
+      const messaging = await getMessagingSafe();
+      if (!messaging || cancelled) return;
+      const off = onMessage(messaging, (payload) => {
+        const title = payload.notification?.title || payload.data?.title || "Notification";
+        const body = payload.notification?.body || payload.data?.body || "";
+        toast(title, { description: body });
+      });
+      unsub = off;
+    })();
 
-      // My own leave requests (status changes)
-      channel.on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "leave_requests", filter: mineUser },
-        () => bump("leave", false),
-      );
-      channel.on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "leave_requests", filter: mineUser },
-        (payload) => {
-          const row: any = payload.new;
-          const old: any = payload.old;
-          if (row.status !== old.status) bump("leave");
-        },
-      );
-
-      // Calendar: public/everyone events — server-side filter on visibility.
-      // (assigned_to_all triggers a personal assignment row, handled below.)
-      channel.on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "calendar_events", filter: "visibility=eq.public" },
-        () => bump("calendar", false),
-      );
-
-      // Personal assignments — bump "tasks" (assignments are used for task flow).
-      // No N+1: we no longer fetch the linked event here.
-      channel.on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "calendar_event_assignments", filter: mineUser },
-        () => bump("tasks"),
-      );
-    }
-
-    // ===================== ADMIN / ASSISTANT =====================
-    if (isAdmin) {
-      // Tasks: any new task not created by me, or submitted by staff.
-      channel.on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "tasks" },
-        (payload) => {
-          const row: any = payload.new;
-          if (row.assigned_by !== user.id) bump("tasks");
-        },
-      );
-      channel.on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "tasks" },
-        (payload) => {
-          const row: any = payload.new;
-          const old: any = payload.old;
-          if (row.submission_status === "submitted" && old.submission_status !== "submitted") {
-            bump("tasks");
-          }
-        },
-      );
-
-      // Leave requests from other users
-      channel.on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "leave_requests" },
-        (payload) => {
-          const row: any = payload.new;
-          if (row.user_id !== user.id) bump("leave");
-        },
-      );
-
-      // Calendar events by others
-      channel.on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "calendar_events" },
-        (payload) => {
-          const row: any = payload.new;
-          if (row.created_by !== user.id) bump("calendar");
-        },
-      );
-
-      // Attendance (admin-only awareness)
-      channel.on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "attendance" },
-        (payload) => {
-          const row: any = payload.new;
-          if (row.user_id !== user.id) bump("attendance", false);
-        },
-      );
-      channel.on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "attendance" },
-        (payload) => {
-          const row: any = payload.new;
-          const old: any = payload.old;
-          if (row.user_id !== user.id && !old.check_out_time && row.check_out_time) {
-            bump("attendance", false);
-          }
-        },
-      );
-    }
-
-    channel.subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (unsub) unsub();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loading, isAdmin, isStaff, isItManager]);
-
-  const hasFor = (route: string) => {
-    const cat = ROUTE_CATEGORY[route];
-    return !!cat && counts[cat] > 0;
-  };
+  }, [user, loading, isItManager]);
 
   return (
-    <NotificationContext.Provider value={{ counts, hasFor, markRead }}>
+    <NotificationContext.Provider value={{ hasFor: () => false, markRead: () => {} }}>
       {children}
     </NotificationContext.Provider>
   );
