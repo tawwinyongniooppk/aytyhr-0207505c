@@ -812,7 +812,14 @@ export default function Attendance() {
               Check In
             </Button>
             <Button
-              onClick={handleCheckOut}
+              onClick={() => {
+                const earlyPreview = isWorkingDay ? calcEarlyMinutes(new Date(), expectedCheckOutTime) : 0;
+                if (earlyPreview > 0) {
+                  setConfirmEarlyOpen(true);
+                } else {
+                  handleCheckOut();
+                }
+              }}
               disabled={!checkedIn || checkedOut || checkingOut}
               variant="outline"
               className="active:animate-press"
