@@ -948,6 +948,30 @@ export default function Attendance() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Early check-out confirmation */}
+      <AlertDialog open={confirmEarlyOpen} onOpenChange={setConfirmEarlyOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Early Check-out</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-relaxed text-foreground">
+              {(fullName || "ဆရာ/ဆရာမ")} ရေ ဒီနေ့ အစောကြီး ပြန်တော့မလို့လား? နေရော ကောင်းရဲ့လား? အရေးတကြီး ကိုယ်ရေးကိုယ်တာ ရှိလို့လား? ဂရုစိုက်ပြန်ပါရှင်....
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel>2. မပြန်သေးပါဘူး မှားနှိပ်လိုက်မိတာပါ</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmEarlyOpen(false);
+                handleCheckOut();
+              }}
+              className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
+            >
+              1. ဟုတ်တယ် ပြန်တော့မယ်
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
