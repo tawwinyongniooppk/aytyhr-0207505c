@@ -83,12 +83,17 @@ export default function SalaryPage() {
     const monthStart = getMonthStart();
     const monthEnd = getMonthEnd();
 
-    // FIX: လစာ Date Format အမျိုးမျိုးအတွက် ရှာဖွေနိုင်ရန် ပြင်ဆင်ထားခြင်း
-    const now = new Date();
-    const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-
     const [salRes, attRes, settRes, mdRes] = await Promise.all([
-      supabase.from("salaries").select("*").eq("user_id", user!.id).like("month", `${monthPrefix}%`).maybeSingle(),
+      // FIX 1: Database Date format error မတက်အောင် gte နှင့် lte သုံး၍ လတစ်လလုံးစာ ရှာပေးခြင်း
+      supabase
+        .from("salaries")
+        .select("*")
+        .eq("user_id", user!.id)
+        .gte("month", monthStart)
+        .lte("month", monthEnd)
+        .order("month", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       supabase
         .from("attendance")
         .select("*")
@@ -169,7 +174,7 @@ export default function SalaryPage() {
         date: (md.created_at || "").slice(0, 10),
         type: "manual_deduction",
         description: `${md.title}${md.reason ? ` — ${md.reason}` : ""} (${md.days} day${md.days > 1 ? "s" : ""} leave)`,
-        amount: 0, // leave-balance deduction; no kyats impact here
+        amount: 0,
       });
     }
 
@@ -196,7 +201,6 @@ export default function SalaryPage() {
         <p className="text-muted-foreground text-sm mt-1">{currentMonth}</p>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="border border-border shadow-none">
           <CardContent className="p-4">
@@ -260,7 +264,6 @@ export default function SalaryPage() {
         </Card>
       </div>
 
-      {/* Transaction History */}
       <Card className="border border-border shadow-none">
         <CardHeader>
           <CardTitle className="text-base font-display">Transaction History</CardTitle>
@@ -281,7 +284,7 @@ export default function SalaryPage() {
                     })
                   : "";
                 const isCredit = e.amount > 0;
-                const isDebit = e.amount < 0;
+
                 return (
                   <li key={e.id} className="flex items-center gap-3 py-3">
                     <div className={`shrink-0 h-9 w-9 rounded-full flex items-center justify-center ${meta.bg}`}>
@@ -299,8 +302,11 @@ export default function SalaryPage() {
                       <p className="text-sm font-medium text-foreground truncate mt-0.5">{e.description}</p>
                     </div>
                     <div className="text-right shrink-0">
+                      {/* FIX 2: အစင်းလိုင်း (—) အစား 0 Ks ဟု ရှင်းလင်းစွာ ပြသခြင်း */}
                       {e.amount === 0 ? (
-                        <span className="text-xs font-medium text-foreground/70">—</span>
+                        <span className="text-sm font-semibold text-foreground/70">
+                          0 <span className="text-[10px] font-normal">Ks</span>
+                        </span>
                       ) : (
                         <span className={`text-sm font-semibold ${isCredit ? "text-accent" : "text-destructive"}`}>
                           {isCredit ? "+" : "-"}
