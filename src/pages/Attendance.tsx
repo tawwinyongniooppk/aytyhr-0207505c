@@ -122,6 +122,7 @@ export default function Attendance() {
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [showSalaryModal, setShowSalaryModal] = useState(false);
+  const [confirmEarlyOpen, setConfirmEarlyOpen] = useState(false);
   const [lastDeduction, setLastDeduction] = useState(0);
   const [userRole, setUserRole] = useState<string>("staff");
   const [fullName, setFullName] = useState<string>("");
