@@ -84,16 +84,8 @@ export default function SalaryPage() {
     const monthEnd = getMonthEnd();
 
     const [salRes, attRes, settRes, mdRes] = await Promise.all([
-      // FIX 1: Database Date format error မတက်အောင် gte နှင့် lte သုံး၍ လတစ်လလုံးစာ ရှာပေးခြင်း
-      supabase
-        .from("salaries")
-        .select("*")
-        .eq("user_id", user!.id)
-        .gte("month", monthStart)
-        .lte("month", monthEnd)
-        .order("month", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+      // FIX 1: လစာ 0 ဖြစ်သွားခြင်းကို ဖြေရှင်းရန် မူလ Query အဟောင်းအတိုင်း ပြန်ထားခြင်း
+      supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
       supabase
         .from("attendance")
         .select("*")
