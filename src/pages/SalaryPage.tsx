@@ -14,10 +14,28 @@ interface LedgerEntry {
 }
 
 const TYPE_META: Record<LedgerType, { label: string; icon: any; bg: string; fg: string; badge: string }> = {
-  salary: { label: "Salary", icon: Banknote, bg: "bg-secondary/10", fg: "text-secondary", badge: "bg-secondary/10 text-secondary" },
+  salary: {
+    label: "Salary",
+    icon: Banknote,
+    bg: "bg-secondary/10",
+    fg: "text-secondary",
+    badge: "bg-secondary/10 text-secondary",
+  },
   bonus: { label: "Bonus", icon: Gift, bg: "bg-accent/10", fg: "text-accent", badge: "bg-accent/10 text-accent" },
-  auto_deduction: { label: "Auto Deduction", icon: TrendingDown, bg: "bg-destructive/10", fg: "text-destructive", badge: "bg-destructive/10 text-destructive" },
-  manual_deduction: { label: "Manual Deduction", icon: Minus, bg: "bg-destructive/10", fg: "text-destructive", badge: "bg-destructive/15 text-destructive" },
+  auto_deduction: {
+    label: "Auto Deduction",
+    icon: TrendingDown,
+    bg: "bg-destructive/10",
+    fg: "text-destructive",
+    badge: "bg-destructive/10 text-destructive",
+  },
+  manual_deduction: {
+    label: "Manual Deduction",
+    icon: Minus,
+    bg: "bg-destructive/10",
+    fg: "text-destructive",
+    badge: "bg-destructive/15 text-destructive",
+  },
 };
 
 interface SalaryData {
@@ -65,11 +83,25 @@ export default function SalaryPage() {
     const monthStart = getMonthStart();
     const monthEnd = getMonthEnd();
 
+    // FIX: လစာ Date Format အမျိုးမျိုးအတွက် ရှာဖွေနိုင်ရန် ပြင်ဆင်ထားခြင်း
+    const now = new Date();
+    const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
     const [salRes, attRes, settRes, mdRes] = await Promise.all([
-      supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
-      supabase.from("attendance").select("*").eq("user_id", user!.id).gte("date", monthStart).lte("date", monthEnd).order("date", { ascending: false }),
+      supabase.from("salaries").select("*").eq("user_id", user!.id).like("month", `${monthPrefix}%`).maybeSingle(),
+      supabase
+        .from("attendance")
+        .select("*")
+        .eq("user_id", user!.id)
+        .gte("date", monthStart)
+        .lte("date", monthEnd)
+        .order("date", { ascending: false }),
       supabase.from("app_settings").select("*").eq("key", "deduction_rate_per_minute").maybeSingle(),
-      supabase.from("leave_manual_deductions").select("*").eq("user_id", user!.id).order("created_at", { ascending: false }),
+      supabase
+        .from("leave_manual_deductions")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false }),
     ]);
 
     if (salRes.data) setSalary(salRes.data as unknown as SalaryData);
@@ -149,7 +181,9 @@ export default function SalaryPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div><h1 className="text-2xl font-bold font-display">My Salary & Bonus</h1></div>
+        <div>
+          <h1 className="text-2xl font-bold font-display">My Salary & Bonus</h1>
+        </div>
         <p className="text-muted-foreground text-sm">Loading...</p>
       </div>
     );
@@ -170,7 +204,10 @@ export default function SalaryPage() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">Base Salary</span>
             </div>
-            <p className="text-lg font-bold font-display">{(salary?.base_salary ?? 0).toLocaleString()} <span className="text-xs font-normal text-muted-foreground">Ks</span></p>
+            <p className="text-lg font-bold font-display">
+              {(salary?.base_salary ?? 0).toLocaleString()}{" "}
+              <span className="text-xs font-normal text-muted-foreground">Ks</span>
+            </p>
           </CardContent>
         </Card>
         <Card className="border border-accent/30 shadow-none bg-accent/5">
@@ -179,7 +216,10 @@ export default function SalaryPage() {
               <DollarSign className="h-4 w-4 text-accent" />
               <span className="text-xs text-muted-foreground">Bonus</span>
             </div>
-            <p className="text-lg font-bold font-display text-accent">+{(salary?.bonus ?? 0).toLocaleString()} <span className="text-xs font-normal text-muted-foreground">Ks</span></p>
+            <p className="text-lg font-bold font-display text-accent">
+              +{(salary?.bonus ?? 0).toLocaleString()}{" "}
+              <span className="text-xs font-normal text-muted-foreground">Ks</span>
+            </p>
           </CardContent>
         </Card>
         <Card className="border border-destructive/30 shadow-none">
@@ -189,10 +229,14 @@ export default function SalaryPage() {
               <span className="text-xs text-muted-foreground">Deductions</span>
             </div>
             <p className="text-lg font-bold font-display text-destructive">
-              -{((salary?.total_deductions ?? 0) + (salary?.manual_deduction ?? 0)).toLocaleString()} <span className="text-xs font-normal text-muted-foreground">Ks</span>
+              -{((salary?.total_deductions ?? 0) + (salary?.manual_deduction ?? 0)).toLocaleString()}{" "}
+              <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
             {salary?.manual_deduction ? (
-              <p className="text-[10px] text-muted-foreground mt-1 truncate">incl. manual: {salary.manual_deduction.toLocaleString()}{salary.deduction_reason ? ` (${salary.deduction_reason})` : ""}</p>
+              <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                incl. manual: {salary.manual_deduction.toLocaleString()}
+                {salary.deduction_reason ? ` (${salary.deduction_reason})` : ""}
+              </p>
             ) : null}
           </CardContent>
         </Card>
@@ -203,7 +247,13 @@ export default function SalaryPage() {
               <span className="text-xs text-muted-foreground">Final Salary</span>
             </div>
             <p className="text-lg font-bold font-display text-secondary">
-              {Math.max(0, (salary?.base_salary ?? 0) + (salary?.bonus ?? 0) - (salary?.total_deductions ?? 0) - (salary?.manual_deduction ?? 0)).toLocaleString()}
+              {Math.max(
+                0,
+                (salary?.base_salary ?? 0) +
+                  (salary?.bonus ?? 0) -
+                  (salary?.total_deductions ?? 0) -
+                  (salary?.manual_deduction ?? 0),
+              ).toLocaleString()}
               <span className="text-xs font-normal text-muted-foreground"> Ks</span>
             </p>
           </CardContent>
@@ -224,7 +274,11 @@ export default function SalaryPage() {
                 const meta = TYPE_META[e.type];
                 const Icon = meta.icon;
                 const dateLabel = e.date
-                  ? new Date(e.date + "T00:00:00").toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })
+                  ? new Date(e.date + "T00:00:00").toLocaleDateString("en-US", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })
                   : "";
                 const isCredit = e.amount > 0;
                 const isDebit = e.amount < 0;
@@ -235,7 +289,9 @@ export default function SalaryPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${meta.badge}`}>
+                        <span
+                          className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${meta.badge}`}
+                        >
                           {meta.label}
                         </span>
                         <span className="text-xs text-foreground/70">{dateLabel}</span>
@@ -247,7 +303,8 @@ export default function SalaryPage() {
                         <span className="text-xs font-medium text-foreground/70">—</span>
                       ) : (
                         <span className={`text-sm font-semibold ${isCredit ? "text-accent" : "text-destructive"}`}>
-                          {isCredit ? "+" : "-"}{Math.abs(e.amount).toLocaleString()} <span className="text-[10px] font-normal">Ks</span>
+                          {isCredit ? "+" : "-"}
+                          {Math.abs(e.amount).toLocaleString()} <span className="text-[10px] font-normal">Ks</span>
                         </span>
                       )}
                     </div>
