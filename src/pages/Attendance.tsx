@@ -4,6 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogIn, LogOut, Clock, AlertTriangle, DollarSign, Wallet, MapPin, ShieldCheck, ShieldX, RefreshCw, Loader2, Volume2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -112,6 +122,7 @@ export default function Attendance() {
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
   const [showSalaryModal, setShowSalaryModal] = useState(false);
+  const [confirmEarlyOpen, setConfirmEarlyOpen] = useState(false);
   const [lastDeduction, setLastDeduction] = useState(0);
   const [userRole, setUserRole] = useState<string>("staff");
   const [fullName, setFullName] = useState<string>("");
@@ -801,7 +812,14 @@ export default function Attendance() {
               Check In
             </Button>
             <Button
-              onClick={handleCheckOut}
+              onClick={() => {
+                const earlyPreview = isWorkingDay ? calcEarlyMinutes(new Date(), expectedCheckOutTime) : 0;
+                if (earlyPreview > 0) {
+                  setConfirmEarlyOpen(true);
+                } else {
+                  handleCheckOut();
+                }
+              }}
               disabled={!checkedIn || checkedOut || checkingOut}
               variant="outline"
               className="active:animate-press"
@@ -930,6 +948,30 @@ export default function Attendance() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Early check-out confirmation */}
+      <AlertDialog open={confirmEarlyOpen} onOpenChange={setConfirmEarlyOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Early Check-out</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-relaxed text-foreground">
+              {(fullName || "ဆရာ/ဆရာမ")} ရေ ဒီနေ့ အစောကြီး ပြန်တော့မလို့လား? နေရော ကောင်းရဲ့လား? အရေးတကြီး ကိုယ်ရေးကိုယ်တာ ရှိလို့လား? ဂရုစိုက်ပြန်ပါရှင်....
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel>2. မပြန်သေးပါဘူး မှားနှိပ်လိုက်မိတာပါ</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmEarlyOpen(false);
+                handleCheckOut();
+              }}
+              className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
+            >
+              1. ဟုတ်တယ် ပြန်တော့မယ်
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
