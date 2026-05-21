@@ -20,58 +20,70 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const { user } = useAuth();
   const { isItManager, loading } = useProfile();
 
-  // အကြိမ်ကြိမ် DB ထဲ သွားမသိမ်းအောင် Token ကို မှတ်ထားမယ့် Ref
-  const lastSyncedTokenRef = useRef<string | null>(null);
+  // Persist across remounts within the tab so we never re-upsert the same token.
+  const SYNC_KEY = "fcm_synced_token";
+  const inFlightRef = useRef(false);
 
-  // Object အစား Primitive String ကိုပဲ သုံးဖို့ id ကို သီးသန့်ထုတ်ယူပါတယ်
   const userId = user?.id;
 
   useEffect(() => {
     if (!userId || loading || isItManager) return;
     if (!isPushEnabled()) return;
+    if (inFlightRef.current) return;
+
     let unsub: (() => void) | undefined;
     let cancelled = false;
+    inFlightRef.current = true;
 
     (async () => {
-      const token = await requestFcmToken();
-      if (cancelled || !token) return;
-
-      // အကယ်၍ ဒီ Token ကို အခု Session ထဲမှာ သိမ်းပြီးသားဆိုရင် DB Query ထပ်မလုပ်ဘဲ ကျော်သွားမယ်
-      if (lastSyncedTokenRef.current === token) return;
-
       try {
-        await supabase.from("fcm_tokens").upsert(
-          {
-            user_id: userId,
-            token,
-            user_agent: navigator.userAgent,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "token" },
-        );
+        const token = await requestFcmToken();
+        if (cancelled || !token) return;
 
-        // သိမ်းဆည်းခြင်း အောင်မြင်ရင် Ref ထဲမှာ မှတ်သားထားလိုက်မယ်
-        lastSyncedTokenRef.current = token;
-        console.log("[fcm] Token synced successfully");
-      } catch (e) {
-        console.error("[fcm] token upsert failed", e);
+        const cacheKey = `${SYNC_KEY}:${userId}`;
+        const alreadySynced =
+          typeof sessionStorage !== "undefined" && sessionStorage.getItem(cacheKey) === token;
+
+        if (!alreadySynced) {
+          try {
+            await supabase.from("fcm_tokens").upsert(
+              {
+                user_id: userId,
+                token,
+                user_agent: navigator.userAgent,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "token" },
+            );
+            try {
+              sessionStorage.setItem(cacheKey, token);
+            } catch {
+              /* ignore */
+            }
+            console.log("[fcm] Token synced");
+          } catch (e) {
+            console.error("[fcm] token upsert failed", e);
+          }
+        }
+
+        const messaging = await getMessagingSafe();
+        if (!messaging || cancelled) return;
+        unsub = onMessage(messaging, (payload) => {
+          const title = payload.notification?.title || payload.data?.title || "Notification";
+          const body = payload.notification?.body || payload.data?.body || "";
+          toast(title, { description: body });
+        });
+      } finally {
+        if (cancelled) inFlightRef.current = false;
       }
-
-      const messaging = await getMessagingSafe();
-      if (!messaging || cancelled) return;
-      const off = onMessage(messaging, (payload) => {
-        const title = payload.notification?.title || payload.data?.title || "Notification";
-        const body = payload.notification?.body || payload.data?.body || "";
-        toast(title, { description: body });
-      });
-      unsub = off;
     })();
 
     return () => {
       cancelled = true;
+      inFlightRef.current = false;
       if (unsub) unsub();
     };
-  }, [userId, loading, isItManager]); // user နေရာမှာ userId ကို ပြောင်းလဲထားပါတယ်
+  }, [userId, loading, isItManager]);
 
   return (
     <NotificationContext.Provider value={{ hasFor: () => false, markRead: () => {} }}>
