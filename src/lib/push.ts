@@ -53,11 +53,12 @@ export async function getAdminUserIds(): Promise<string[]> {
   if (cachedAdminIds && now - cachedAdminIds.ts < ADMIN_CACHE_MS) {
     return cachedAdminIds.ids;
   }
-  const { data } = await supabase
-    .from("profiles")
-    .select("id, role")
-    .in("role", ["admin", "assistant"]);
-  const ids = ((data as { id: string }[]) || []).map((r) => r.id);
+  // Use the SECURITY DEFINER RPC so non-admin staff can still resolve
+  // admin IDs without direct SELECT access to other users' profile rows.
+  const { data } = await supabase.rpc("list_public_profiles");
+  const ids = ((data as { id: string; role: string }[]) || [])
+    .filter((r) => r.role === "admin" || r.role === "assistant")
+    .map((r) => r.id);
   cachedAdminIds = { ids, ts: now };
   return ids;
 }
