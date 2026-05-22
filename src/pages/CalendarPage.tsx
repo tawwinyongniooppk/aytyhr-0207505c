@@ -251,11 +251,6 @@ export default function CalendarPage() {
   const ASSIGN_WINDOWS: Array<[number, number]> = [
     [1, 3], [8, 10], [15, 17], [22, 24],
   ];
-  function isAllowedAssignDate(dateStr: string) {
-    if (!dateStr) return false;
-    const d = new Date(dateStr + "T00:00:00");
-    return ALLOWED_ASSIGN_DAYS.includes(d.getDate());
-  }
   function monthBoundsFor(dateStr: string) {
     const monthStart = (dateStr || new Date().toISOString().split("T")[0]).slice(0, 7) + "-01";
     const d = new Date(monthStart + "T00:00:00");
