@@ -82,42 +82,42 @@ export default function Dashboard() {
     async function loadData() {
       setLoading(true);
       try {
-        // Optimized: Removed the redundant 'today' query since 'today' is already inside the 'month' range.
-        const [profilesRes, monthAttRes, leaveRes, settingsRes, pendingRes, completedRes] = await Promise.all([
-          supabase.rpc("admin_list_profiles"),
-          supabase
-            .from("attendance")
-            .select("id,user_id,date,check_in_time,check_out_time,late_minutes,early_minutes")
-            .gte("date", monthStart)
-            .lte("date", monthEnd),
-          supabase
-            .from("leave_requests")
-            .select("id,user_id,date,type,status,reason,created_at")
-            .gte("date", monthStart)
-            .lte("date", monthEnd),
-          supabase.from("app_settings").select("value").eq("key", "deduction_rate").maybeSingle(),
-          supabase
-            .from("tasks")
-            .select("id", { count: "exact", head: true })
-            .eq("completed", false)
-            .gte("created_at", monthStart),
-          supabase
-            .from("tasks")
-            .select("id", { count: "exact", head: true })
-            .eq("completed", true)
-            .gte("created_at", monthStart),
-        ]);
+        const [profilesRes, todayAttRes, monthAttRes, leaveRes, settingsRes, pendingRes, completedRes] =
+          await Promise.all([
+            supabase.rpc("admin_list_profiles"),
+            supabase
+              .from("attendance")
+              .select("id,user_id,date,check_in_time,check_out_time,late_minutes,early_minutes")
+              .eq("date", today),
+            supabase
+              .from("attendance")
+              .select("id,user_id,date,check_in_time,check_out_time,late_minutes,early_minutes")
+              .gte("date", monthStart)
+              .lte("date", monthEnd),
+            supabase
+              .from("leave_requests")
+              .select("id,user_id,date,type,status,reason,created_at")
+              .gte("date", monthStart)
+              .lte("date", monthEnd),
+            supabase.from("app_settings").select("value").eq("key", "deduction_rate").maybeSingle(),
+            supabase
+              .from("tasks")
+              .select("id", { count: "exact", head: false })
+              .eq("completed", false)
+              .gte("created_at", monthStart),
+            supabase
+              .from("tasks")
+              .select("id", { count: "exact", head: false })
+              .eq("completed", true)
+              .gte("created_at", monthStart),
+          ]);
 
         if (cancelled) return;
 
-        const monthData = monthAttRes.data ?? [];
-
         setProfiles(profilesRes.data ?? []);
-        setMonthAttendance(monthData);
-        // Filter today's attendance directly from the monthly data to save a DB fetch
-        setTodayAttendance(monthData.filter((a) => a.date === today));
+        setTodayAttendance(todayAttRes.data ?? []);
+        setMonthAttendance(monthAttRes.data ?? []);
         setLeaveRequests(leaveRes.data ?? []);
-
         if (settingsRes.data?.value) setDeductionRate(Number(settingsRes.data.value));
         setPendingTasks(pendingRes.count ?? 0);
         setCompletedTasks(completedRes.count ?? 0);
@@ -132,67 +132,43 @@ export default function Dashboard() {
     };
   }, [user, today, monthStart, monthEnd]);
 
-  // Memoize data processing so we don't recalculate arrays on every render
   const profileMap = useMemo(
     () => Object.fromEntries(profiles.map((p) => [p.id, p])) as Record<string, Profile>,
     [profiles],
   );
 
   const totalStaff = profiles.length;
+  const presentToday = todayAttendance.filter((a) => a.check_in_time).length;
+  const lateToday = todayAttendance.filter((a) => a.late_minutes > 0).length;
+  const todayLeaves = leaveRequests.filter((l) => l.date === today && l.status === "approved" && l.type === "leave");
+  const onLeaveToday = todayLeaves.length;
 
-  const { presentToday, lateToday, todayDeductions } = useMemo(() => {
-    let present = 0;
-    let late = 0;
-    let deductions = 0;
-    todayAttendance.forEach((a) => {
-      if (a.check_in_time) present++;
-      if (a.late_minutes > 0) late++;
-      deductions += (a.late_minutes + a.early_minutes) * deductionRate;
-    });
-    return { presentToday: present, lateToday: late, todayDeductions: deductions };
-  }, [todayAttendance, deductionRate]);
+  const todayDeductions = todayAttendance.reduce(
+    (sum, a) => sum + (a.late_minutes + a.early_minutes) * deductionRate,
+    0,
+  );
 
-  const { onLeaveToday, pendingRequests, approvedToday, rejectedToday } = useMemo(() => {
-    const todayLeaves = leaveRequests.filter((l) => l.date === today && l.status === "approved" && l.type === "leave");
-    const pending = leaveRequests.filter((l) => l.status === "pending");
-    const approved = leaveRequests.filter((l) => l.date === today && l.status === "approved");
-    const rejected = leaveRequests.filter((l) => l.date === today && l.status === "rejected");
-    return {
-      onLeaveToday: todayLeaves.length,
-      pendingRequests: pending,
-      approvedToday: approved,
-      rejectedToday: rejected,
-    };
-  }, [leaveRequests, today]);
+  const pendingRequests = leaveRequests.filter((l) => l.status === "pending");
+  const approvedToday = leaveRequests.filter((l) => l.date === today && l.status === "approved");
+  const rejectedToday = leaveRequests.filter((l) => l.date === today && l.status === "rejected");
 
-  const { monthDeductions, totalAttendanceDays, totalLateCases, topDeductions } = useMemo(() => {
-    let totalDeds = 0;
-    let attendanceDays = 0;
-    let lateCases = 0;
-    const deductionByUser: Record<string, number> = {};
+  const monthDeductions = monthAttendance.reduce(
+    (sum, a) => sum + (a.late_minutes + a.early_minutes) * deductionRate,
+    0,
+  );
+  const totalAttendanceDays = monthAttendance.filter((a) => a.check_in_time).length;
+  const totalLateCases = monthAttendance.filter((a) => a.late_minutes > 0).length;
 
-    monthAttendance.forEach((a) => {
-      if (a.check_in_time) attendanceDays++;
-      if (a.late_minutes > 0) lateCases++;
+  const deductionByUser: Record<string, number> = {};
+  monthAttendance.forEach((a) => {
+    deductionByUser[a.user_id] = (deductionByUser[a.user_id] || 0) + (a.late_minutes + a.early_minutes) * deductionRate;
+  });
 
-      const userDeduction = (a.late_minutes + a.early_minutes) * deductionRate;
-      totalDeds += userDeduction;
-      deductionByUser[a.user_id] = (deductionByUser[a.user_id] || 0) + userDeduction;
-    });
-
-    const topDeds: TopDeduction[] = Object.entries(deductionByUser)
-      .map(([uid, total]) => ({ name: profileMap[uid]?.full_name || "Unknown", total }))
-      .filter((d) => d.total > 0)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 3);
-
-    return {
-      monthDeductions: totalDeds,
-      totalAttendanceDays: attendanceDays,
-      totalLateCases: lateCases,
-      topDeductions: topDeds,
-    };
-  }, [monthAttendance, deductionRate, profileMap]);
+  const topDeductions: TopDeduction[] = Object.entries(deductionByUser)
+    .map(([uid, total]) => ({ name: profileMap[uid]?.full_name || "Unknown", total }))
+    .filter((d) => d.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 3);
 
   const summaryCards = [
     { label: "Total Staff", value: totalStaff, icon: Users, accent: "text-primary", to: "/staff" },
