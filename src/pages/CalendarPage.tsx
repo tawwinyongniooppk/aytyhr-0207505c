@@ -90,9 +90,27 @@ export default function CalendarPage() {
     return d.toISOString().split("T")[0];
   }
 
+  // Deadline rules (per spec, based on the task's start month):
+  //   weekly:   start + 6 days  (start + 4 in February)
+  //   biweekly: start + 13 days (start + 11 in February)
   function computeDeadline(startDate: string, frequency: "weekly" | "biweekly") {
     if (!startDate) return "";
-    return addDaysISO(startDate, frequency === "weekly" ? 6 : 13);
+    const isFeb = new Date(startDate + "T00:00:00").getMonth() === 1;
+    const offset =
+      frequency === "weekly"
+        ? (isFeb ? 4 : 6)
+        : (isFeb ? 11 : 13);
+    return addDaysISO(startDate, offset);
+  }
+
+  // Date-picker bounds: only the current month is selectable (today .. end of month)
+  function todayISO() {
+    return new Date().toISOString().split("T")[0];
+  }
+  function currentMonthEndISO() {
+    const now = new Date();
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return last.toISOString().split("T")[0];
   }
 
   const year = currentDate.getFullYear();
@@ -217,7 +235,7 @@ export default function CalendarPage() {
       const roles = isAssistant ? ["staff"] : ["staff", "assistant"];
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name, role, sequence")
+        .select("id, full_name, role, sequence, work_schedule")
         .in("role", roles)
         .order("sequence", { ascending: true })
         .order("full_name", { ascending: true });
@@ -233,11 +251,6 @@ export default function CalendarPage() {
   const ASSIGN_WINDOWS: Array<[number, number]> = [
     [1, 3], [8, 10], [15, 17], [22, 24],
   ];
-  function isAllowedAssignDate(dateStr: string) {
-    if (!dateStr) return false;
-    const d = new Date(dateStr + "T00:00:00");
-    return ALLOWED_ASSIGN_DAYS.includes(d.getDate());
-  }
   function monthBoundsFor(dateStr: string) {
     const monthStart = (dateStr || new Date().toISOString().split("T")[0]).slice(0, 7) + "-01";
     const d = new Date(monthStart + "T00:00:00");
@@ -361,10 +374,13 @@ export default function CalendarPage() {
       toast({ title: "ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ", variant: "destructive" });
       return;
     }
-    if (!isAllowedAssignDate(form.start_date)) {
+
+    // (3) Restrict to current month only — no future months allowed.
+    const todayStr = todayISO();
+    const monthEndStr = currentMonthEndISO();
+    if (form.start_date < todayStr || form.start_date > monthEndStr) {
       toast({
-        title: "Task assignment not allowed on this date",
-        description: "Tasks can only be assigned on days 1–3, 8–10, 15–17, and 22–24 of each month.",
+        title: "Error: Start date must be within the current month.",
         variant: "destructive",
       });
       return;
@@ -373,7 +389,6 @@ export default function CalendarPage() {
     const deadline = computeDeadline(form.start_date, form.frequency);
 
     // Per-assignee monthly cap (weekly=1 weighted unit, biweekly=2; cap 4/month).
-    // No global per-creator cap — each member is tracked independently.
     const newWeight = form.frequency === "weekly" ? 1 : 2;
     const isEveryone = form.assignMode === "everyone";
     const candidateIds = isEveryone ? staffList.map((s) => s.id) : form.assignedIds;
@@ -385,6 +400,28 @@ export default function CalendarPage() {
       toast({ title: "Pick exactly one staff member for this mode", variant: "destructive" });
       return;
     }
+
+    // (3a) Start day must not fall on an assignee's Off Day.
+    const startWeekday = WEEKDAY_NAMES[new Date(form.start_date + "T00:00:00").getDay()];
+    const nameById: Record<string, string> = Object.fromEntries(
+      staffList.map((s) => [s.id, s.full_name || "Unnamed"]),
+    );
+    const offBlocked = candidateIds.filter((id) => {
+      const sched = staffList.find((s) => s.id === id)?.work_schedule as
+        | Record<string, { active: boolean }>
+        | undefined;
+      // If the day is explicitly marked inactive on their schedule → off day.
+      return sched?.[startWeekday]?.active === false;
+    });
+    if (offBlocked.length > 0) {
+      toast({
+        title: "Error: Cannot assign task. Start date falls on an Off Day.",
+        description: offBlocked.map((id) => nameById[id] || "user").join(", "),
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Refresh load for the target month before validating.
     await loadAssignmentLoad(form.start_date);
     const { monthStart: ms, nextMonthStart: nms } = monthBoundsFor(form.start_date);
@@ -397,12 +434,14 @@ export default function CalendarPage() {
     const freshList = (freshEvents as { id: string; start_date: string; end_date: string }[]) || [];
     const freshMap = new Map(freshList.map((e) => [e.id, e]));
     const freshLoad: Record<string, number> = {};
+    let assRows: Array<{ user_id: string; event_id: string; submission_status: string }> = [];
     if (freshList.length) {
       const { data: ass } = await supabase
         .from("calendar_event_assignments")
-        .select("user_id, event_id")
+        .select("user_id, event_id, submission_status")
         .in("event_id", freshList.map((e) => e.id));
-      for (const a of (ass as { user_id: string; event_id: string }[]) || []) {
+      assRows = (ass as any) || [];
+      for (const a of assRows) {
         const ev = freshMap.get(a.event_id);
         if (!ev) continue;
         const days = Math.round(
@@ -411,7 +450,29 @@ export default function CalendarPage() {
         freshLoad[a.user_id] = (freshLoad[a.user_id] || 0) + (days >= 13 ? 2 : 1);
       }
     }
-    const nameById: Record<string, string> = Object.fromEntries(staffList.map((s) => [s.id, s.full_name || "Unnamed"]));
+
+    // (2) Date-range overlap with existing INCOMPLETE tasks for any selected assignee.
+    // A task is "incomplete" until its assignment row reaches 'approved'.
+    const newStart = form.start_date;
+    const newEnd = deadline;
+    const overlappedNames = new Set<string>();
+    for (const a of assRows) {
+      if (!candidateIds.includes(a.user_id)) continue;
+      if (a.submission_status === "approved") continue; // 4/4 = fully complete
+      const ev = freshMap.get(a.event_id);
+      if (!ev) continue;
+      const overlaps = ev.start_date <= newEnd && ev.end_date >= newStart;
+      if (overlaps) overlappedNames.add(nameById[a.user_id] || "user");
+    }
+    if (overlappedNames.size > 0) {
+      toast({
+        title: "Error: Cannot assign task. Dates overlap with existing or incomplete tasks.",
+        description: `Conflict for: ${Array.from(overlappedNames).join(", ")}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const blocked = candidateIds.filter((id) => (freshLoad[id] || 0) + newWeight > MONTHLY_WEIGHT_CAP);
     if (blocked.length > 0) {
       toast({
@@ -421,6 +482,7 @@ export default function CalendarPage() {
       });
       return;
     }
+
 
     setSubmitting(true);
     try {
@@ -543,20 +605,24 @@ export default function CalendarPage() {
                   <Input
                     type="date"
                     value={form.start_date}
+                    min={todayISO()}
+                    max={currentMonthEndISO()}
                     onChange={(e) => setForm({ ...form, start_date: e.target.value })}
                   />
                   {form.start_date && isHolidayDate(form.start_date) && (
                     <p className="text-xs text-destructive mt-1">ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ</p>
                   )}
-                  {form.start_date && !isHolidayDate(form.start_date) && !isAllowedAssignDate(form.start_date) && (
-                    <p className="text-xs text-destructive mt-1">
-                      Task assignment is only allowed on days 1–3, 8–10, 15–17, and 22–24 of each month.
-                    </p>
-                  )}
+                  {form.start_date &&
+                    (form.start_date < todayISO() || form.start_date > currentMonthEndISO()) && (
+                      <p className="text-xs text-destructive mt-1">
+                        Tasks can only be assigned within the current month.
+                      </p>
+                    )}
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Allowed days: 1–3, 8–10, 15–17, 22–24.
+                    Any day of the current month is allowed, as long as it's not an Off Day or overlapping with an existing task.
                   </p>
                 </div>
+
                 <div>
                   <Label>Frequency</Label>
                   <Select value={form.frequency} onValueChange={(v) => setForm({ ...form, frequency: v as "weekly" | "biweekly" })}>
@@ -662,7 +728,14 @@ export default function CalendarPage() {
                 </div>
                 <Button
                   onClick={handleCreate}
-                  disabled={submitting || !form.title || !form.start_date || isHolidayDate(form.start_date) || !isAllowedAssignDate(form.start_date)}
+                  disabled={
+                    submitting ||
+                    !form.title ||
+                    !form.start_date ||
+                    isHolidayDate(form.start_date) ||
+                    form.start_date < todayISO() ||
+                    form.start_date > currentMonthEndISO()
+                  }
                   className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90"
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
