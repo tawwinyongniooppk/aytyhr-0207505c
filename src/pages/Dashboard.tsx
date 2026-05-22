@@ -82,44 +82,42 @@ export default function Dashboard() {
     async function loadData() {
       setLoading(true);
       try {
-        // Fetch data concurrently.
-        // Note: Changed head: false to head: true for task counts to drastically reduce DB payload.
-        const [profilesRes, todayAttRes, monthAttRes, leaveRes, settingsRes, pendingRes, completedRes] =
-          await Promise.all([
-            supabase.rpc("admin_list_profiles"),
-            supabase
-              .from("attendance")
-              .select("id,user_id,date,check_in_time,check_out_time,late_minutes,early_minutes")
-              .eq("date", today),
-            supabase
-              .from("attendance")
-              .select("id,user_id,date,check_in_time,check_out_time,late_minutes,early_minutes")
-              .gte("date", monthStart)
-              .lte("date", monthEnd),
-            supabase
-              .from("leave_requests")
-              .select("id,user_id,date,type,status,reason,created_at")
-              .gte("date", monthStart)
-              .lte("date", monthEnd),
-            supabase.from("app_settings").select("value").eq("key", "deduction_rate").maybeSingle(),
-            supabase
-              .from("tasks")
-              .select("id", { count: "exact", head: true })
-              .eq("completed", false)
-              .gte("created_at", monthStart),
-            supabase
-              .from("tasks")
-              .select("id", { count: "exact", head: true })
-              .eq("completed", true)
-              .gte("created_at", monthStart),
-          ]);
+        // Optimized: Removed the redundant 'today' query since 'today' is already inside the 'month' range.
+        const [profilesRes, monthAttRes, leaveRes, settingsRes, pendingRes, completedRes] = await Promise.all([
+          supabase.rpc("admin_list_profiles"),
+          supabase
+            .from("attendance")
+            .select("id,user_id,date,check_in_time,check_out_time,late_minutes,early_minutes")
+            .gte("date", monthStart)
+            .lte("date", monthEnd),
+          supabase
+            .from("leave_requests")
+            .select("id,user_id,date,type,status,reason,created_at")
+            .gte("date", monthStart)
+            .lte("date", monthEnd),
+          supabase.from("app_settings").select("value").eq("key", "deduction_rate").maybeSingle(),
+          supabase
+            .from("tasks")
+            .select("id", { count: "exact", head: true })
+            .eq("completed", false)
+            .gte("created_at", monthStart),
+          supabase
+            .from("tasks")
+            .select("id", { count: "exact", head: true })
+            .eq("completed", true)
+            .gte("created_at", monthStart),
+        ]);
 
         if (cancelled) return;
 
+        const monthData = monthAttRes.data ?? [];
+
         setProfiles(profilesRes.data ?? []);
-        setTodayAttendance(todayAttRes.data ?? []);
-        setMonthAttendance(monthAttRes.data ?? []);
+        setMonthAttendance(monthData);
+        // Filter today's attendance directly from the monthly data to save a DB fetch
+        setTodayAttendance(monthData.filter((a) => a.date === today));
         setLeaveRequests(leaveRes.data ?? []);
+
         if (settingsRes.data?.value) setDeductionRate(Number(settingsRes.data.value));
         setPendingTasks(pendingRes.count ?? 0);
         setCompletedTasks(completedRes.count ?? 0);
