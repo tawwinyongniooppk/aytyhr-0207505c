@@ -1,8 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2, ListChecks, ChevronRight } from "lucide-react";
+import {
+  Users,
+  Clock,
+  AlertTriangle,
+  FileText,
+  TrendingDown,
+  CalendarCheck,
+  Loader2,
+  ListChecks,
+  ChevronRight,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -13,8 +23,6 @@ import { useNotifications } from "@/hooks/useNotifications";
 interface Profile {
   id: string;
   full_name: string;
-  role: string;
-  base_salary: number;
 }
 
 interface AttendanceRow {
@@ -25,7 +33,6 @@ interface AttendanceRow {
   check_out_time: string | null;
   late_minutes: number;
   early_minutes: number;
-  deduction_applied: boolean;
 }
 
 interface LeaveRow {
@@ -48,6 +55,7 @@ export default function Dashboard() {
   const { canViewSalary } = useProfile();
   const { hasFor } = useNotifications();
   const navigate = useNavigate();
+
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRow[]>([]);
   const [monthAttendance, setMonthAttendance] = useState<AttendanceRow[]>([]);
@@ -57,67 +65,105 @@ export default function Dashboard() {
   const [deductionRate, setDeductionRate] = useState(200);
   const [loading, setLoading] = useState(true);
 
-  const today = new Date().toISOString().split("T")[0];
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
-  const monthEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split("T")[0];
+  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const monthStart = useMemo(
+    () => new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0],
+    [],
+  );
+  const monthEnd = useMemo(
+    () => new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split("T")[0],
+    [],
+  );
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
+
+    async function loadData() {
+      setLoading(true);
+      try {
+        const [profilesRes, todayAttRes, monthAttRes, leaveRes, settingsRes, pendingRes, completedRes] =
+          await Promise.all([
+            supabase.rpc("admin_list_profiles"),
+            supabase
+              .from("attendance")
+              .select("id,user_id,date,check_in_time,check_out_time,late_minutes,early_minutes")
+              .eq("date", today),
+            supabase
+              .from("attendance")
+              .select("id,user_id,date,check_in_time,check_out_time,late_minutes,early_minutes")
+              .gte("date", monthStart)
+              .lte("date", monthEnd),
+            supabase
+              .from("leave_requests")
+              .select("id,user_id,date,type,status,reason,created_at")
+              .gte("date", monthStart)
+              .lte("date", monthEnd),
+            supabase.from("app_settings").select("value").eq("key", "deduction_rate").maybeSingle(),
+            supabase
+              .from("tasks")
+              .select("id", { count: "exact", head: false })
+              .eq("completed", false)
+              .gte("created_at", monthStart),
+            supabase
+              .from("tasks")
+              .select("id", { count: "exact", head: false })
+              .eq("completed", true)
+              .gte("created_at", monthStart),
+          ]);
+
+        if (cancelled) return;
+
+        setProfiles(profilesRes.data ?? []);
+        setTodayAttendance(todayAttRes.data ?? []);
+        setMonthAttendance(monthAttRes.data ?? []);
+        setLeaveRequests(leaveRes.data ?? []);
+        if (settingsRes.data?.value) setDeductionRate(Number(settingsRes.data.value));
+        setPendingTasks(pendingRes.count ?? 0);
+        setCompletedTasks(completedRes.count ?? 0);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
     loadData();
-  }, [user]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, today, monthStart, monthEnd]);
 
-  async function loadData() {
-    setLoading(true);
-    const [profilesRes, todayAttRes, monthAttRes, leaveRes, settingsRes, tasksRes] = await Promise.all([
-      supabase.rpc("admin_list_profiles"),
-      supabase.from("attendance").select("*").eq("date", today),
-      supabase.from("attendance").select("*").gte("date", monthStart).lte("date", monthEnd),
-      supabase.from("leave_requests").select("*").gte("date", monthStart).lte("date", monthEnd),
-      supabase.from("app_settings").select("*").eq("key", "deduction_rate").maybeSingle(),
-      supabase.from("tasks").select("completed").gte("created_at", monthStart),
-    ]);
+  const profileMap = useMemo(
+    () => Object.fromEntries(profiles.map((p) => [p.id, p])) as Record<string, Profile>,
+    [profiles],
+  );
 
-    setProfiles(profilesRes.data ?? []);
-    setTodayAttendance(todayAttRes.data ?? []);
-    setMonthAttendance(monthAttRes.data ?? []);
-    setLeaveRequests(leaveRes.data ?? []);
-    if (settingsRes.data?.value) setDeductionRate(Number(settingsRes.data.value));
-    const taskRows = (tasksRes.data ?? []) as { completed: boolean }[];
-    setPendingTasks(taskRows.filter((t) => !t.completed).length);
-    setCompletedTasks(taskRows.filter((t) => t.completed).length);
-    setLoading(false);
-  }
-
-  const profileMap = Object.fromEntries(profiles.map((p) => [p.id, p]));
   const totalStaff = profiles.length;
   const presentToday = todayAttendance.filter((a) => a.check_in_time).length;
   const lateToday = todayAttendance.filter((a) => a.late_minutes > 0).length;
-
   const todayLeaves = leaveRequests.filter((l) => l.date === today && l.status === "approved" && l.type === "leave");
   const onLeaveToday = todayLeaves.length;
 
   const todayDeductions = todayAttendance.reduce(
     (sum, a) => sum + (a.late_minutes + a.early_minutes) * deductionRate,
-    0
+    0,
   );
 
   const pendingRequests = leaveRequests.filter((l) => l.status === "pending");
   const approvedToday = leaveRequests.filter((l) => l.date === today && l.status === "approved");
   const rejectedToday = leaveRequests.filter((l) => l.date === today && l.status === "rejected");
 
-  // Monthly stats
   const monthDeductions = monthAttendance.reduce(
     (sum, a) => sum + (a.late_minutes + a.early_minutes) * deductionRate,
-    0
+    0,
   );
   const totalAttendanceDays = monthAttendance.filter((a) => a.check_in_time).length;
   const totalLateCases = monthAttendance.filter((a) => a.late_minutes > 0).length;
 
-  // Top 3 deductions this month
   const deductionByUser: Record<string, number> = {};
   monthAttendance.forEach((a) => {
     deductionByUser[a.user_id] = (deductionByUser[a.user_id] || 0) + (a.late_minutes + a.early_minutes) * deductionRate;
   });
+
   const topDeductions: TopDeduction[] = Object.entries(deductionByUser)
     .map(([uid, total]) => ({ name: profileMap[uid]?.full_name || "Unknown", total }))
     .filter((d) => d.total > 0)
@@ -129,8 +175,24 @@ export default function Dashboard() {
     { label: "Present Today", value: presentToday, icon: CalendarCheck, accent: "text-accent", to: "/attendance" },
     { label: "Late Today", value: lateToday, icon: AlertTriangle, accent: "text-destructive", to: "/attendance" },
     { label: "On Leave", value: onLeaveToday, icon: FileText, accent: "text-warning", to: "/leave" },
-    { label: "Tasks", value: `${pendingTasks} pending • ${completedTasks} done`, icon: ListChecks, accent: "text-primary", to: "/tasks" },
-    ...(canViewSalary ? [{ label: "Today's Deductions", value: `${todayDeductions.toLocaleString()} Ks`, icon: TrendingDown, accent: "text-destructive", to: "/salaries-bonuses" }] : []),
+    {
+      label: "Tasks",
+      value: `${pendingTasks} pending • ${completedTasks} done`,
+      icon: ListChecks,
+      accent: "text-primary",
+      to: "/tasks",
+    },
+    ...(canViewSalary
+      ? [
+          {
+            label: "Today's Deductions",
+            value: `${todayDeductions.toLocaleString()} Ks`,
+            icon: TrendingDown,
+            accent: "text-destructive",
+            to: "/salaries-bonuses",
+          },
+        ]
+      : []),
   ];
 
   function attendanceStatus(a: AttendanceRow) {
@@ -152,7 +214,7 @@ export default function Dashboard() {
           <p className="text-muted-foreground text-sm mt-1">Loading overview...</p>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-          {Array.from({ length: 5 }).map((_, i) => (
+          {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
           ))}
         </div>
@@ -167,12 +229,14 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold font-display">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Today's overview — {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
+        <p className="text-muted-foreground text-sm mt-1">
+          Today's overview —{" "}
+          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        </p>
       </div>
 
       <LeaveBalanceCard />
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         {summaryCards.map((card) => (
           <Card
@@ -180,7 +244,12 @@ export default function Dashboard() {
             role="button"
             tabIndex={0}
             onClick={() => navigate(card.to)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(card.to); } }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                navigate(card.to);
+              }
+            }}
             className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
             <CardContent className="p-4">
@@ -203,8 +272,10 @@ export default function Dashboard() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-5">
-        {/* Today's Attendance */}
-        <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/attendance")}>
+        <Card
+          className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer"
+          onClick={() => navigate("/attendance")}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
@@ -225,12 +296,19 @@ export default function Dashboard() {
                   return (
                     <div
                       key={a.id}
-                      onClick={(e) => { e.stopPropagation(); navigate("/attendance"); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/attendance");
+                      }}
                       className="flex items-center justify-between py-2 border-b border-border last:border-0 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
-                          {(profile?.full_name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                          {(profile?.full_name || "?")
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .slice(0, 2)}
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">{profile?.full_name || "Unknown"}</p>
@@ -248,8 +326,10 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Leave & Approval */}
-        <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/leave")}>
+        <Card
+          className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer"
+          onClick={() => navigate("/leave")}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
@@ -262,21 +342,30 @@ export default function Dashboard() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
               <div
-                onClick={(e) => { e.stopPropagation(); navigate("/leave"); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate("/leave");
+                }}
                 className="text-center p-3 rounded-lg bg-amber-50 border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors"
               >
                 <p className="text-xl font-bold text-amber-600">{pendingRequests.length}</p>
                 <p className="text-xs text-amber-700 mt-1">Pending</p>
               </div>
               <div
-                onClick={(e) => { e.stopPropagation(); navigate("/leave"); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate("/leave");
+                }}
                 className="text-center p-3 rounded-lg bg-green-50 border border-green-200 cursor-pointer hover:bg-green-100 transition-colors"
               >
                 <p className="text-xl font-bold text-green-600">{approvedToday.length}</p>
                 <p className="text-xs text-green-700 mt-1">Approved</p>
               </div>
               <div
-                onClick={(e) => { e.stopPropagation(); navigate("/leave"); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate("/leave");
+                }}
                 className="text-center p-3 rounded-lg bg-red-50 border border-red-200 cursor-pointer hover:bg-red-100 transition-colors"
               >
                 <p className="text-xl font-bold text-destructive">{rejectedToday.length}</p>
@@ -290,14 +379,21 @@ export default function Dashboard() {
                   {pendingRequests.slice(0, 3).map((r) => (
                     <div
                       key={r.id}
-                      onClick={(e) => { e.stopPropagation(); navigate("/leave"); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/leave");
+                      }}
                       className="flex items-center justify-between py-1.5 border-b border-border last:border-0 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{profileMap[r.user_id]?.full_name || "Unknown"}</p>
-                        <p className="text-xs text-muted-foreground">{r.type} — {r.date}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {r.type} — {r.date}
+                        </p>
                       </div>
-                      <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">Pending</Badge>
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
+                        Pending
+                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -306,9 +402,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Salary Impact - Admin only */}
         {canViewSalary && (
-          <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/salaries-bonuses")}>
+          <Card
+            className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer"
+            onClick={() => navigate("/salaries-bonuses")}
+          >
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-display flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2">
@@ -320,7 +418,10 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div
-                onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate("/salaries-bonuses");
+                }}
                 className="p-4 rounded-lg bg-destructive/5 border border-destructive/20 cursor-pointer hover:bg-destructive/10 transition-colors"
               >
                 <p className="text-xs text-muted-foreground">Total Deductions Today</p>
@@ -333,7 +434,10 @@ export default function Dashboard() {
                     {topDeductions.map((d, i) => (
                       <div
                         key={d.name}
-                        onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate("/salaries-bonuses");
+                        }}
                         className="flex items-center justify-between py-1.5 border-b border-border last:border-0 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
                       >
                         <div className="flex items-center gap-2">
@@ -350,8 +454,10 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {/* Monthly Report */}
-        <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/attendance")}>
+        <Card
+          className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer"
+          onClick={() => navigate("/attendance")}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-display flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
@@ -364,14 +470,20 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-3">
               <div
-                onClick={(e) => { e.stopPropagation(); navigate("/attendance"); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate("/attendance");
+                }}
                 className="flex items-center justify-between py-2 border-b border-border rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
               >
                 <span className="text-sm text-muted-foreground">Total Attendance Days</span>
                 <span className="text-sm font-bold">{totalAttendanceDays}</span>
               </div>
               <div
-                onClick={(e) => { e.stopPropagation(); navigate("/attendance"); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate("/attendance");
+                }}
                 className="flex items-center justify-between py-2 border-b border-border rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
               >
                 <span className="text-sm text-muted-foreground">Late Cases</span>
@@ -379,7 +491,10 @@ export default function Dashboard() {
               </div>
               {canViewSalary && (
                 <div
-                  onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate("/salaries-bonuses");
+                  }}
                   className="flex items-center justify-between py-2 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
                 >
                   <span className="text-sm text-muted-foreground">Total Deductions</span>
