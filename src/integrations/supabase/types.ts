@@ -516,6 +516,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      is_privileged_user: { Args: never; Returns: boolean }
       list_public_profiles: {
         Args: never
         Returns: {
