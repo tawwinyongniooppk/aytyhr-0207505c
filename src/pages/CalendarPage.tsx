@@ -235,7 +235,7 @@ export default function CalendarPage() {
       const roles = isAssistant ? ["staff"] : ["staff", "assistant"];
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name, role, sequence")
+        .select("id, full_name, role, sequence, work_schedule")
         .in("role", roles)
         .order("sequence", { ascending: true })
         .order("full_name", { ascending: true });
