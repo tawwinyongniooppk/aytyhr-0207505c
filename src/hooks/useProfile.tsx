@@ -42,7 +42,7 @@ function updateGlobalState(next: Partial<GlobalState>) {
 export function useProfile() {
   const { user } = useAuth();
 
-  // Initialize local state from the shared global store
+  // Initialize local state safely from the shared global store, ensuring it never returns null
   const [state, setState] = useState<GlobalState>(() => {
     if (user && globalState.uid === user.id) {
       return globalState;
@@ -72,9 +72,11 @@ export function useProfile() {
       };
     }
 
-    // Subscribe local state updates to global state changes
+    // Subscribe local state updates to global state changes safely
     const handleChange = () => {
-      setState(globalState);
+      if (globalState) {
+        setState(globalState);
+      }
     };
     listeners.add(handleChange);
     handleChange(); // Sync immediately
@@ -124,7 +126,9 @@ export function useProfile() {
     };
   }, [user]);
 
-  const { profile, loading, error } = state;
+  // Fallback to globalState or default object to strictly prevent destructuring errors
+  const currentState = state || globalState || { profile: null, loading: false, error: null };
+  const { profile, loading, error } = currentState;
   const role = profile?.role;
 
   // Core System Permissions Check
@@ -134,7 +138,6 @@ export function useProfile() {
   const isItManager = role === "it_manager";
 
   // STRICT PERMISSION: Only full Admins can view/manage the overall company financial details & list of all salaries.
-  // Assistant Admins and ordinary Staff can only view their own individual salary page.
   const canViewSalary = role === "admin";
 
   return { profile, loading, error, isAdmin, isAssistant, isStaff, isItManager, canViewSalary };
