@@ -90,9 +90,27 @@ export default function CalendarPage() {
     return d.toISOString().split("T")[0];
   }
 
+  // Deadline rules (per spec, based on the task's start month):
+  //   weekly:   start + 6 days  (start + 4 in February)
+  //   biweekly: start + 13 days (start + 11 in February)
   function computeDeadline(startDate: string, frequency: "weekly" | "biweekly") {
     if (!startDate) return "";
-    return addDaysISO(startDate, frequency === "weekly" ? 6 : 13);
+    const isFeb = new Date(startDate + "T00:00:00").getMonth() === 1;
+    const offset =
+      frequency === "weekly"
+        ? (isFeb ? 4 : 6)
+        : (isFeb ? 11 : 13);
+    return addDaysISO(startDate, offset);
+  }
+
+  // Date-picker bounds: only the current month is selectable (today .. end of month)
+  function todayISO() {
+    return new Date().toISOString().split("T")[0];
+  }
+  function currentMonthEndISO() {
+    const now = new Date();
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return last.toISOString().split("T")[0];
   }
 
   const year = currentDate.getFullYear();
