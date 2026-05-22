@@ -610,20 +610,24 @@ export default function CalendarPage() {
                   <Input
                     type="date"
                     value={form.start_date}
+                    min={todayISO()}
+                    max={currentMonthEndISO()}
                     onChange={(e) => setForm({ ...form, start_date: e.target.value })}
                   />
                   {form.start_date && isHolidayDate(form.start_date) && (
                     <p className="text-xs text-destructive mt-1">ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ</p>
                   )}
-                  {form.start_date && !isHolidayDate(form.start_date) && !isAllowedAssignDate(form.start_date) && (
-                    <p className="text-xs text-destructive mt-1">
-                      Task assignment is only allowed on days 1–3, 8–10, 15–17, and 22–24 of each month.
-                    </p>
-                  )}
+                  {form.start_date &&
+                    (form.start_date < todayISO() || form.start_date > currentMonthEndISO()) && (
+                      <p className="text-xs text-destructive mt-1">
+                        Tasks can only be assigned within the current month.
+                      </p>
+                    )}
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Allowed days: 1–3, 8–10, 15–17, 22–24.
+                    Any day of the current month is allowed, as long as it's not an Off Day or overlapping with an existing task.
                   </p>
                 </div>
+
                 <div>
                   <Label>Frequency</Label>
                   <Select value={form.frequency} onValueChange={(v) => setForm({ ...form, frequency: v as "weekly" | "biweekly" })}>
