@@ -31,32 +31,64 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
-// (Interface များနှင့် Utility Functions များသည် မူလအတိုင်းဖြစ်ပါသည်)
-// ... (သင်၏ မူလ code များဖြစ်သော AttendanceRecord, Settings, calcLateMinutes စသည်တို့ကို ဒီနေရာတွင် ထားပါ)
+// Interfaces (မူလအတိုင်း)
+interface AttendanceRecord {
+  id: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  late_minutes: number;
+  early_minutes: number;
+  deduction_applied: boolean;
+}
+
+// (ကျန်တဲ့ Interfaces များနှင့် Utility functions များကိုလည်း ဒီနေရာမှာပဲ ထည့်ပါ)
+// အရေးကြီး: သင်၏ မူလ code ထဲက calcLateMinutes, calcEarlyMinutes စတာတွေကို ဒီမှာ မဖြတ်ပါနဲ့
 
 export default function Attendance() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [record, setRecord] = useState<any>(null);
-  const [settings, setSettings] = useState<any>(null);
+  const [record, setRecord] = useState<AttendanceRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  // (သင်၏ ကျန်တဲ့ useState များအားလုံးကို ဒီနေရာမှာ ထည့်ပါ)
   const [location, setLocation] = useState<any>({ status: "idle" });
 
-  // ပြင်ဆင်ချက် - Ref ကို တိုက်ရိုက် initialize လုပ်ပါ
-  const locationRef = useRef(location);
+  // ပြင်ဆင်ချက်: locationRef ကို အမှားကင်းအောင် သုံးထားပါတယ်
+  const locationRef = useRef<any>(location);
   useEffect(() => {
     locationRef.current = location;
   }, [location]);
 
-  // သင်၏ loadInitialData, handleCheckIn, handleCheckOut စသည့် လုပ်ဆောင်ချက်များကို ဤနေရာတွင် ဆက်လက်ထားရှိပါ
+  // loadInitialData (မူလအတိုင်း)
+  const loadInitialData = useCallback(async () => {
+    if (!user) return;
+    try {
+      setLoading(true);
+      // (သင်၏ မူလ logic အပြည့်အစုံကို ဒီနေရာမှာ ထည့်ပါ)
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, toast]);
 
-  if (loading) return <div>Loading...</div>;
+  useEffect(() => {
+    if (user) loadInitialData();
+  }, [user, loadInitialData]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground text-sm p-4">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Loading...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* ဤနေရာတွင် သင်၏ မူလ UI Code များ (Card, Button များ) အားလုံးကို ထည့်ပါ */}
-      {/* ဥပမာ - Noti စာသားများပါသော Card များ */}
+      {/* သင်၏ မူလ UI Code အပြည့်အစုံကို ဒီနေရာမှာ ထည့်ပါ */}
+      {/* Noti စာသားများ၊ Card များအားလုံး ပြန်ထည့်ပါ */}
     </div>
   );
 }
