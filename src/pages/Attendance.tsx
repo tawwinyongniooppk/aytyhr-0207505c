@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+// ... (imports အားလုံးကို မူလအတိုင်း ထားပါ)
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
-// ... (Interface များ၊ Utility functions များသည် သင်၏ မူလ Code အတိုင်း အားလုံးပါဝင်သည်)
+// ... (Interface များနှင့် Helper function အားလုံးကို မူလအတိုင်း ထားပါ)
 
 export default function Attendance() {
   const { user } = useAuth();
@@ -69,36 +70,15 @@ export default function Attendance() {
     errorMessage: null,
   });
 
-  // အမှားကင်းစေရန် ပြင်ဆင်ထားသည့် Ref
-  const locationRef = useRef(location);
+  // အရေးကြီးဆုံးပြင်ဆင်ချက်: Ref ကို Nullable မဟုတ်ဘဲ Type အတိအကျသတ်မှတ်ပေးခြင်း
+  const locationRef = useRef<LocationState>(location);
+
   useEffect(() => {
     locationRef.current = location;
   }, [location]);
 
-  // loadInitialData နှင့် ကျန် Logic များ (သင်၏ မူလ Code အတိုင်း အပြည့်အစုံ ထည့်ပါ)
+  // ကျန်တဲ့ Logic များနှင့် UI အပိုင်းအားလုံးကို မူလအတိုင်း ထည့်သွင်းထားပါ
   // ...
 
-  // UI rendering အပိုင်း (သင်၏ Noti စာသားများ အပြည့်အစုံ ပါဝင်သည်)
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold font-display">Attendance</h1>
-        </div>
-        <div className="flex items-center gap-2 text-muted-foreground text-sm">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Loading...</span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* သင်၏ မူလ UI Code အပြည့်အစုံကို ဒီနေရာမှာ ထည့်ပါ */}
-      {/* ဥပမာ - Noti စာသားများပါသော Card များ၊ Check-in/Check-out Buttons များအားလုံး */}
-
-      {/* စသည်ဖြင့် သင်၏ မူလ Code အတိုင်း ပြန်ထည့်လိုက်ပါ */}
-    </div>
-  );
+  return <div className="space-y-6">{/* သင့်မူလ UI Code အပြည့်အစုံကို ဒီနေရာမှာ ထည့်ပါ */}</div>;
 }
