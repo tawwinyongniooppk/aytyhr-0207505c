@@ -47,31 +47,16 @@ interface SalaryData {
   deduction_reason: string;
 }
 
-interface AttendanceEntry {
-  date: string;
-  late_minutes: number;
-  early_minutes: number;
-  deduction_applied: boolean;
-}
-
 function getMonthStart(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-function getMonthEnd(): string {
-  const now = new Date();
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return lastDay.toISOString().split("T")[0];
-}
-
 export default function SalaryPage() {
   const { user } = useAuth();
   const [salary, setSalary] = useState<SalaryData | null>(null);
-  const [deductionRate, setDeductionRate] = useState(200);
-  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [manualDeductions, setManualDeductions] = useState<any[]>([]);
+  const [manualLeaveDeductions, setManualLeaveDeductions] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -81,19 +66,14 @@ export default function SalaryPage() {
   const loadData = async () => {
     setLoading(true);
     const monthStart = getMonthStart();
-    const monthEnd = getMonthEnd();
 
-    const [salRes, attRes, settRes, mdRes] = await Promise.all([
-      // FIX 1: လစာ 0 ဖြစ်သွားခြင်းကို ဖြေရှင်းရန် မူလ Query အဟောင်းအတိုင်း ပြန်ထားခြင်း
-      supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
+    const [salRes, mdRes] = await Promise.all([
       supabase
-        .from("attendance")
-        .select("*")
+        .from("salaries")
+        .select("base_salary, current_salary, total_deductions, bonus, manual_deduction, deduction_reason")
         .eq("user_id", user!.id)
-        .gte("date", monthStart)
-        .lte("date", monthEnd)
-        .order("date", { ascending: false }),
-      supabase.from("app_settings").select("*").eq("key", "deduction_rate_per_minute").maybeSingle(),
+        .eq("month", monthStart)
+        .maybeSingle(),
       supabase
         .from("leave_manual_deductions")
         .select("*")
@@ -102,65 +82,69 @@ export default function SalaryPage() {
     ]);
 
     if (salRes.data) setSalary(salRes.data as unknown as SalaryData);
-    if (attRes.data) setAttendanceHistory(attRes.data as unknown as AttendanceEntry[]);
-    if (settRes.data) setDeductionRate(Number((settRes.data as any).value) || 200);
-    if (mdRes.data) setManualDeductions(mdRes.data as any[]);
+    if (mdRes.data) setManualLeaveDeductions(mdRes.data as any[]);
 
     setLoading(false);
   };
 
+  // Aggregate strictly from the salaries row (server-applied amounts).
+  // Never recompute auto deductions from raw attendance — per-user rates and
+  // leave-excused days are only resolved server-side, so any client-side
+  // recomputation drifts from the real numbers.
+  const baseSalary = Math.max(0, Number(salary?.base_salary ?? 0));
+  const totalBonus = Math.max(0, Number(salary?.bonus ?? 0));
+  const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
+  const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0));
+  const totalDeductions = autoDeductions + manualDeductionAmt;
+  const finalSalary = Math.max(0, baseSalary + totalBonus - totalDeductions);
+
   const ledger = useMemo<LedgerEntry[]>(() => {
     const items: LedgerEntry[] = [];
     const monthStart = getMonthStart();
+    const monthLabel = new Date(monthStart + "T00:00:00").toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
 
-    if (salary) {
-      if (salary.base_salary > 0) {
-        items.push({
-          id: `salary-${monthStart}`,
-          date: monthStart,
-          type: "salary",
-          description: `Base salary (${new Date(monthStart + "T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })})`,
-          amount: salary.base_salary,
-        });
-      }
-      if (salary.bonus > 0) {
-        items.push({
-          id: `bonus-${monthStart}`,
-          date: monthStart,
-          type: "bonus",
-          description: salary.deduction_reason ? `Bonus approved` : "Bonus approved",
-          amount: salary.bonus,
-        });
-      }
-      if (salary.manual_deduction > 0) {
-        items.push({
-          id: `manual-sal-${monthStart}`,
-          date: monthStart,
-          type: "manual_deduction",
-          description: salary.deduction_reason || "Manual salary deduction",
-          amount: -salary.manual_deduction,
-        });
-      }
+    if (baseSalary > 0) {
+      items.push({
+        id: `salary-${monthStart}`,
+        date: monthStart,
+        type: "salary",
+        description: `Base salary (${monthLabel})`,
+        amount: baseSalary,
+      });
+    }
+    if (totalBonus > 0) {
+      items.push({
+        id: `bonus-${monthStart}`,
+        date: monthStart,
+        type: "bonus",
+        description: "Bonus approved",
+        amount: totalBonus,
+      });
+    }
+    if (autoDeductions > 0) {
+      items.push({
+        id: `auto-${monthStart}`,
+        date: monthStart,
+        type: "auto_deduction",
+        description: `Attendance auto deductions (${monthLabel})`,
+        amount: -autoDeductions,
+      });
+    }
+    if (manualDeductionAmt > 0) {
+      items.push({
+        id: `manual-${monthStart}`,
+        date: monthStart,
+        type: "manual_deduction",
+        description: salary?.deduction_reason || "Manual salary deduction",
+        amount: -manualDeductionAmt,
+      });
     }
 
-    for (const entry of attendanceHistory) {
-      const totalMin = (entry.late_minutes || 0) + (entry.early_minutes || 0);
-      const amt = totalMin * deductionRate;
-      if (amt > 0) {
-        const parts: string[] = [];
-        if (entry.late_minutes > 0) parts.push(`Late ${entry.late_minutes}m`);
-        if (entry.early_minutes > 0) parts.push(`Early ${entry.early_minutes}m`);
-        items.push({
-          id: `auto-${entry.date}`,
-          date: entry.date,
-          type: "auto_deduction",
-          description: parts.join(" · ") || "Attendance deduction",
-          amount: -amt,
-        });
-      }
-    }
-
-    for (const md of manualDeductions) {
+    // Informational rows for manual leave-day deductions (not a money amount)
+    for (const md of manualLeaveDeductions) {
       items.push({
         id: `md-${md.id}`,
         date: (md.created_at || "").slice(0, 10),
@@ -171,7 +155,7 @@ export default function SalaryPage() {
     }
 
     return items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  }, [salary, attendanceHistory, manualDeductions, deductionRate]);
+  }, [baseSalary, totalBonus, autoDeductions, manualDeductionAmt, salary?.deduction_reason, manualLeaveDeductions]);
 
   const currentMonth = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
