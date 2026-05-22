@@ -4,7 +4,7 @@ import { CalendarDays, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-export function LeaveBalanceCard({ userId, enableRealtime = false }: { userId?: string; enableRealtime?: boolean }) {
+export function LeaveBalanceCard({ userId }: { userId?: string }) {
   const { user } = useAuth();
   const targetId = userId ?? user?.id;
   const [balance, setBalance] = useState<number | null>(null);
@@ -21,21 +21,14 @@ export function LeaveBalanceCard({ userId, enableRealtime = false }: { userId?: 
       if (!error && typeof data === "number") setBalance(data);
       setLoading(false);
     }
-
     load();
-
-    if (!enableRealtime) {
-      return () => {
-        cancelled = true;
-      };
-    }
 
     const channel = supabase
       .channel(`leave-balance-${targetId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "leave_balances", filter: `user_id=eq.${targetId}` },
-        () => load(),
+        () => load()
       )
       .subscribe();
 
@@ -43,7 +36,7 @@ export function LeaveBalanceCard({ userId, enableRealtime = false }: { userId?: 
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [targetId, enableRealtime]);
+  }, [targetId]);
 
   return (
     <Card className="border border-border shadow-none bg-primary/5">
@@ -58,7 +51,8 @@ export function LeaveBalanceCard({ userId, enableRealtime = false }: { userId?: 
             </div>
           ) : (
             <p className="text-sm font-medium leading-snug">
-              သင်၏ ခွင့်လက်ကျန်ရက်မှာ <span className="text-primary font-bold text-base">{balance}</span> ရက် ဖြစ်ပါသည်။
+              သင်၏ ခွင့်လက်ကျန်ရက်မှာ{" "}
+              <span className="text-primary font-bold text-base">{balance}</span> ရက် ဖြစ်ပါသည်။
             </p>
           )}
         </div>

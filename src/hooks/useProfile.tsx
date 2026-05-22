@@ -20,6 +20,7 @@ export function useProfile() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,29 +35,22 @@ export function useProfile() {
 
     async function load() {
       try {
-        setLoading(true);
         setError(null);
-
-        const { data, error: fetchError } = await supabase.rpc("get_profile_full", {
-          p_id: user.id,
-        });
+        const { data, error: fetchError } = await supabase
+          .rpc("get_profile_full", { p_id: user!.id });
 
         if (cancelled) return;
 
+        const row = Array.isArray(data) ? data[0] : data;
         if (fetchError) {
           setError("Failed to load profile. Please try again.");
           setProfile(null);
-          return;
-        }
-
-        const row = Array.isArray(data) ? data[0] : data;
-        if (!row) {
+        } else if (!row) {
           setError("No profile found for this account. Contact an administrator.");
           setProfile(null);
-          return;
+        } else {
+          setProfile(row as Profile);
         }
-
-        setProfile(row as Profile);
       } catch {
         if (!cancelled) setError("Unexpected error loading profile.");
       } finally {
@@ -65,9 +59,7 @@ export function useProfile() {
     }
 
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [user]);
 
   const role = profile?.role;
