@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef } from "react"; // useRef ထည့်သွင်းထားပါတယ်
+import { createContext, useContext, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useProfile } from "./useProfile";
@@ -20,7 +20,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const { user } = useAuth();
   const { isItManager, loading } = useProfile();
 
-  // Persist across remounts within the tab so we never re-upsert the same token.
   const SYNC_KEY = "fcm_synced_token";
   const inFlightRef = useRef(false);
 
@@ -41,33 +40,27 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         if (cancelled || !token) return;
 
         const cacheKey = `${SYNC_KEY}:${userId}`;
-        const alreadySynced =
-          typeof sessionStorage !== "undefined" && sessionStorage.getItem(cacheKey) === token;
+        const alreadySynced = typeof sessionStorage !== "undefined" && sessionStorage.getItem(cacheKey) === token;
 
         if (!alreadySynced) {
+          await supabase.from("fcm_tokens").upsert(
+            {
+              user_id: userId,
+              token,
+              user_agent: navigator.userAgent,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "token" },
+          );
+
           try {
-            await supabase.from("fcm_tokens").upsert(
-              {
-                user_id: userId,
-                token,
-                user_agent: navigator.userAgent,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: "token" },
-            );
-            try {
-              sessionStorage.setItem(cacheKey, token);
-            } catch {
-              /* ignore */
-            }
-            console.log("[fcm] Token synced");
-          } catch (e) {
-            console.error("[fcm] token upsert failed", e);
-          }
+            sessionStorage.setItem(cacheKey, token);
+          } catch {}
         }
 
         const messaging = await getMessagingSafe();
         if (!messaging || cancelled) return;
+
         unsub = onMessage(messaging, (payload) => {
           const title = payload.notification?.title || payload.data?.title || "Notification";
           const body = payload.notification?.body || payload.data?.body || "";
