@@ -185,7 +185,7 @@ export default function SalaryPage() {
               <span className="text-xs text-muted-foreground">Base Salary</span>
             </div>
             <p className="text-lg font-bold font-display">
-              {(salary?.base_salary ?? 0).toLocaleString()}{" "}
+              {baseSalary.toLocaleString()}{" "}
               <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
           </CardContent>
@@ -197,7 +197,7 @@ export default function SalaryPage() {
               <span className="text-xs text-muted-foreground">Bonus</span>
             </div>
             <p className="text-lg font-bold font-display text-accent">
-              +{(salary?.bonus ?? 0).toLocaleString()}{" "}
+              +{totalBonus.toLocaleString()}{" "}
               <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
           </CardContent>
@@ -209,15 +209,12 @@ export default function SalaryPage() {
               <span className="text-xs text-muted-foreground">Deductions</span>
             </div>
             <p className="text-lg font-bold font-display text-destructive">
-              -{((salary?.total_deductions ?? 0) + (salary?.manual_deduction ?? 0)).toLocaleString()}{" "}
+              -{totalDeductions.toLocaleString()}{" "}
               <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
-            {salary?.manual_deduction ? (
-              <p className="text-[10px] text-muted-foreground mt-1 truncate">
-                incl. manual: {salary.manual_deduction.toLocaleString()}
-                {salary.deduction_reason ? ` (${salary.deduction_reason})` : ""}
-              </p>
-            ) : null}
+            <p className="text-[10px] text-muted-foreground mt-1 truncate">
+              Auto: {autoDeductions.toLocaleString()} · Manual: {manualDeductionAmt.toLocaleString()}
+            </p>
           </CardContent>
         </Card>
         <Card className="border border-secondary/30 shadow-none bg-secondary/5">
@@ -227,13 +224,7 @@ export default function SalaryPage() {
               <span className="text-xs text-muted-foreground">Final Salary</span>
             </div>
             <p className="text-lg font-bold font-display text-secondary">
-              {Math.max(
-                0,
-                (salary?.base_salary ?? 0) +
-                  (salary?.bonus ?? 0) -
-                  (salary?.total_deductions ?? 0) -
-                  (salary?.manual_deduction ?? 0),
-              ).toLocaleString()}
+              {finalSalary.toLocaleString()}
               <span className="text-xs font-normal text-muted-foreground"> Ks</span>
             </p>
           </CardContent>
