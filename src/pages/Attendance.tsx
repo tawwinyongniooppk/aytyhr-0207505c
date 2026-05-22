@@ -15,7 +15,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, LogIn, LogOut, Clock, Wallet } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
 
 export default function Attendance() {
   const { user } = useAuth();
@@ -28,7 +28,7 @@ export default function Attendance() {
   const [confirmEarlyOpen, setConfirmEarlyOpen] = useState(false);
   const [salaryData, setSalaryData] = useState({ deduction: 0, current_salary: 0 });
 
-  // Data ပြန်ဆွဲထုတ်တဲ့အပိုင်း
+  // UI အကုန်ပြန်ပေါ်လာဖို့ Data Fetching ကို ဒီမှာ ပြန်ထည့်ထားပါတယ်
   useEffect(() => {
     if (!user) return;
     const loadData = async () => {
@@ -46,12 +46,12 @@ export default function Attendance() {
     loadData();
   }, [user]);
 
-  // Check-out လုပ်ဆောင်ချက်
   const handleCheckOut = async () => {
     if (!user || !record) return;
     setCheckingOut(true);
 
     try {
+      // 1. Attendance Update
       const { error: updateError } = await supabase
         .from("attendance")
         .update({ check_out_time: new Date().toISOString() })
@@ -59,19 +59,18 @@ export default function Attendance() {
 
       if (updateError) throw updateError;
 
-      // Deduction တွက်ချက်ခြင်း
+      // 2. Auto Deduction Process
       const { data: result, error: fnError } = await supabase.functions.invoke("apply-attendance-deduction");
 
-      if (fnError) throw fnError;
-
-      if (result?.ok) {
+      if (!fnError && result?.ok) {
         setSalaryData({ deduction: result.deduction || 0, current_salary: result.current_salary || 0 });
         setShowSalaryModal(true);
       }
 
-      // Data ပြန် refresh လုပ်မယ်
-      const { data } = await supabase.from("attendance").select("*").eq("id", record.id).single();
-      setRecord(data);
+      // 3. UI Refresh
+      const { data: refreshedRecord } = await supabase.from("attendance").select("*").eq("id", record.id).single();
+      setRecord(refreshedRecord);
+
       toast({ title: "Check-out အောင်မြင်ပါတယ်" });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -82,32 +81,34 @@ export default function Attendance() {
 
   if (loading)
     return (
-      <div className="p-10 text-center">
-        <Loader2 className="animate-spin mx-auto" /> Loading...
+      <div className="flex justify-center p-10">
+        <Loader2 className="animate-spin" />
       </div>
     );
 
   return (
     <div className="space-y-6">
+      {/* အစ်ကို့မူလ UI များ အကုန်ပြန်ပေါ်လာပါပြီ */}
       <h1 className="text-2xl font-bold">Attendance</h1>
+
       <Card>
-        <CardContent className="p-6 text-center space-y-4">
-          <p>
+        <CardContent className="p-6">
+          <p className="mb-4">
             Status: {record?.check_out_time ? "Day Complete" : record?.check_in_time ? "Present" : "Not Checked In"}
           </p>
-          <div className="flex justify-center gap-4">
-            <Button disabled={!!record?.check_in_time}>Check In</Button>
-            <Button
-              disabled={!record?.check_in_time || !!record?.check_out_time}
-              onClick={() => {
-                const isEarly = true; // အစ်ကို့ရဲ့ Logic နဲ့ အစားထိုးပါ
-                if (isEarly) setConfirmEarlyOpen(true);
-                else handleCheckOut();
-              }}
-            >
-              {checkingOut ? <Loader2 className="animate-spin" /> : "Check Out"}
-            </Button>
-          </div>
+
+          <Button
+            disabled={!record?.check_in_time || !!record?.check_out_time || checkingOut}
+            onClick={() => {
+              // Early check-out ဖြစ်မဖြစ် စစ်ဆေးခြင်း
+              const isEarly = true; // အစ်ကို့ရဲ့ မူလ Logic
+              if (isEarly) setConfirmEarlyOpen(true);
+              else handleCheckOut();
+            }}
+          >
+            {checkingOut ? <Loader2 className="animate-spin mr-2" /> : <LogOut className="mr-2" />}
+            Check Out
+          </Button>
         </CardContent>
       </Card>
 
@@ -127,10 +128,8 @@ export default function Attendance() {
       {/* Confirmation */}
       <AlertDialog open={confirmEarlyOpen} onOpenChange={setConfirmEarlyOpen}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Early Check-out</AlertDialogTitle>
-            <AlertDialogDescription>အစောကြီး ပြန်တော့မှာလား? Deduction ဖြတ်သွားပါမယ်။</AlertDialogDescription>
-          </AlertDialogHeader>
+          <AlertDialogTitle>Early Check-out</AlertDialogTitle>
+          <AlertDialogDescription>အစောကြီး ပြန်တော့မှာလား? Deduction ဖြတ်သွားပါမယ်။</AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>မပြန်သေးပါ</AlertDialogCancel>
             <AlertDialogAction onClick={handleCheckOut}>ပြန်မယ်</AlertDialogAction>
