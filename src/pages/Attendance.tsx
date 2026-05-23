@@ -524,9 +524,13 @@ export default function Attendance() {
       const earlyMin = isWorkingDay ? calcEarlyMinutes(now, expectedCheckOutTime) : 0;
       const today = now.toISOString().split("T")[0];
 
+      // Only update check_out_time from the client. early_minutes is a
+      // protected field and is computed/written server-side by the
+      // apply-attendance-deduction edge function.
+      void earlyMin;
       const { data, error } = await supabase
         .from("attendance")
-        .update({ check_out_time: now.toISOString(), early_minutes: earlyMin } as any)
+        .update({ check_out_time: now.toISOString() } as any)
         .eq("id", record.id).select().single();
 
       if (error) {
