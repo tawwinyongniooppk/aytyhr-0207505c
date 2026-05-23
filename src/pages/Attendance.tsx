@@ -524,9 +524,13 @@ export default function Attendance() {
       const earlyMin = isWorkingDay ? calcEarlyMinutes(now, expectedCheckOutTime) : 0;
       const today = now.toISOString().split("T")[0];
 
+      // Only update check_out_time from the client. early_minutes is a
+      // protected field and is computed/written server-side by the
+      // apply-attendance-deduction edge function.
+      void earlyMin;
       const { data, error } = await supabase
         .from("attendance")
-        .update({ check_out_time: now.toISOString(), early_minutes: earlyMin } as any)
+        .update({ check_out_time: now.toISOString() } as any)
         .eq("id", record.id).select().single();
 
       if (error) {
@@ -615,7 +619,12 @@ export default function Attendance() {
         if (!after6) return null;
         if (checkedIn) return null;
         const displayName = fullName || "မင်္ဂလာပါ";
-        const isOffOrLeave = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
+        // Only treat today as off when there is an explicit holiday assigned
+        // to this user or an approved full-day leave. The per-profile
+        // work_schedule defaults Sat/Sun to inactive, which previously caused
+        // the holiday text to appear even when admin had not actually marked
+        // the day off — so we no longer use isWorkingDay here.
+        const isOffOrLeave = isHolidayToday || hasFullLeaveToday;
         if (isOffOrLeave) {
           return (
             <Card className="border-l-4 border-l-destructive border border-border bg-destructive/5 shadow-none">
