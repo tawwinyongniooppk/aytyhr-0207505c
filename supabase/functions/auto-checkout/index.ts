@@ -14,7 +14,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PENALTY_MINUTES = 10;
+const PENALTY_MINUTES = 5;
 const GRACE_AFTER_CHECKOUT_MIN = 30;
 
 function getMonthStart(d: Date): string {
