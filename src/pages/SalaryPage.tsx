@@ -57,6 +57,9 @@ export default function SalaryPage() {
   const [salary, setSalary] = useState<SalaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [manualLeaveDeductions, setManualLeaveDeductions] = useState<any[]>([]);
+  const [attendanceRows, setAttendanceRows] = useState<any[]>([]);
+  const [approvedLeaves, setApprovedLeaves] = useState<any[]>([]);
+  const [rates, setRates] = useState<{ late: number; early: number }>({ late: 200, early: 200 });
 
   useEffect(() => {
     if (!user) return;
@@ -67,7 +70,7 @@ export default function SalaryPage() {
     setLoading(true);
     const monthStart = getMonthStart();
 
-    const [salRes, mdRes] = await Promise.all([
+    const [salRes, mdRes, attRes, lvRes, profRes] = await Promise.all([
       supabase
         .from("salaries")
         .select("base_salary, current_salary, total_deductions, bonus, manual_deduction, deduction_reason")
@@ -78,19 +81,43 @@ export default function SalaryPage() {
         .from("leave_manual_deductions")
         .select("*")
         .eq("user_id", user!.id)
+        .gte("created_at", monthStart)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("attendance")
+        .select("date, late_minutes, early_minutes")
+        .eq("user_id", user!.id)
+        .gte("date", monthStart)
+        .order("date", { ascending: false }),
+      supabase
+        .from("leave_requests")
+        .select("date, type, payment_type, status")
+        .eq("user_id", user!.id)
+        .eq("status", "approved")
+        .gte("date", monthStart),
+      supabase
+        .from("profiles")
+        .select("late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute")
+        .eq("id", user!.id)
+        .maybeSingle(),
     ]);
 
     if (salRes.data) setSalary(salRes.data as unknown as SalaryData);
     if (mdRes.data) setManualLeaveDeductions(mdRes.data as any[]);
+    if (attRes.data) setAttendanceRows(attRes.data as any[]);
+    if (lvRes.data) setApprovedLeaves(lvRes.data as any[]);
+    if (profRes.data) {
+      const legacy = Number((profRes.data as any).deduction_rate_per_minute) || 200;
+      setRates({
+        late: Number((profRes.data as any).late_deduction_per_minute) || legacy,
+        early: Number((profRes.data as any).early_deduction_per_minute) || legacy,
+      });
+    }
 
     setLoading(false);
   };
 
   // Aggregate strictly from the salaries row (server-applied amounts).
-  // Never recompute auto deductions from raw attendance — per-user rates and
-  // leave-excused days are only resolved server-side, so any client-side
-  // recomputation drifts from the real numbers.
   const baseSalary = Math.max(0, Number(salary?.base_salary ?? 0));
   const totalBonus = Math.max(0, Number(salary?.bonus ?? 0));
   const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
@@ -124,15 +151,39 @@ export default function SalaryPage() {
         amount: totalBonus,
       });
     }
-    if (autoDeductions > 0) {
+
+    // Per-day auto deductions from attendance, excluding paid-excused days
+    const leaveByDate = new Map<string, Set<string>>();
+    for (const l of approvedLeaves) {
+      if ((l.payment_type ?? "paid") !== "paid") continue;
+      const set = leaveByDate.get(l.date) ?? new Set<string>();
+      set.add(l.type);
+      leaveByDate.set(l.date, set);
+    }
+    for (const a of attendanceRows) {
+      const lateMin = a.late_minutes ?? 0;
+      const earlyMin = a.early_minutes ?? 0;
+      if (lateMin === 0 && earlyMin === 0) continue;
+      const excuses = leaveByDate.get(a.date) ?? new Set<string>();
+      const lateExcused = excuses.has("leave") || excuses.has("late_excuse") || excuses.has("partial_leave");
+      const earlyExcused = excuses.has("leave") || excuses.has("partial_leave");
+      const effLate = lateExcused ? 0 : lateMin;
+      const effEarly = earlyExcused ? 0 : earlyMin;
+      const amount = effLate * rates.late + effEarly * rates.early;
+      if (amount <= 0) continue;
+      const parts: string[] = [];
+      if (effLate > 0) parts.push(`Late ${effLate} min × ${rates.late}`);
+      if (effEarly > 0) parts.push(`Early ${effEarly} min × ${rates.early}`);
+      const dayNum = Number(a.date.slice(8, 10));
       items.push({
-        id: `auto-${monthStart}`,
-        date: monthStart,
+        id: `auto-${a.date}`,
+        date: a.date,
         type: "auto_deduction",
-        description: `Attendance auto deductions (${monthLabel})`,
-        amount: -autoDeductions,
+        description: `Day ${dayNum} — ${parts.join(" · ")}`,
+        amount: -amount,
       });
     }
+
     if (manualDeductionAmt > 0) {
       items.push({
         id: `manual-${monthStart}`,
@@ -155,7 +206,8 @@ export default function SalaryPage() {
     }
 
     return items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  }, [baseSalary, totalBonus, autoDeductions, manualDeductionAmt, salary?.deduction_reason, manualLeaveDeductions]);
+  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, manualLeaveDeductions, attendanceRows, approvedLeaves, rates]);
+
 
   const currentMonth = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
