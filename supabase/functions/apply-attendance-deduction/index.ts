@@ -57,13 +57,37 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get per-staff rates (separate late vs early; falls back to legacy rate then 200)
+    // Get per-staff rates + schedule (separate late vs early; falls back to legacy rate then 200)
     const { data: profileRate } = await admin.from("profiles")
-      .select("late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute")
+      .select("late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute, work_schedule, work_day, check_out_time")
       .eq("id", user.id).maybeSingle();
     const legacy = Number((profileRate as any)?.deduction_rate_per_minute) || 200;
     const lateRate = Number((profileRate as any)?.late_deduction_per_minute) || legacy;
     const earlyRate = Number((profileRate as any)?.early_deduction_per_minute) || legacy;
+
+    // Resolve expected check-out time for today (work_schedule -> legacy -> app_settings)
+    const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
+    const ws = (profileRate as any)?.work_schedule ?? null;
+    const wsDay = ws?.[todayName];
+    let expectedOut: string | null = null;
+    if (wsDay?.active && wsDay?.check_out) expectedOut = wsDay.check_out as string;
+    else if ((profileRate as any)?.work_day === todayName && (profileRate as any)?.check_out_time)
+      expectedOut = (profileRate as any).check_out_time as string;
+    if (!expectedOut) {
+      const { data: s } = await admin.from("app_settings").select("value").eq("key", "end_time").maybeSingle();
+      expectedOut = (s?.value as string) || "16:00";
+    }
+
+    // Compute early_minutes from actual check_out_time vs expected; never trust client
+    let computedEarly = 0;
+    if (att.check_out_time && expectedOut) {
+      const [eh, em] = expectedOut.split(":").map(Number);
+      const out = new Date(att.check_out_time);
+      const expected = new Date(out);
+      expected.setHours(eh, em, 0, 0);
+      const diffMin = Math.floor((expected.getTime() - out.getTime()) / 60000);
+      computedEarly = Math.max(0, diffMin);
+    }
 
     // Approved leave / late excuse for today — only "paid" approvals excuse the deduction
     const { data: approved } = await admin.from("leave_requests")
@@ -77,8 +101,13 @@ Deno.serve(async (req) => {
     // Paid approvals (full leave, late excuse, partial leave) excuse minute-based salary deduction
     const excused = hasLeave || hasLateExcuse || hasPartialLeave;
     const lateMin = excused ? 0 : (att.late_minutes ?? 0);
-    const earlyMin = hasLeave || hasPartialLeave ? 0 : (att.early_minutes ?? 0);
+    const earlyMin = hasLeave || hasPartialLeave ? 0 : computedEarly;
     const deduction = (lateMin * lateRate) + (earlyMin * earlyRate);
+
+    // Persist computed early_minutes so the UI reflects the actual amount
+    if (computedEarly !== (att.early_minutes ?? 0)) {
+      await admin.from("attendance").update({ early_minutes: computedEarly }).eq("id", att.id);
+    }
 
     // Ensure salary row
     let { data: salary } = await admin.from("salaries")
