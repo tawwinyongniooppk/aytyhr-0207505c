@@ -1079,12 +1079,13 @@ export default function Attendance() {
               onClick={() => {
                 setConfirmEarlyOpen(false);
 
-                await new Promise((resolve) => setTimeout(resolve, 200));
-
-                if (forceCheckout) {
-                  await handleCheckOut();
-                  setForceCheckout(false);
-                }
+                setTimeout(async () => {
+                  try {
+                    await handleCheckOut();
+                  } catch (e) {
+                    console.error("Checkout failed:", e);
+                  }
+                }, 200);
               }}
               className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
             >
