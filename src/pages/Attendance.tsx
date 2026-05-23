@@ -2,7 +2,20 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogIn, LogOut, Clock, AlertTriangle, DollarSign, Wallet, MapPin, ShieldCheck, ShieldX, RefreshCw, Loader2, Volume2 } from "lucide-react";
+import {
+  LogIn,
+  LogOut,
+  Clock,
+  AlertTriangle,
+  DollarSign,
+  Wallet,
+  MapPin,
+  ShieldCheck,
+  ShieldX,
+  RefreshCw,
+  Loader2,
+  Volume2,
+} from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -88,9 +101,7 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -129,7 +140,10 @@ export default function Attendance() {
   const [staffWorkDay, setStaffWorkDay] = useState<string>("");
   const [staffCheckInTime, setStaffCheckInTime] = useState<string>("");
   const [staffCheckOutTime, setStaffCheckOutTime] = useState<string>("");
-  const [workSchedule, setWorkSchedule] = useState<Record<string, { active: boolean; check_in: string; check_out: string }> | null>(null);
+  const [workSchedule, setWorkSchedule] = useState<Record<
+    string,
+    { active: boolean; check_in: string; check_out: string }
+  > | null>(null);
   const [checkOutNotice, setCheckOutNotice] = useState<string | null>(null);
   const [checkInNotice, setCheckInNotice] = useState<string | null>(null);
   const [salaryNotification, setSalaryNotification] = useState<{ remaining: number; deduction: number } | null>(null);
@@ -186,25 +200,19 @@ export default function Attendance() {
           .eq("user_id", user.id)
           .eq("date", today)
           .eq("status", "approved"),
-        supabase
-          .from("calendar_event_assignments")
-          .select("event_id")
-          .eq("user_id", user.id),
+        supabase.from("calendar_event_assignments").select("event_id").eq("user_id", user.id),
       ]);
       const myEventIds = new Set(((assignRes.data as any[]) || []).map((r) => r.event_id));
-      const holiday = ((evRes.data as any[]) || []).some(
-        (e) => e.assigned_to_all || myEventIds.has(e.id)
-      );
+      const holiday = ((evRes.data as any[]) || []).some((e) => e.assigned_to_all || myEventIds.has(e.id));
       setIsHolidayToday(holiday);
       const fullLeave = ((leaveRes.data as any[]) || []).some(
-        (l) => l.type === "leave" && !l.start_time && !l.end_time
+        (l) => l.type === "leave" && !l.start_time && !l.end_time,
       );
       setHasFullLeaveToday(fullLeave);
     } catch {
       /* ignore */
     }
   }
-
 
   useEffect(() => {
     if (settings.school_latitude !== 0 || settings.school_longitude !== 0) {
@@ -215,7 +223,11 @@ export default function Attendance() {
   const getLocation = useCallback(() => {
     try {
       if (!navigator.geolocation) {
-        setLocation((prev) => ({ ...prev, status: "error", errorMessage: "Geolocation not supported by your browser" }));
+        setLocation((prev) => ({
+          ...prev,
+          status: "error",
+          errorMessage: "Geolocation not supported by your browser",
+        }));
         return;
       }
 
@@ -238,30 +250,49 @@ export default function Attendance() {
             setLocation({ status: "granted", lat, lng, distance, isInside, errorMessage: null });
           } catch (e) {
             console.error("Location calculation error:", e);
-            setLocation({ status: "error", lat: null, lng: null, distance: null, isInside: null, errorMessage: "Unable to verify location, please try again" });
+            setLocation({
+              status: "error",
+              lat: null,
+              lng: null,
+              distance: null,
+              isInside: null,
+              errorMessage: "Unable to verify location, please try again",
+            });
           }
         },
         (err) => {
           console.warn("Geolocation denied:", err.message);
-          const msg = err.code === 1 ? "Location permission is required. Please enable location access in your browser settings." : err.code === 3 ? "Location request timed out" : "Unable to get location";
+          const msg =
+            err.code === 1
+              ? "Location permission is required. Please enable location access in your browser settings."
+              : err.code === 3
+                ? "Location request timed out"
+                : "Unable to get location";
           setLocation({ status: "denied", lat: null, lng: null, distance: null, isInside: null, errorMessage: msg });
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
       );
     } catch (e) {
       console.error("getLocation unexpected error:", e);
-      setLocation({ status: "error", lat: null, lng: null, distance: null, isInside: null, errorMessage: "Unable to verify location, please try again" });
+      setLocation({
+        status: "error",
+        lat: null,
+        lng: null,
+        distance: null,
+        isInside: null,
+        errorMessage: "Unable to verify location, please try again",
+      });
     }
   }, [settings.school_latitude, settings.school_longitude, settings.allowed_radius_meters]);
 
   const requestLocationPermission = (): Promise<boolean> => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
-        setLocation(prev => ({ ...prev, status: "error", errorMessage: "Geolocation not supported" }));
+        setLocation((prev) => ({ ...prev, status: "error", errorMessage: "Geolocation not supported" }));
         resolve(false);
         return;
       }
-      setLocation(prev => ({ ...prev, status: "loading", errorMessage: null }));
+      setLocation((prev) => ({ ...prev, status: "loading", errorMessage: null }));
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const lat = pos.coords.latitude;
@@ -277,11 +308,14 @@ export default function Attendance() {
           resolve(true);
         },
         (err) => {
-          const msg = err.code === 1 ? "Location permission is required. Please enable location access in your browser settings." : "Unable to get location";
+          const msg =
+            err.code === 1
+              ? "Location permission is required. Please enable location access in your browser settings."
+              : "Unable to get location";
           setLocation({ status: "denied", lat: null, lng: null, distance: null, isInside: null, errorMessage: msg });
           resolve(false);
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
       );
     });
   };
@@ -296,7 +330,11 @@ export default function Attendance() {
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("*"),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
-        supabase.from("profiles").select("role, full_name, work_day, check_in_time, check_out_time, work_schedule").eq("id", user!.id).maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("role, full_name, work_day, check_in_time, check_out_time, work_schedule")
+          .eq("id", user!.id)
+          .maybeSingle(),
       ]);
 
       if (attRes.data) {
@@ -333,7 +371,8 @@ export default function Attendance() {
           start_time: map.start_time ?? DEFAULT_SETTINGS.start_time,
           end_time: map.end_time ?? DEFAULT_SETTINGS.end_time,
           grace_period_minutes: Number(map.grace_period_minutes) || DEFAULT_SETTINGS.grace_period_minutes,
-          deduction_rate_per_minute: Number(map.deduction_rate_per_minute) || DEFAULT_SETTINGS.deduction_rate_per_minute,
+          deduction_rate_per_minute:
+            Number(map.deduction_rate_per_minute) || DEFAULT_SETTINGS.deduction_rate_per_minute,
           school_latitude: Number(map.school_latitude) || 0,
           school_longitude: Number(map.school_longitude) || 0,
           allowed_radius_meters: Number(map.allowed_radius_meters) || DEFAULT_SETTINGS.allowed_radius_meters,
@@ -351,11 +390,14 @@ export default function Attendance() {
     try {
       const monthStart = getMonthStart();
       const { data: existing } = await supabase
-        .from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle();
+        .from("salaries")
+        .select("*")
+        .eq("user_id", user!.id)
+        .eq("month", monthStart)
+        .maybeSingle();
       if (existing) return existing as unknown as SalaryRecord;
 
-      const { data: profile } = await supabase
-        .from("profiles").select("base_salary").eq("id", user!.id).single();
+      const { data: profile } = await supabase.from("profiles").select("base_salary").eq("id", user!.id).single();
       const baseSalary = (profile as any)?.base_salary ?? 300000;
       // Staff cannot insert salary rows directly anymore — server-side
       // edge function (apply-attendance-deduction) creates the row when needed.
@@ -429,7 +471,11 @@ export default function Attendance() {
       if (schoolConfigured && location.status !== "granted") {
         const granted = await requestLocationPermission();
         if (!granted && !isAdmin) {
-          toast({ title: "Location permission is required", description: "Please enable location access to check in.", variant: "destructive" });
+          toast({
+            title: "Location permission is required",
+            description: "Please enable location access to check in.",
+            variant: "destructive",
+          });
           setCheckingIn(false);
           return;
         }
@@ -438,13 +484,21 @@ export default function Attendance() {
       // Re-check after location request
       const currentLocation = location;
       if (schoolConfigured && currentLocation.isInside === false && !isAdmin) {
-        toast({ title: "Outside school area", description: `You are ${currentLocation.distance}m away. Move closer to check in.`, variant: "destructive" });
+        toast({
+          title: "Outside school area",
+          description: `You are ${currentLocation.distance}m away. Move closer to check in.`,
+          variant: "destructive",
+        });
         setCheckingIn(false);
         return;
       }
 
       if (schoolConfigured && (currentLocation.status === "denied" || currentLocation.status === "error") && !isAdmin) {
-        toast({ title: "Location permission is required", description: "Please enable location access for attendance", variant: "destructive" });
+        toast({
+          title: "Location permission is required",
+          description: "Please enable location access for attendance",
+          variant: "destructive",
+        });
         setCheckingIn(false);
         return;
       }
@@ -461,9 +515,7 @@ export default function Attendance() {
         effectiveStartTime,
       });
 
-      const lateMin = isWorkingDay
-        ? calcLateMinutes(now, effectiveStartTime, settings.grace_period_minutes)
-        : 0;
+      const lateMin = isWorkingDay ? calcLateMinutes(now, effectiveStartTime, settings.grace_period_minutes) : 0;
       const today = now.toISOString().split("T")[0];
       const locationStatus = getLocationStatusLabel();
 
@@ -482,8 +534,7 @@ export default function Attendance() {
         insertData.check_in_distance = location.distance;
       }
 
-      const { data, error } = await supabase
-        .from("attendance").insert(insertData).select().single();
+      const { data, error } = await supabase.from("attendance").insert(insertData).select().single();
 
       if (error) {
         toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
@@ -495,7 +546,10 @@ export default function Attendance() {
         setSalary(sal);
 
         const overrideNote = (geoDenied || geoError) && isAdmin ? " (Admin override)" : "";
-        toast({ title: lateMin > 0 ? `Checked in (${lateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}` });
+        toast({
+          title:
+            lateMin > 0 ? `Checked in (${lateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}`,
+        });
 
         // Show salary notification after check-in
         const estimatedDeduction = lateMin * settings.deduction_rate_per_minute;
@@ -503,7 +557,11 @@ export default function Attendance() {
       }
     } catch (e) {
       console.error("handleCheckIn error:", e);
-      toast({ title: "Check-in failed", description: "An unexpected error occurred. Please try again.", variant: "destructive" });
+      toast({
+        title: "Check-in failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setCheckingIn(false);
     }
@@ -531,7 +589,9 @@ export default function Attendance() {
       const { data, error } = await supabase
         .from("attendance")
         .update({ check_out_time: now.toISOString() } as any)
-        .eq("id", record.id).select().single();
+        .eq("id", record.id)
+        .select()
+        .single();
 
       if (error) {
         toast({ title: "Check-out failed", description: error.message, variant: "destructive" });
@@ -542,8 +602,11 @@ export default function Attendance() {
       setRecord(updatedRecord);
 
       const { data: approvedLeave } = await supabase
-        .from("leave_requests").select("type")
-        .eq("user_id", user.id).eq("date", today).eq("status", "approved");
+        .from("leave_requests")
+        .select("type")
+        .eq("user_id", user.id)
+        .eq("date", today)
+        .eq("status", "approved");
 
       const approvedTypes = (approvedLeave as any[] | null)?.map((r: any) => r.type) ?? [];
       const hasApprovedLeave = approvedTypes.includes("leave");
@@ -569,13 +632,18 @@ export default function Attendance() {
       }
 
       const excuseNote = hasApprovedLeave ? " (Leave approved)" : hasApprovedLateExcuse ? " (Late excused)" : "";
-      const checkoutMsg = earlyMin > 0 ? `Checked out (${earlyMin} min early)${excuseNote}` : `Checked out successfully${excuseNote}`;
+      const checkoutMsg =
+        earlyMin > 0 ? `Checked out (${earlyMin} min early)${excuseNote}` : `Checked out successfully${excuseNote}`;
       toast({ title: checkoutMsg });
       setCheckInNotice(null);
       setCheckOutNotice(checkoutMsg);
     } catch (e) {
       console.error("handleCheckOut error:", e);
-      toast({ title: "Check-out failed", description: "An unexpected error occurred. Please try again.", variant: "destructive" });
+      toast({
+        title: "Check-out failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setCheckingOut(false);
     }
@@ -595,7 +663,9 @@ export default function Attendance() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div><h1 className="text-2xl font-bold font-display">Attendance</h1></div>
+        <div>
+          <h1 className="text-2xl font-bold font-display">Attendance</h1>
+        </div>
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>Loading...</span>
@@ -630,7 +700,9 @@ export default function Attendance() {
             <Card className="border-l-4 border-l-destructive border border-border bg-destructive/5 shadow-none">
               <CardContent className="p-4 text-sm leading-relaxed">
                 <p>
-                  <span className="font-semibold">{displayName}</span> ယနေ့ သင့်အားလပ်ရက် ဖြစ်ပါတယ် အိပ်စရာတွေ ရှိတာတွေ လုပ်စရာ ရှိတာတွေ သွားစရာ ရှိတာတွေ ကို သတိလေးထားပြီး ပျော်ပျော်ရွှင်ရွှင် လှုပ်ရှား လုပ်ကိုင် သွားလာနိုင်ပါစေရှင့်။
+                  <span className="font-semibold">{displayName}</span> ပိတ်ရက်လေးရောက်ပြီဆိုတော့ အိပ်ရေးဝအောင် အနားယူပါ
+                  🌙 လုပ်စရာရှိတာတွေ စိတ်အေးအေးနဲ့ လုပ်ပါ ✨ သွားစရာရှိရင်လည်း ဘေးကင်းကင်း သွားလာပါ 🚗 ကိုယ့်ကိုယ်ကို
+                  ဂရုစိုက်ပြီး ပျော်ရွှင်တဲ့ အနားယူချိန်လေး ဖြစ်ပါစေ 🤍
                 </p>
               </CardContent>
             </Card>
@@ -640,7 +712,9 @@ export default function Attendance() {
           <Card className="border-l-4 border-l-secondary border border-border bg-secondary/5 shadow-none">
             <CardContent className="p-4 text-sm leading-relaxed">
               <p>
-                <span className="font-semibold">{displayName}</span> ယနေ့ မနက် Check in လုပ်ရမည့် အချိန်မှာ <span className="font-semibold text-secondary">{expectedCheckInTime}</span> ဖြစ်ပါတယ် အမှီသွားပါနော် မင်္ဂလာ မနက်ခင်းပါရှင့်။
+                <span className="font-semibold">{displayName}</span> ယနေ့ မနက် Check in လုပ်ရမည့် အချိန်မှာ{" "}
+                <span className="font-semibold text-secondary">{expectedCheckInTime}</span> ဖြစ်ပါတယ် အမှီသွားပါနော်
+                မင်္ဂလာ မနက်ခင်းပါရှင့်။
               </p>
             </CardContent>
           </Card>
@@ -655,10 +729,14 @@ export default function Attendance() {
               <span className="font-display font-semibold text-sm text-secondary">Salary Notification</span>
             </div>
             <p className="text-sm">
-              ယခုလအတွက် သင့်ရဲ့ လစာလက်ကျန်မှာ <span className="font-bold text-secondary">{salaryNotification.remaining.toLocaleString()} MMK</span> ဖြစ်ပါသည်။
+              ယခုလအတွက် သင့်ရဲ့ လစာလက်ကျန်မှာ{" "}
+              <span className="font-bold text-secondary">{salaryNotification.remaining.toLocaleString()} MMK</span>{" "}
+              ဖြစ်ပါသည်။
             </p>
             <p className="text-sm">
-              ယနေ့အတွက် သင့်လစာဖြတ်ခံရသည့် ပမာဏမှာ <span className="font-bold text-destructive">{salaryNotification.deduction.toLocaleString()} MMK</span> ဖြစ်ပါသည်။
+              ယနေ့အတွက် သင့်လစာဖြတ်ခံရသည့် ပမာဏမှာ{" "}
+              <span className="font-bold text-destructive">{salaryNotification.deduction.toLocaleString()} MMK</span>{" "}
+              ဖြစ်ပါသည်။
             </p>
           </CardContent>
         </Card>
@@ -666,12 +744,17 @@ export default function Attendance() {
 
       {/* Location Status Card */}
       {schoolConfigured && (
-        <Card className={`border shadow-none ${
-          location.isInside === true ? "border-accent/30 bg-accent/5" :
-          location.isInside === false ? "border-destructive/30 bg-destructive/5" :
-          geoError ? "border-destructive/30 bg-destructive/5" :
-          "border-border"
-        }`}>
+        <Card
+          className={`border shadow-none ${
+            location.isInside === true
+              ? "border-accent/30 bg-accent/5"
+              : location.isInside === false
+                ? "border-destructive/30 bg-destructive/5"
+                : geoError
+                  ? "border-destructive/30 bg-destructive/5"
+                  : "border-border"
+          }`}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               {geoLoading ? (
@@ -688,7 +771,9 @@ export default function Attendance() {
                   <div className="flex-1">
                     <p className="text-sm font-semibold font-display">Location permission denied</p>
                     <p className="text-xs text-muted-foreground">
-                      {isAdmin ? "Admin override available — check-in allowed without location" : "Location permission is required. Please enable it in your browser settings."}
+                      {isAdmin
+                        ? "Admin override available — check-in allowed without location"
+                        : "Location permission is required. Please enable it in your browser settings."}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -703,7 +788,9 @@ export default function Attendance() {
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                   <div className="flex-1">
                     <p className="text-sm font-semibold font-display text-destructive">Location error</p>
-                    <p className="text-xs text-muted-foreground">{location.errorMessage || "Unable to verify location, please try again"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {location.errorMessage || "Unable to verify location, please try again"}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {isAdmin && <Badge className="bg-secondary text-secondary-foreground text-[10px]">Admin</Badge>}
@@ -717,7 +804,9 @@ export default function Attendance() {
                   <ShieldCheck className="h-5 w-5 text-accent" />
                   <div className="flex-1">
                     <p className="text-sm font-semibold font-display text-accent">Inside school area</p>
-                    <p className="text-xs text-muted-foreground">{location.distance}m from school (allowed: {settings.allowed_radius_meters}m)</p>
+                    <p className="text-xs text-muted-foreground">
+                      {location.distance}m from school (allowed: {settings.allowed_radius_meters}m)
+                    </p>
                   </div>
                   <Badge className="bg-accent/10 text-accent border-accent/30 text-[10px]">Inside</Badge>
                 </>
@@ -726,10 +815,14 @@ export default function Attendance() {
                   <ShieldX className="h-5 w-5 text-destructive" />
                   <div className="flex-1">
                     <p className="text-sm font-semibold font-display text-destructive">Outside school area</p>
-                    <p className="text-xs text-muted-foreground">{location.distance}m away (max: {settings.allowed_radius_meters}m)</p>
+                    <p className="text-xs text-muted-foreground">
+                      {location.distance}m away (max: {settings.allowed_radius_meters}m)
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="destructive" className="text-[10px]">Outside</Badge>
+                    <Badge variant="destructive" className="text-[10px]">
+                      Outside
+                    </Badge>
                     <Button size="sm" variant="outline" onClick={getLocation}>
                       <RefreshCw className="h-3 w-3 mr-1" /> Refresh
                     </Button>
@@ -839,9 +932,11 @@ export default function Attendance() {
           </div>
           {schoolConfigured && !canCheckIn && !checkedIn && !geoLoading && (
             <p className="text-xs text-destructive">
-              {geoBlocked ? "Move inside school area to check in" :
-               (geoDenied || geoError) && !isAdmin ? "Location permission is required to check in" :
-               ""}
+              {geoBlocked
+                ? "Move inside school area to check in"
+                : (geoDenied || geoError) && !isAdmin
+                  ? "Location permission is required to check in"
+                  : ""}
             </p>
           )}
         </CardContent>
@@ -854,7 +949,8 @@ export default function Attendance() {
             <p className="text-xs text-muted-foreground">Check-in</p>
             <p className="text-lg font-bold font-display mt-1">{formatTime(record?.check_in_time ?? null)}</p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Expected: {expectedCheckInTime}{isSpecialDay ? " (your day)" : ""}
+              Expected: {expectedCheckInTime}
+              {isSpecialDay ? " (your day)" : ""}
             </p>
           </CardContent>
         </Card>
@@ -863,7 +959,8 @@ export default function Attendance() {
             <p className="text-xs text-muted-foreground">Check-out</p>
             <p className="text-lg font-bold font-display mt-1">{formatTime(record?.check_out_time ?? null)}</p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Expected: {expectedCheckOutTime}{isSpecialDay ? " (your day)" : ""}
+              Expected: {expectedCheckOutTime}
+              {isSpecialDay ? " (your day)" : ""}
             </p>
           </CardContent>
         </Card>
@@ -904,13 +1001,17 @@ export default function Attendance() {
             <div className="space-y-1 text-sm">
               {lateDeduction > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Late ({record!.late_minutes} min × {settings.deduction_rate_per_minute} kyats)</span>
+                  <span className="text-muted-foreground">
+                    Late ({record!.late_minutes} min × {settings.deduction_rate_per_minute} kyats)
+                  </span>
                   <span className="font-medium">{lateDeduction.toLocaleString()} kyats</span>
                 </div>
               )}
               {earlyDeduction > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Early leave ({record!.early_minutes} min × {settings.deduction_rate_per_minute} kyats)</span>
+                  <span className="text-muted-foreground">
+                    Early leave ({record!.early_minutes} min × {settings.deduction_rate_per_minute} kyats)
+                  </span>
                   <span className="font-medium">{earlyDeduction.toLocaleString()} kyats</span>
                 </div>
               )}
@@ -948,10 +1049,19 @@ export default function Attendance() {
               </p>
             </div>
             <div className="pt-2 text-xs text-muted-foreground space-y-1">
-              <p>ယခုလအတွက် သင့်ရဲ့ လစာလက်ကျန်မှာ <span className="font-semibold">{(salary?.current_salary ?? 0).toLocaleString()} MMK</span> ဖြစ်ပါသည်။</p>
-              <p>ယနေ့အတွက် သင့်လစာဖြတ်ခံရသည့် ပမာဏမှာ <span className="font-semibold">{lastDeduction.toLocaleString()} MMK</span> ဖြစ်ပါသည်။</p>
+              <p>
+                ယခုလအတွက် သင့်ရဲ့ လစာလက်ကျန်မှာ{" "}
+                <span className="font-semibold">{(salary?.current_salary ?? 0).toLocaleString()} MMK</span> ဖြစ်ပါသည်။
+              </p>
+              <p>
+                ယနေ့အတွက် သင့်လစာဖြတ်ခံရသည့် ပမာဏမှာ{" "}
+                <span className="font-semibold">{lastDeduction.toLocaleString()} MMK</span> ဖြစ်ပါသည်။
+              </p>
             </div>
-            <Button onClick={() => setShowSalaryModal(false)} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90">
+            <Button
+              onClick={() => setShowSalaryModal(false)}
+              className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90"
+            >
               Done
             </Button>
           </div>
@@ -964,7 +1074,8 @@ export default function Attendance() {
           <AlertDialogHeader>
             <AlertDialogTitle className="font-display">Early Check-out</AlertDialogTitle>
             <AlertDialogDescription className="text-sm leading-relaxed text-foreground">
-              {(fullName || "ဆရာ/ဆရာမ")} ရေ ဒီနေ့ အစောကြီး ပြန်တော့မလို့လား? နေရော ကောင်းရဲ့လား? အရေးတကြီး ကိုယ်ရေးကိုယ်တာ ရှိလို့လား? ဂရုစိုက်ပြန်ပါရှင်....
+              {fullName || "ဆရာ/ဆရာမ"} ရေ ဒီနေ့ အစောကြီး ပြန်တော့မလို့လား? နေရော ကောင်းရဲ့လား? အရေးတကြီး ကိုယ်ရေးကိုယ်တာ
+              ရှိလို့လား? ဂရုစိုက်ပြန်ပါရှင်....
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
