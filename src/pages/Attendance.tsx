@@ -909,13 +909,11 @@ export default function Attendance() {
                 const earlyPreview = isWorkingDay ? calcEarlyMinutes(new Date(), expectedCheckOutTime) : 0;
 
                 if (earlyPreview > 0) {
-                  setForceCheckout(true);
-                  setConfirmEarlyOpen(true);
-                  return;
-                }
+  setConfirmEarlyOpen(true);
+  return;
+}
 
-                handleCheckOut();
-              }}
+handleCheckOut();
               disabled={!checkedIn || checkedOut || checkingOut}
               variant="outline"
               className="active:animate-press"
