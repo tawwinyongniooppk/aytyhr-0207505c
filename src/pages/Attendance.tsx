@@ -921,7 +921,7 @@ export default function Attendance() {
                   handleCheckOut();
                 }
               }}
-              disabled={!checkedIn || checkedOut || checkingOut}
+              disabled={!checkedIn || checkedOut || checkingOut || isOffToday}
               variant="outline"
               className="active:animate-press"
             >
