@@ -437,7 +437,9 @@ export default function Attendance() {
   const geoError = location.status === "error";
   const geoLoading = location.status === "loading";
 
+  const isOffToday = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
   const canCheckIn = (() => {
+    if (isOffToday) return false;
     if (record?.check_in_time) return false;
     if (!schoolConfigured) return true;
     if (location.isInside === true) return true;
