@@ -822,12 +822,13 @@ export default function CalendarPage() {
                     (mmHoliday || isSunday) ? "text-destructive" : "text-foreground",
               ].join(" ");
 
+              const offHighlight = isOffDay && !isStaff;
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDate(dateStr)}
-                  title={mmHoliday || undefined}
-                  className="relative h-14 sm:h-20 flex flex-col items-center justify-start pt-1.5 border-b border-border/40 transition-colors hover:bg-muted/40"
+                  title={mmHoliday || (offHighlight ? `Off: ${(offStaffByWeekday[weekdayName] || []).join(", ") || "Day off"}` : undefined)}
+                  className={`relative h-14 sm:h-20 flex flex-col items-center justify-start pt-1.5 border-b border-border/40 transition-colors ${offHighlight ? "bg-destructive/15 hover:bg-destructive/20" : "hover:bg-muted/40"}`}
                 >
                   <span className={numClasses}>{day}</span>
                   {mmDayOnly && (
@@ -836,7 +837,7 @@ export default function CalendarPage() {
                     </span>
                   )}
                   <div className="flex gap-0.5 mt-auto mb-1.5 flex-wrap justify-center px-1">
-                    {isOffDay && (
+                    {isOffDay && !offHighlight && (
                       <div className="h-1 w-1 rounded-full bg-destructive" />
                     )}
                     {dayEvents.slice(0, 3).map((e) => (
