@@ -929,7 +929,12 @@ export default function Attendance() {
               Check Out
             </Button>
           </div>
-          {schoolConfigured && !canCheckIn && !checkedIn && !geoLoading && (
+          {isOffToday && (
+            <p className="text-xs text-destructive">
+              ဒီနေ့က ပိတ်ရက်ဖြစ်လို့ Check in / Check out ပိတ်ထားပါတယ်
+            </p>
+          )}
+          {!isOffToday && schoolConfigured && !canCheckIn && !checkedIn && !geoLoading && (
             <p className="text-xs text-destructive">
               {geoBlocked
                 ? "Move inside school area to check in"
