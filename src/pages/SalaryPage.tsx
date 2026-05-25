@@ -230,52 +230,52 @@ export default function SalaryPage() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="border border-border shadow-none">
+        <Card className="border border-border shadow-none min-w-0">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Base Salary</span>
+              <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground truncate">Base Salary</span>
             </div>
-            <p className="text-lg font-bold font-display">
+            <p className="text-base sm:text-lg font-bold font-display break-words">
               {baseSalary.toLocaleString()}{" "}
               <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
           </CardContent>
         </Card>
-        <Card className="border border-accent/30 shadow-none bg-accent/5">
+        <Card className="border border-accent/30 shadow-none bg-accent/5 min-w-0">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="h-4 w-4 text-accent" />
-              <span className="text-xs text-muted-foreground">Bonus</span>
+              <DollarSign className="h-4 w-4 text-accent shrink-0" />
+              <span className="text-xs text-muted-foreground truncate">Bonus</span>
             </div>
-            <p className="text-lg font-bold font-display text-accent">
+            <p className="text-base sm:text-lg font-bold font-display text-accent break-words">
               +{totalBonus.toLocaleString()}{" "}
               <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
           </CardContent>
         </Card>
-        <Card className="border border-destructive/30 shadow-none">
+        <Card className="border border-destructive/30 shadow-none bg-destructive/5 min-w-0">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
-              <TrendingDown className="h-4 w-4 text-destructive" />
-              <span className="text-xs text-muted-foreground">Deductions</span>
+              <TrendingDown className="h-4 w-4 text-destructive shrink-0" />
+              <span className="text-xs text-muted-foreground truncate">Deductions</span>
             </div>
-            <p className="text-lg font-bold font-display text-destructive">
+            <p className="text-base sm:text-lg font-bold font-display text-destructive break-words">
               -{totalDeductions.toLocaleString()}{" "}
               <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
-            <p className="text-[10px] text-muted-foreground mt-1 truncate">
+            <p className="text-[10px] text-muted-foreground mt-1 break-words">
               Auto: {autoDeductions.toLocaleString()} · Manual: {manualDeductionAmt.toLocaleString()}
             </p>
           </CardContent>
         </Card>
-        <Card className="border border-secondary/30 shadow-none bg-secondary/5">
+        <Card className="border border-secondary/30 shadow-none bg-secondary/5 min-w-0">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
-              <Wallet className="h-4 w-4 text-secondary" />
-              <span className="text-xs text-muted-foreground">Final Salary</span>
+              <Wallet className="h-4 w-4 text-secondary shrink-0" />
+              <span className="text-xs text-muted-foreground truncate">Final Salary</span>
             </div>
-            <p className="text-lg font-bold font-display text-secondary">
+            <p className="text-base sm:text-lg font-bold font-display text-secondary break-words">
               {finalSalary.toLocaleString()}
               <span className="text-xs font-normal text-muted-foreground"> Ks</span>
             </p>
