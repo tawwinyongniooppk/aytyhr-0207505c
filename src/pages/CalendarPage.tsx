@@ -125,27 +125,16 @@ export default function CalendarPage() {
     if (!isStaff) loadStaff();
   }, [user, isStaff, isAssistant, year, month]);
 
-  // Realtime: refresh schedule when relevant profile work_schedule changes (debounced)
-  const scheduleReloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Refresh schedule when the tab becomes visible again (cheaper than realtime).
   useEffect(() => {
     if (!user) return;
-    const filter = isStaff ? `id=eq.${user.id}` : undefined;
-    const channel = supabase
-      .channel(`profile-schedule-sync-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles", ...(filter ? { filter } : {}) },
-        () => {
-          if (scheduleReloadTimer.current) clearTimeout(scheduleReloadTimer.current);
-          scheduleReloadTimer.current = setTimeout(() => { loadMySchedule(); }, 800);
-        }
-      )
-      .subscribe();
-    return () => {
-      if (scheduleReloadTimer.current) clearTimeout(scheduleReloadTimer.current);
-      supabase.removeChannel(channel);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") loadMySchedule();
     };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [user, isStaff]);
+
 
   async function loadMySchedule() {
     if (!user) return;

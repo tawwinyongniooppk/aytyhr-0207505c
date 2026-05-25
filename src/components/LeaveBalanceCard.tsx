@@ -23,20 +23,18 @@ export function LeaveBalanceCard({ userId }: { userId?: string }) {
     }
     load();
 
-    const channel = supabase
-      .channel(`leave-balance-${targetId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "leave_balances", filter: `user_id=eq.${targetId}` },
-        () => load()
-      )
-      .subscribe();
+    // Refresh when the tab becomes visible again (avoids a realtime channel).
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [targetId]);
+
 
   return (
     <Card className="border border-border shadow-none bg-primary/5">
