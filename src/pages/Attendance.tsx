@@ -733,7 +733,7 @@ export default function Attendance() {
             <CardContent className="p-4 text-sm leading-relaxed">
               <p>
                 <span className="font-semibold">{displayName}</span> ယနေ့ မနက် Check in လုပ်ရမည့် အချိန်မှာ{" "}
-                <span className="font-semibold text-secondary">{expectedCheckInTime}</span> ဖြစ်ပါတယ် အမှီသွားပါနော်
+                <span className="font-semibold text-secondary">{formatTime12h(expectedCheckInTime)}</span> ဖြစ်ပါတယ် အမှီသွားပါနော်
                 မင်္ဂလာ မနက်ခင်းပါရှင့်။
               </p>
             </CardContent>
