@@ -442,13 +442,13 @@ export default function Attendance() {
   const isWorkingDay = todaySchedule ? todaySchedule.active !== false : true;
   const isSpecialDay = !!staffWorkDay && staffWorkDay === todayName;
   const expectedCheckInTime =
-    todaySchedule?.active && todaySchedule.check_in
+    todaySchedule && todaySchedule.active !== false && todaySchedule.check_in
       ? todaySchedule.check_in
       : isSpecialDay && staffCheckInTime
         ? staffCheckInTime
         : settings.start_time;
   const expectedCheckOutTime =
-    todaySchedule?.active && todaySchedule.check_out
+    todaySchedule && todaySchedule.active !== false && todaySchedule.check_out
       ? todaySchedule.check_out
       : isSpecialDay && staffCheckOutTime
         ? staffCheckOutTime
