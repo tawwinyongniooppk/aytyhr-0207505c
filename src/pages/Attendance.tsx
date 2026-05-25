@@ -75,20 +75,39 @@ const DEFAULT_SETTINGS: Settings = {
   allowed_radius_meters: 50,
 };
 
-function calcLateMinutes(checkInTime: Date, startTime: string, gracePeriod: number): number {
-  const [h, m] = startTime.split(":").map(Number);
-  const threshold = new Date(checkInTime);
-  threshold.setHours(h, m + gracePeriod, 0, 0);
-  const diff = Math.floor((checkInTime.getTime() - threshold.getTime()) / 60000);
-  return Math.max(0, diff);
+// Myanmar Standard Time (UTC+6:30) — use server-independent time math so
+// device-clock timezone bugs cannot produce wrong late/early minutes.
+const YANGON_OFFSET_MIN = 6 * 60 + 30;
+
+function yangonNowMinutes(): number {
+  const d = new Date();
+  const utcMin = d.getUTCHours() * 60 + d.getUTCMinutes();
+  return (utcMin + YANGON_OFFSET_MIN + 24 * 60) % (24 * 60);
 }
 
-function calcEarlyMinutes(checkOutTime: Date, endTime: string): number {
-  const [h, m] = endTime.split(":").map(Number);
-  const end = new Date(checkOutTime);
-  end.setHours(h, m, 0, 0);
-  const diff = Math.floor((end.getTime() - checkOutTime.getTime()) / 60000);
-  return Math.max(0, diff);
+function hhmmToMinutes(s: string): number {
+  if (!s) return 0;
+  const [h, m] = s.split(":").map((v) => Number(v));
+  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+}
+
+function calcLateMinutes(startTime: string, gracePeriod: number): number {
+  return Math.max(0, yangonNowMinutes() - (hhmmToMinutes(startTime) + gracePeriod));
+}
+
+function calcEarlyMinutes(endTime: string): number {
+  return Math.max(0, hhmmToMinutes(endTime) - yangonNowMinutes());
+}
+
+function formatTime12h(hhmm: string): string {
+  if (!hhmm) return "";
+  const [hStr, mStr = "0"] = hhmm.split(":");
+  const h = Number(hStr);
+  const m = Number(mStr);
+  if (!Number.isFinite(h)) return hhmm;
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
 function getMonthStart(): string {
