@@ -899,12 +899,12 @@ export default function Attendance() {
           <div className="grid grid-cols-2 gap-3 text-left">
             <div className="rounded-md border border-border bg-muted/40 p-3">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Check-in time</p>
-              <p className="text-lg font-bold font-display text-foreground">{expectedCheckInTime}</p>
+              <p className="text-lg font-bold font-display text-foreground">{formatTime12h(expectedCheckInTime)}</p>
               {isSpecialDay && <p className="text-[10px] text-secondary mt-0.5">your scheduled day</p>}
             </div>
             <div className="rounded-md border border-border bg-muted/40 p-3">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Check-out time</p>
-              <p className="text-lg font-bold font-display text-foreground">{expectedCheckOutTime}</p>
+              <p className="text-lg font-bold font-display text-foreground">{formatTime12h(expectedCheckOutTime)}</p>
               {isSpecialDay && <p className="text-[10px] text-secondary mt-0.5">your scheduled day</p>}
             </div>
           </div>
