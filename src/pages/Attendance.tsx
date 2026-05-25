@@ -974,7 +974,7 @@ export default function Attendance() {
             <p className="text-xs text-muted-foreground">Check-in</p>
             <p className="text-lg font-bold font-display mt-1">{formatTime(record?.check_in_time ?? null)}</p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Expected: {expectedCheckInTime}
+              Expected: {formatTime12h(expectedCheckInTime)}
               {isSpecialDay ? " (your day)" : ""}
             </p>
           </CardContent>
@@ -984,7 +984,7 @@ export default function Attendance() {
             <p className="text-xs text-muted-foreground">Check-out</p>
             <p className="text-lg font-bold font-display mt-1">{formatTime(record?.check_out_time ?? null)}</p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Expected: {expectedCheckOutTime}
+              Expected: {formatTime12h(expectedCheckOutTime)}
               {isSpecialDay ? " (your day)" : ""}
             </p>
           </CardContent>
