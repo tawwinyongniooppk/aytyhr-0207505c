@@ -680,7 +680,12 @@ export default function Attendance() {
 
   const formatTime = (iso: string | null) => {
     if (!iso) return "--:--";
-    return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return new Date(iso).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Yangon",
+    });
   };
 
   if (loading) {
