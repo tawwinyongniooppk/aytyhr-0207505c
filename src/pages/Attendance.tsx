@@ -602,7 +602,7 @@ export default function Attendance() {
       }
 
       const now = new Date();
-      const earlyMin = isWorkingDay ? calcEarlyMinutes(now, expectedCheckOutTime) : 0;
+      const earlyMin = isWorkingDay ? calcEarlyMinutes(expectedCheckOutTime) : 0;
       const today = now.toISOString().split("T")[0];
 
       // Only update check_out_time from the client. early_minutes is a
