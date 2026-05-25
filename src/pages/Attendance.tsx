@@ -75,20 +75,39 @@ const DEFAULT_SETTINGS: Settings = {
   allowed_radius_meters: 50,
 };
 
-function calcLateMinutes(checkInTime: Date, startTime: string, gracePeriod: number): number {
-  const [h, m] = startTime.split(":").map(Number);
-  const threshold = new Date(checkInTime);
-  threshold.setHours(h, m + gracePeriod, 0, 0);
-  const diff = Math.floor((checkInTime.getTime() - threshold.getTime()) / 60000);
-  return Math.max(0, diff);
+// Myanmar Standard Time (UTC+6:30) — use server-independent time math so
+// device-clock timezone bugs cannot produce wrong late/early minutes.
+const YANGON_OFFSET_MIN = 6 * 60 + 30;
+
+function yangonNowMinutes(): number {
+  const d = new Date();
+  const utcMin = d.getUTCHours() * 60 + d.getUTCMinutes();
+  return (utcMin + YANGON_OFFSET_MIN + 24 * 60) % (24 * 60);
 }
 
-function calcEarlyMinutes(checkOutTime: Date, endTime: string): number {
-  const [h, m] = endTime.split(":").map(Number);
-  const end = new Date(checkOutTime);
-  end.setHours(h, m, 0, 0);
-  const diff = Math.floor((end.getTime() - checkOutTime.getTime()) / 60000);
-  return Math.max(0, diff);
+function hhmmToMinutes(s: string): number {
+  if (!s) return 0;
+  const [h, m] = s.split(":").map((v) => Number(v));
+  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+}
+
+function calcLateMinutes(startTime: string, gracePeriod: number): number {
+  return Math.max(0, yangonNowMinutes() - (hhmmToMinutes(startTime) + gracePeriod));
+}
+
+function calcEarlyMinutes(endTime: string): number {
+  return Math.max(0, hhmmToMinutes(endTime) - yangonNowMinutes());
+}
+
+function formatTime12h(hhmm: string): string {
+  if (!hhmm) return "";
+  const [hStr, mStr = "0"] = hhmm.split(":");
+  const h = Number(hStr);
+  const m = Number(mStr);
+  if (!Number.isFinite(h)) return hhmm;
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
 function getMonthStart(): string {
@@ -418,16 +437,18 @@ export default function Attendance() {
   //   3. global app_settings defaults
   const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
   const todaySchedule = workSchedule?.[todayName] ?? null;
-  const isWorkingDay = todaySchedule ? !!todaySchedule.active : true;
+  // Only treat as off-day when Admin EXPLICITLY set active=false for today.
+  // Missing key or partial entry => assume working day (matches Settings intent).
+  const isWorkingDay = todaySchedule ? todaySchedule.active !== false : true;
   const isSpecialDay = !!staffWorkDay && staffWorkDay === todayName;
   const expectedCheckInTime =
-    todaySchedule?.active && todaySchedule.check_in
+    todaySchedule && todaySchedule.active !== false && todaySchedule.check_in
       ? todaySchedule.check_in
       : isSpecialDay && staffCheckInTime
         ? staffCheckInTime
         : settings.start_time;
   const expectedCheckOutTime =
-    todaySchedule?.active && todaySchedule.check_out
+    todaySchedule && todaySchedule.active !== false && todaySchedule.check_out
       ? todaySchedule.check_out
       : isSpecialDay && staffCheckOutTime
         ? staffCheckOutTime
@@ -517,7 +538,7 @@ export default function Attendance() {
         effectiveStartTime,
       });
 
-      const lateMin = isWorkingDay ? calcLateMinutes(now, effectiveStartTime, settings.grace_period_minutes) : 0;
+      const lateMin = isWorkingDay ? calcLateMinutes(effectiveStartTime, settings.grace_period_minutes) : 0;
       const today = now.toISOString().split("T")[0];
       const locationStatus = getLocationStatusLabel();
 
@@ -581,7 +602,7 @@ export default function Attendance() {
       }
 
       const now = new Date();
-      const earlyMin = isWorkingDay ? calcEarlyMinutes(now, expectedCheckOutTime) : 0;
+      const earlyMin = isWorkingDay ? calcEarlyMinutes(expectedCheckOutTime) : 0;
       const today = now.toISOString().split("T")[0];
 
       // Only update check_out_time from the client. early_minutes is a
@@ -659,7 +680,12 @@ export default function Attendance() {
 
   const formatTime = (iso: string | null) => {
     if (!iso) return "--:--";
-    return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return new Date(iso).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Yangon",
+    });
   };
 
   if (loading) {
@@ -712,7 +738,7 @@ export default function Attendance() {
             <CardContent className="p-4 text-sm leading-relaxed">
               <p>
                 <span className="font-semibold">{displayName}</span> ယနေ့ မနက် Check in လုပ်ရမည့် အချိန်မှာ{" "}
-                <span className="font-semibold text-secondary">{expectedCheckInTime}</span> ဖြစ်ပါတယ် အမှီသွားပါနော်
+                <span className="font-semibold text-secondary">{formatTime12h(expectedCheckInTime)}</span> ဖြစ်ပါတယ် အမှီသွားပါနော်
                 မင်္ဂလာ မနက်ခင်းပါရှင့်။
               </p>
             </CardContent>
@@ -878,12 +904,12 @@ export default function Attendance() {
           <div className="grid grid-cols-2 gap-3 text-left">
             <div className="rounded-md border border-border bg-muted/40 p-3">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Check-in time</p>
-              <p className="text-lg font-bold font-display text-foreground">{expectedCheckInTime}</p>
+              <p className="text-lg font-bold font-display text-foreground">{formatTime12h(expectedCheckInTime)}</p>
               {isSpecialDay && <p className="text-[10px] text-secondary mt-0.5">your scheduled day</p>}
             </div>
             <div className="rounded-md border border-border bg-muted/40 p-3">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Check-out time</p>
-              <p className="text-lg font-bold font-display text-foreground">{expectedCheckOutTime}</p>
+              <p className="text-lg font-bold font-display text-foreground">{formatTime12h(expectedCheckOutTime)}</p>
               {isSpecialDay && <p className="text-[10px] text-secondary mt-0.5">your scheduled day</p>}
             </div>
           </div>
@@ -914,7 +940,7 @@ export default function Attendance() {
             </Button>
             <Button
               onClick={() => {
-                const earlyPreview = isWorkingDay ? calcEarlyMinutes(new Date(), expectedCheckOutTime) : 0;
+                const earlyPreview = isWorkingDay ? calcEarlyMinutes(expectedCheckOutTime) : 0;
                 if (earlyPreview > 0) {
                   setConfirmEarlyOpen(true);
                 } else {
@@ -953,7 +979,7 @@ export default function Attendance() {
             <p className="text-xs text-muted-foreground">Check-in</p>
             <p className="text-lg font-bold font-display mt-1">{formatTime(record?.check_in_time ?? null)}</p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Expected: {expectedCheckInTime}
+              Expected: {formatTime12h(expectedCheckInTime)}
               {isSpecialDay ? " (your day)" : ""}
             </p>
           </CardContent>
@@ -963,7 +989,7 @@ export default function Attendance() {
             <p className="text-xs text-muted-foreground">Check-out</p>
             <p className="text-lg font-bold font-display mt-1">{formatTime(record?.check_out_time ?? null)}</p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Expected: {expectedCheckOutTime}
+              Expected: {formatTime12h(expectedCheckOutTime)}
               {isSpecialDay ? " (your day)" : ""}
             </p>
           </CardContent>

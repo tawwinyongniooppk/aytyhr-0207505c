@@ -78,15 +78,18 @@ Deno.serve(async (req) => {
       expectedOut = (s?.value as string) || "16:00";
     }
 
-    // Compute early_minutes from actual check_out_time vs expected; never trust client
+    // Compute early_minutes from actual check_out_time vs expected, in Yangon time.
+    // Using setHours on a UTC Date uses the SERVER's local tz (UTC) — that produced
+    // 300+ minute "early" values for a 3:15 PM Yangon check-out. Compare minute-of-day
+    // in Asia/Yangon (UTC+6:30) instead so device/server timezone never affects payroll.
+    const YANGON_OFFSET_MIN = 6 * 60 + 30;
     let computedEarly = 0;
     if (att.check_out_time && expectedOut) {
       const [eh, em] = expectedOut.split(":").map(Number);
       const out = new Date(att.check_out_time);
-      const expected = new Date(out);
-      expected.setHours(eh, em, 0, 0);
-      const diffMin = Math.floor((expected.getTime() - out.getTime()) / 60000);
-      computedEarly = Math.max(0, diffMin);
+      const outMinOfDay = (out.getUTCHours() * 60 + out.getUTCMinutes() + YANGON_OFFSET_MIN + 1440) % 1440;
+      const expectedMinOfDay = (Number(eh) || 0) * 60 + (Number(em) || 0);
+      computedEarly = Math.max(0, expectedMinOfDay - outMinOfDay);
     }
 
     // Approved leave / late excuse for today — only "paid" approvals excuse the deduction
