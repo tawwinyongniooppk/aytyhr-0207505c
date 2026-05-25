@@ -437,7 +437,9 @@ export default function Attendance() {
   //   3. global app_settings defaults
   const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
   const todaySchedule = workSchedule?.[todayName] ?? null;
-  const isWorkingDay = todaySchedule ? !!todaySchedule.active : true;
+  // Only treat as off-day when Admin EXPLICITLY set active=false for today.
+  // Missing key or partial entry => assume working day (matches Settings intent).
+  const isWorkingDay = todaySchedule ? todaySchedule.active !== false : true;
   const isSpecialDay = !!staffWorkDay && staffWorkDay === todayName;
   const expectedCheckInTime =
     todaySchedule?.active && todaySchedule.check_in
