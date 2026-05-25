@@ -935,7 +935,7 @@ export default function Attendance() {
             </Button>
             <Button
               onClick={() => {
-                const earlyPreview = isWorkingDay ? calcEarlyMinutes(new Date(), expectedCheckOutTime) : 0;
+                const earlyPreview = isWorkingDay ? calcEarlyMinutes(expectedCheckOutTime) : 0;
                 if (earlyPreview > 0) {
                   setConfirmEarlyOpen(true);
                 } else {
