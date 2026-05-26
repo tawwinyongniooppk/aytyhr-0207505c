@@ -151,7 +151,17 @@ export default function SalaryPage() {
         amount: baseSalary,
       });
     }
-    if (totalBonus > 0) {
+    if (bonusTxs.length > 0) {
+      for (const b of bonusTxs) {
+        items.push({
+          id: `bonus-tx-${b.id}`,
+          date: b.approved_date || b.deadline_date || monthStart,
+          type: "bonus",
+          description: `${b.title || "Bonus"} · Deadline ${b.deadline_date || "—"} · Approved ${b.approved_date || "—"}${b.auto_approved ? " (auto)" : ""}`,
+          amount: b.amount,
+        });
+      }
+    } else if (totalBonus > 0) {
       items.push({
         id: `bonus-${monthStart}`,
         date: monthStart,
@@ -160,6 +170,7 @@ export default function SalaryPage() {
         amount: totalBonus,
       });
     }
+
 
     // Per-day auto deductions from attendance, excluding paid-excused days
     const leaveByDate = new Map<string, Set<string>>();
