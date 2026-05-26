@@ -205,10 +205,14 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
   }));
   const sortedCalTasks = sortByDeadline(normalizedCalTasks);
 
-  const allPending = sortedTasks.filter(t => ["not_started","overdue","in_progress"].includes(t.status)).length
+  const rawPending = sortedTasks.filter(t => ["not_started","overdue","in_progress"].includes(t.status)).length
     + sortedCalTasks.filter(t => ["not_started","overdue","in_progress"].includes(t.status)).length;
-  const submittedCount = sortedTasks.filter(t => t.status === "submitted").length + sortedCalTasks.filter(t => t.status === "submitted").length;
-  const approvedCount = sortedTasks.filter(t => t.status === "approved").length + sortedCalTasks.filter(t => t.status === "approved").length;
+  const rawSubmitted = sortedTasks.filter(t => t.status === "submitted").length + sortedCalTasks.filter(t => t.status === "submitted").length;
+  const rawApproved = sortedTasks.filter(t => t.status === "approved").length + sortedCalTasks.filter(t => t.status === "approved").length;
+  // Monthly quota is 4 units per staff — badges never display more than 4.
+  const allPending = Math.min(rawPending, 4);
+  const submittedCount = Math.min(rawSubmitted, 4);
+  const approvedCount = Math.min(rawApproved, 4);
 
   function getStatusBadge(status: string) {
     if (status === "approved") return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs shrink-0"><CheckCircle2 className="h-3 w-3 mr-1" />Approved</Badge>;
