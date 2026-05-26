@@ -354,19 +354,56 @@ export function AdminTaskDashboard({
     if (!user) return;
     setApprovingId(item.id);
     try {
+      const approvedAt = new Date().toISOString();
+      const approvedDate = approvedAt.slice(0, 10);
+      // Deadline = task.due_date (item.dueDate)
+      const deadlineDate = item.dueDate || null;
+      // unit_count: weekly = 1, biweekly (span >= 13 days) = 2
+      let unitCount = 1;
+      if (item.startDate && item.dueDate) {
+        const days = Math.round(
+          (new Date(item.dueDate + "T00:00:00").getTime() - new Date(item.startDate + "T00:00:00").getTime()) / 86400000
+        );
+        if (days >= 13) unitCount = 2;
+      }
+      const monthStart = (deadlineDate || approvedDate).slice(0, 7) + "-01";
+
       if (item.source === "task") {
         const { error } = await supabase
           .from("tasks")
-          .update({ submission_status: "approved", approved_at: new Date().toISOString(), approved_by: user.id })
+          .update({ submission_status: "approved", approved_at: approvedAt, approved_by: user.id })
           .eq("id", item.sourceId);
         if (error) throw error;
       } else if (item.assignmentId) {
         const { error } = await supabase
           .from("calendar_event_assignments")
-          .update({ submission_status: "approved", approved_at: new Date().toISOString(), approved_by: user.id })
+          .update({ submission_status: "approved", approved_at: approvedAt, approved_by: user.id })
           .eq("id", item.assignmentId);
         if (error) throw error;
       }
+
+      // Bonus split: monthly bonus / 4 per unit
+      const { data: perUnit } = await supabase.rpc("compute_bonus_per_unit", {
+        p_user_id: item.staffId,
+        p_month: monthStart,
+      });
+      const amount = ((perUnit as unknown as number) || 0) * unitCount;
+      if (amount > 0) {
+        await supabase.from("bonus_transactions").insert({
+          user_id: item.staffId,
+          task_id: item.source === "task" ? item.sourceId : null,
+          assignment_id: item.source === "calendar" ? item.assignmentId : null,
+          source: item.source,
+          month: monthStart,
+          amount,
+          unit_count: unitCount,
+          deadline_date: deadlineDate,
+          approved_date: approvedDate,
+          auto_approved: false,
+          title: item.title,
+        });
+      }
+
       toast.success("Approved successfully");
       sendPush({
         user_ids: [item.staffId],
@@ -381,6 +418,7 @@ export function AdminTaskDashboard({
       setApprovingId(null);
     }
   }
+
 
 
   function openReject(item: UnifiedItem) {
