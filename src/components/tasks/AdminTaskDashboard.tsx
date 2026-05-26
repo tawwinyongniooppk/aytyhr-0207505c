@@ -444,12 +444,14 @@ export function AdminTaskDashboard({
           .update({ ...payload, completed: false })
           .eq("id", rejectItem.sourceId);
         if (error) throw error;
+        await supabase.from("bonus_transactions").delete().eq("task_id", rejectItem.sourceId);
       } else if (rejectItem.assignmentId) {
         const { error } = await supabase
           .from("calendar_event_assignments")
           .update(payload)
           .eq("id", rejectItem.assignmentId);
         if (error) throw error;
+        await supabase.from("bonus_transactions").delete().eq("assignment_id", rejectItem.assignmentId);
       }
       toast.success("Task rejected");
       sendPush({
