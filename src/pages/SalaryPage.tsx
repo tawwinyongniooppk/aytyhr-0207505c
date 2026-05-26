@@ -59,6 +59,7 @@ export default function SalaryPage() {
   const [manualLeaveDeductions, setManualLeaveDeductions] = useState<any[]>([]);
   const [attendanceRows, setAttendanceRows] = useState<any[]>([]);
   const [approvedLeaves, setApprovedLeaves] = useState<any[]>([]);
+  const [bonusTxs, setBonusTxs] = useState<any[]>([]);
   const [rates, setRates] = useState<{ late: number; early: number }>({ late: 200, early: 200 });
 
   useEffect(() => {
@@ -70,7 +71,7 @@ export default function SalaryPage() {
     setLoading(true);
     const monthStart = getMonthStart();
 
-    const [salRes, mdRes, attRes, lvRes, profRes] = await Promise.all([
+    const [salRes, mdRes, attRes, lvRes, profRes, btRes] = await Promise.all([
       supabase
         .from("salaries")
         .select("base_salary, current_salary, total_deductions, bonus, manual_deduction, deduction_reason")
@@ -100,12 +101,19 @@ export default function SalaryPage() {
         .select("late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute")
         .eq("id", user!.id)
         .maybeSingle(),
+      supabase
+        .from("bonus_transactions")
+        .select("id, title, amount, unit_count, deadline_date, approved_date, auto_approved")
+        .eq("user_id", user!.id)
+        .eq("month", monthStart)
+        .order("approved_date", { ascending: false }),
     ]);
 
     if (salRes.data) setSalary(salRes.data as unknown as SalaryData);
     if (mdRes.data) setManualLeaveDeductions(mdRes.data as any[]);
     if (attRes.data) setAttendanceRows(attRes.data as any[]);
     if (lvRes.data) setApprovedLeaves(lvRes.data as any[]);
+    if (btRes.data) setBonusTxs(btRes.data as any[]);
     if (profRes.data) {
       const legacy = Number((profRes.data as any).deduction_rate_per_minute) || 200;
       setRates({
@@ -116,6 +124,7 @@ export default function SalaryPage() {
 
     setLoading(false);
   };
+
 
   // Aggregate strictly from the salaries row (server-applied amounts).
   const baseSalary = Math.max(0, Number(salary?.base_salary ?? 0));
@@ -142,7 +151,17 @@ export default function SalaryPage() {
         amount: baseSalary,
       });
     }
-    if (totalBonus > 0) {
+    if (bonusTxs.length > 0) {
+      for (const b of bonusTxs) {
+        items.push({
+          id: `bonus-tx-${b.id}`,
+          date: b.approved_date || b.deadline_date || monthStart,
+          type: "bonus",
+          description: `${b.title || "Bonus"} · Deadline ${b.deadline_date || "—"} · Approved ${b.approved_date || "—"}${b.auto_approved ? " (auto)" : ""}`,
+          amount: b.amount,
+        });
+      }
+    } else if (totalBonus > 0) {
       items.push({
         id: `bonus-${monthStart}`,
         date: monthStart,
@@ -151,6 +170,7 @@ export default function SalaryPage() {
         amount: totalBonus,
       });
     }
+
 
     // Per-day auto deductions from attendance, excluding paid-excused days
     const leaveByDate = new Map<string, Set<string>>();
@@ -206,7 +226,7 @@ export default function SalaryPage() {
     }
 
     return items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, manualLeaveDeductions, attendanceRows, approvedLeaves, rates]);
+  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, manualLeaveDeductions, attendanceRows, approvedLeaves, rates, bonusTxs]);
 
 
   const currentMonth = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });

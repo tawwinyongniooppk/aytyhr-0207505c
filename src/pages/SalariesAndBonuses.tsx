@@ -266,7 +266,11 @@ export default function SalariesAndBonuses() {
             <div>
               <Label>Bonus (kyats)</Label>
               <Input type="number" value={form.bonus} onChange={(e) => setForm({ ...form, bonus: e.target.value })} />
-              <p className="text-xs text-muted-foreground mt-1">Adds to this month's final salary.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Adds to this month's final salary. Split into <b>4 units</b>: per-unit ={" "}
+                <b>{Math.floor((Number(form.bonus) || 0) / 4).toLocaleString()} Ks</b>.
+                Each approved task (weekly = 1 unit, bi-weekly = 2 units) credits that share.
+              </p>
             </div>
             <div>
               <Label>Manual Deduction (kyats)</Label>

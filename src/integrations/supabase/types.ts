@@ -80,10 +80,59 @@ export type Database = {
         }
         Relationships: []
       }
+      bonus_transactions: {
+        Row: {
+          amount: number
+          approved_date: string | null
+          assignment_id: string | null
+          auto_approved: boolean
+          created_at: string
+          deadline_date: string | null
+          id: string
+          month: string
+          source: string
+          task_id: string | null
+          title: string
+          unit_count: number
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          approved_date?: string | null
+          assignment_id?: string | null
+          auto_approved?: boolean
+          created_at?: string
+          deadline_date?: string | null
+          id?: string
+          month: string
+          source?: string
+          task_id?: string | null
+          title?: string
+          unit_count?: number
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          approved_date?: string | null
+          assignment_id?: string | null
+          auto_approved?: boolean
+          created_at?: string
+          deadline_date?: string | null
+          id?: string
+          month?: string
+          source?: string
+          task_id?: string | null
+          title?: string
+          unit_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       calendar_event_assignments: {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          auto_approved: boolean
           event_id: string
           id: string
           rejected_at: string | null
@@ -96,6 +145,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          auto_approved?: boolean
           event_id: string
           id?: string
           rejected_at?: string | null
@@ -108,6 +158,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          auto_approved?: boolean
           event_id?: string
           id?: string
           rejected_at?: string | null
@@ -403,6 +454,7 @@ export type Database = {
           approved_by: string | null
           assigned_by: string
           assignee_id: string
+          auto_approved: boolean
           completed: boolean
           created_at: string
           description: string
@@ -420,6 +472,7 @@ export type Database = {
           approved_by?: string | null
           assigned_by: string
           assignee_id: string
+          auto_approved?: boolean
           completed?: boolean
           created_at?: string
           description?: string
@@ -437,6 +490,7 @@ export type Database = {
           approved_by?: string | null
           assigned_by?: string
           assignee_id?: string
+          auto_approved?: boolean
           completed?: boolean
           created_at?: string
           description?: string
@@ -486,6 +540,10 @@ export type Database = {
         }
       }
       can_manage_branding: { Args: never; Returns: boolean }
+      compute_bonus_per_unit: {
+        Args: { p_month: string; p_user_id: string }
+        Returns: number
+      }
       get_leave_balance: { Args: { p_user_id: string }; Returns: number }
       get_profile_full: {
         Args: { p_id: string }
@@ -525,6 +583,7 @@ export type Database = {
           role: string
         }[]
       }
+      monthly_reset_for: { Args: { p_month: string }; Returns: undefined }
       purge_old_leave_logs: { Args: never; Returns: undefined }
       purge_old_salary_logs: { Args: never; Returns: undefined }
       purge_old_task_logs: { Args: never; Returns: undefined }
