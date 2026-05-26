@@ -1,0 +1,173 @@
+// Runs once daily at end-of-day Yangon time (23:55 MMT = 17:25 UTC).
+// 1) Auto-approve tasks/assignments whose deadline = today and status = submitted,
+//    crediting a bonus transaction (bonus / 4 per unit).
+// 2) Mark tasks/assignments whose deadline < today and status in (new, in_progress) as 'overdue'.
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+// Today/yesterday in Yangon (UTC+6:30)
+function yangonDateAt(offsetDays = 0) {
+  const now = new Date();
+  const ms = now.getTime() + (6.5 * 60 * 60 * 1000) + offsetDays * 86400000;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function monthStart(dateStr: string) {
+  return dateStr.slice(0, 7) + "-01";
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const today = yangonDateAt(0);
+    const log = { auto_approved_tasks: 0, auto_approved_assignments: 0, overdue_tasks: 0, overdue_assignments: 0, bonus_tx: 0 };
+
+    // ---- (A) AUTO-APPROVE TASKS (deadline = today, status submitted)
+    const { data: subTasks } = await supabase
+      .from("tasks")
+      .select("id, assignee_id, title, due_date")
+      .eq("submission_status", "submitted")
+      .eq("due_date", today);
+
+    for (const t of (subTasks || [])) {
+      const { error: upErr } = await supabase
+        .from("tasks")
+        .update({
+          submission_status: "approved",
+          approved_at: new Date().toISOString(),
+          auto_approved: true,
+        })
+        .eq("id", t.id);
+      if (upErr) { console.error("[deadline-sweep] approve task", t.id, upErr); continue; }
+      log.auto_approved_tasks++;
+
+      const ms = monthStart(today);
+      const { data: perUnit } = await supabase.rpc("compute_bonus_per_unit", {
+        p_user_id: t.assignee_id, p_month: ms,
+      });
+      const amount = (perUnit as unknown as number) || 0;
+      if (amount > 0) {
+        const { error: bErr } = await supabase.from("bonus_transactions").insert({
+          user_id: t.assignee_id,
+          task_id: t.id,
+          source: "task",
+          month: ms,
+          amount,
+          unit_count: 1,
+          deadline_date: t.due_date,
+          approved_date: today,
+          auto_approved: true,
+          title: t.title,
+        });
+        if (!bErr) log.bonus_tx++;
+      }
+    }
+
+    // ---- (B) AUTO-APPROVE CALENDAR ASSIGNMENTS (event.end_date = today, status submitted)
+    const { data: subAssigns } = await supabase
+      .from("calendar_event_assignments")
+      .select("id, user_id, event_id, submission_status")
+      .eq("submission_status", "submitted");
+
+    if (subAssigns && subAssigns.length > 0) {
+      const eventIds = Array.from(new Set(subAssigns.map((a: any) => a.event_id)));
+      const { data: evs } = await supabase
+        .from("calendar_events")
+        .select("id, title, end_date, start_date")
+        .in("id", eventIds);
+      const evMap = new Map((evs || []).map((e: any) => [e.id, e]));
+
+      for (const a of subAssigns) {
+        const ev: any = evMap.get(a.event_id);
+        if (!ev || ev.end_date !== today) continue;
+        const { error: upErr } = await supabase
+          .from("calendar_event_assignments")
+          .update({
+            submission_status: "approved",
+            approved_at: new Date().toISOString(),
+            auto_approved: true,
+          })
+          .eq("id", a.id);
+        if (upErr) { console.error("[deadline-sweep] approve ass", a.id, upErr); continue; }
+        log.auto_approved_assignments++;
+
+        const days = Math.round(
+          (new Date(ev.end_date + "T00:00:00").getTime() - new Date(ev.start_date + "T00:00:00").getTime()) / 86400000
+        );
+        const unit_count = days >= 13 ? 2 : 1;
+
+        const ms = monthStart(today);
+        const { data: perUnit } = await supabase.rpc("compute_bonus_per_unit", {
+          p_user_id: a.user_id, p_month: ms,
+        });
+        const amount = ((perUnit as unknown as number) || 0) * unit_count;
+        if (amount > 0) {
+          const { error: bErr } = await supabase.from("bonus_transactions").insert({
+            user_id: a.user_id,
+            assignment_id: a.id,
+            source: "calendar",
+            month: ms,
+            amount,
+            unit_count,
+            deadline_date: ev.end_date,
+            approved_date: today,
+            auto_approved: true,
+            title: ev.title,
+          });
+          if (!bErr) log.bonus_tx++;
+        }
+      }
+    }
+
+    // ---- (C) OVERDUE: tasks with due_date < today and status not (submitted/approved/rejected/overdue)
+    const { count: ot } = await supabase
+      .from("tasks")
+      .update({ submission_status: "overdue" }, { count: "exact" })
+      .lt("due_date", today)
+      .in("submission_status", ["not_started", "in_progress", "not_submitted"]);
+    log.overdue_tasks = ot || 0;
+
+    // ---- (D) OVERDUE: calendar assignments where the parent event ended before today
+    const { data: openAssigns } = await supabase
+      .from("calendar_event_assignments")
+      .select("id, event_id, submission_status")
+      .in("submission_status", ["not_started", "in_progress", "not_submitted"]);
+    if (openAssigns && openAssigns.length) {
+      const ids = Array.from(new Set(openAssigns.map((a: any) => a.event_id)));
+      const { data: evs2 } = await supabase
+        .from("calendar_events")
+        .select("id, end_date")
+        .in("id", ids);
+      const overdueEvIds = new Set(
+        (evs2 || []).filter((e: any) => e.end_date < today).map((e: any) => e.id),
+      );
+      const toMark = openAssigns.filter((a: any) => overdueEvIds.has(a.event_id)).map((a: any) => a.id);
+      if (toMark.length) {
+        const { error } = await supabase
+          .from("calendar_event_assignments")
+          .update({ submission_status: "overdue" })
+          .in("id", toMark);
+        if (!error) log.overdue_assignments = toMark.length;
+      }
+    }
+
+    return new Response(JSON.stringify({ ok: true, today, ...log }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error("[task-deadline-sweep] error", e);
+    return new Response(JSON.stringify({ ok: false, error: String(e) }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
