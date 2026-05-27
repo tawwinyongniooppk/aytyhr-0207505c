@@ -39,6 +39,7 @@ export default function SalariesAndBonuses() {
   const { toast } = useToast();
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [salaryMap, setSalaryMap] = useState<Record<string, SalaryRecord>>({});
+  const [bonusEarnedMap, setBonusEarnedMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ bonus: "0", manual_deduction: "0", deduction_reason: "" });
@@ -52,9 +53,10 @@ export default function SalariesAndBonuses() {
   const load = async () => {
     setLoading(true);
     const monthStart = getMonthStart();
-    const [profilesRes, salariesRes] = await Promise.all([
+    const [profilesRes, salariesRes, bonusTxRes] = await Promise.all([
       supabase.rpc("admin_list_profiles"),
       supabase.from("salaries").select("*").eq("month", monthStart),
+      supabase.from("bonus_transactions").select("user_id, amount").eq("month", monthStart),
     ]);
     if (profilesRes.data) {
       const filtered = (profilesRes.data as any[]).filter(
@@ -66,6 +68,13 @@ export default function SalariesAndBonuses() {
       const map: Record<string, SalaryRecord> = {};
       (salariesRes.data as unknown as SalaryRecord[]).forEach((s) => { map[s.user_id] = s; });
       setSalaryMap(map);
+    }
+    if (bonusTxRes.data) {
+      const earned: Record<string, number> = {};
+      (bonusTxRes.data as any[]).forEach((b) => {
+        earned[b.user_id] = (earned[b.user_id] || 0) + (Number(b.amount) || 0);
+      });
+      setBonusEarnedMap(earned);
     }
     setLoading(false);
   };
@@ -141,12 +150,12 @@ export default function SalariesAndBonuses() {
     );
   }
 
-  // Aggregate stats
+  // Aggregate stats — bonus uses earned (sum of bonus_transactions), not the monthly pot.
   const totals = staff.reduce(
     (acc, m) => {
       const sal = salaryMap[m.id];
       const base = sal?.base_salary ?? m.base_salary;
-      const bonus = sal?.bonus ?? 0;
+      const bonus = bonusEarnedMap[m.id] ?? 0;
       const auto = sal?.total_deductions ?? 0;
       const manual = sal?.manual_deduction ?? 0;
       const final = Math.max(0, base + bonus - auto - manual);
@@ -206,7 +215,8 @@ export default function SalariesAndBonuses() {
           {staff.map((m) => {
             const sal = salaryMap[m.id];
             const base = sal?.base_salary ?? m.base_salary;
-            const bonus = sal?.bonus ?? 0;
+            const pot = sal?.bonus ?? 0;
+            const bonus = bonusEarnedMap[m.id] ?? 0;
             const auto = sal?.total_deductions ?? 0;
             const manual = sal?.manual_deduction ?? 0;
             const final = Math.max(0, base + bonus - auto - manual);
@@ -231,8 +241,8 @@ export default function SalariesAndBonuses() {
                     <p className="font-semibold">{base.toLocaleString()}</p>
                   </div>
                   <div className="rounded bg-accent/10 p-2">
-                    <p className="text-muted-foreground">+ Bonus</p>
-                    <p className="font-semibold text-accent">+{bonus.toLocaleString()}</p>
+                    <p className="text-muted-foreground">+ Bonus (earned)</p>
+                    <p className="font-semibold text-accent">+{bonus.toLocaleString()}<span className="text-[10px] text-muted-foreground"> / {pot.toLocaleString()}</span></p>
                   </div>
                   <div className="rounded bg-destructive/10 p-2">
                     <p className="text-muted-foreground">- Auto</p>

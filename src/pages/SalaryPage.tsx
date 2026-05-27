@@ -126,9 +126,10 @@ export default function SalaryPage() {
   };
 
 
-  // Aggregate strictly from the salaries row (server-applied amounts).
+  // Earned bonus = sum of bonus_transactions for the month (unit/4 * monthly bonus per approval).
   const baseSalary = Math.max(0, Number(salary?.base_salary ?? 0));
-  const totalBonus = Math.max(0, Number(salary?.bonus ?? 0));
+  const earnedBonus = bonusTxs.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+  const totalBonus = earnedBonus;
   const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
   const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0));
   const totalDeductions = autoDeductions + manualDeductionAmt;
@@ -161,14 +162,6 @@ export default function SalaryPage() {
           amount: b.amount,
         });
       }
-    } else if (totalBonus > 0) {
-      items.push({
-        id: `bonus-${monthStart}`,
-        date: monthStart,
-        type: "bonus",
-        description: "Bonus approved",
-        amount: totalBonus,
-      });
     }
 
 
