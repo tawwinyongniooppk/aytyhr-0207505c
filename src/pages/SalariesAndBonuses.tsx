@@ -215,7 +215,8 @@ export default function SalariesAndBonuses() {
           {staff.map((m) => {
             const sal = salaryMap[m.id];
             const base = sal?.base_salary ?? m.base_salary;
-            const bonus = sal?.bonus ?? 0;
+            const pot = sal?.bonus ?? 0;
+            const bonus = bonusEarnedMap[m.id] ?? 0;
             const auto = sal?.total_deductions ?? 0;
             const manual = sal?.manual_deduction ?? 0;
             const final = Math.max(0, base + bonus - auto - manual);
