@@ -158,6 +158,14 @@ export default function SalariesAndBonuses() {
       const bonus = sal?.bonus ?? 0;
       const auto = sal?.total_deductions ?? 0;
       const manual = sal?.manual_deduction ?? 0;
+  // Aggregate stats — bonus uses earned (sum of bonus_transactions), not the monthly pot.
+  const totals = staff.reduce(
+    (acc, m) => {
+      const sal = salaryMap[m.id];
+      const base = sal?.base_salary ?? m.base_salary;
+      const bonus = bonusEarnedMap[m.id] ?? 0;
+      const auto = sal?.total_deductions ?? 0;
+      const manual = sal?.manual_deduction ?? 0;
       const final = Math.max(0, base + bonus - auto - manual);
       acc.base += base;
       acc.bonus += bonus;
