@@ -277,64 +277,32 @@ export default function CalendarPage() {
           (new Date(ev.end_date + "T00:00:00").getTime() - new Date(ev.start_date + "T00:00:00").getTime()) / 86400000
         );
         const isBiweekly = days >= 13;
+        const unit = isBiweekly ? 2 : 1;
+
+        // Weighted total = sum of all assigned units (cap check basis).
         const entry = load[a.user_id] || { weekly: 0, biweekly: 0, weighted: 0 };
         if (isBiweekly) { entry.biweekly += 1; entry.weighted += 2; }
         else { entry.weekly += 1; entry.weighted += 1; }
         load[a.user_id] = entry;
 
-        const s = stats[a.user_id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
-        s.newTask += 1;
+        // Mutually-exclusive status bucket — each task's units land in exactly ONE column.
         const status = a.submission_status || "not_started";
-        const accepted = status === "in_progress" || status === "submitted" || status === "approved";
-        const submittedReached = status === "submitted" || status === "approved";
-        const isOverdue = ev.end_date < todayStr && status !== "approved";
-        if (accepted) s.inProgress += 1;
-        if (submittedReached) s.submitted += 1;
-        if (isOverdue) s.overdue += 1;
-        if (status === "rejected") s.reject += 1;
-        if (status === "approved") s.allDone += 1;
-        stats[a.user_id] = s;
-      }
-      // Auto-mark missed assignment windows as "All Done" for every staff member.
-      // A window is "missed" only if its last day is strictly before today AND
-      // the target month equals the current month (no auto-done for past/future months snapshots).
-      const refDate = new Date(dateStr + "T00:00:00");
-      const today = new Date();
-      const sameMonth =
-        refDate.getFullYear() === today.getFullYear() &&
-        refDate.getMonth() === today.getMonth();
-      if (sameMonth) {
-        const todayDay = today.getDate();
-        for (const s of staffList) {
-          const entry = load[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
-          const st = stats[s.id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
-          // Find which windows this staff already has an assignment in (by start_date day).
-          const occupiedWindows = new Set<number>();
-          for (const ev of evList) {
-            const startDay = new Date(ev.start_date + "T00:00:00").getDate();
-            for (let i = 0; i < ASSIGN_WINDOWS.length; i++) {
-              const [lo, hi] = ASSIGN_WINDOWS[i];
-              if (startDay >= lo && startDay <= hi) {
-                // Did this staff have an assignment for this event?
-                const hasAssign = assList.some(
-                  (a) => a.event_id === ev.id && a.user_id === s.id,
-                );
-                if (hasAssign) occupiedWindows.add(i);
-              }
-            }
-          }
-          for (let i = 0; i < ASSIGN_WINDOWS.length; i++) {
-            const [, hi] = ASSIGN_WINDOWS[i];
-            if (hi < todayDay && !occupiedWindows.has(i)) {
-              // Window has passed and no task was assigned: count as auto All-Done.
-              entry.weighted += 1;
-              entry.weekly += 1;
-              st.allDone += 1;
-            }
-          }
-          load[s.id] = entry;
-          stats[s.id] = st;
+        const s = stats[a.user_id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
+        if (status === "approved") {
+          s.allDone += unit;
+        } else if (status === "rejected") {
+          s.reject += unit;
+        } else if (status === "submitted") {
+          s.submitted += unit;
+        } else if (status === "in_progress") {
+          if (ev.end_date < todayStr) s.overdue += unit;
+          else s.inProgress += unit;
+        } else {
+          // not_started / new
+          if (ev.end_date < todayStr) s.overdue += unit;
+          else s.newTask += unit;
         }
+        stats[a.user_id] = s;
       }
       setAssignmentLoad(load);
       setMemberStats(stats);
