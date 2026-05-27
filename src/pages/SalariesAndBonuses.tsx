@@ -241,8 +241,8 @@ export default function SalariesAndBonuses() {
                     <p className="font-semibold">{base.toLocaleString()}</p>
                   </div>
                   <div className="rounded bg-accent/10 p-2">
-                    <p className="text-muted-foreground">+ Bonus</p>
-                    <p className="font-semibold text-accent">+{bonus.toLocaleString()}</p>
+                    <p className="text-muted-foreground">+ Bonus (earned)</p>
+                    <p className="font-semibold text-accent">+{bonus.toLocaleString()}<span className="text-[10px] text-muted-foreground"> / {pot.toLocaleString()}</span></p>
                   </div>
                   <div className="rounded bg-destructive/10 p-2">
                     <p className="text-muted-foreground">- Auto</p>
