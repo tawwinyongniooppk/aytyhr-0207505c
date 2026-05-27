@@ -162,14 +162,6 @@ export default function SalaryPage() {
           amount: b.amount,
         });
       }
-    } else if (totalBonus > 0) {
-      items.push({
-        id: `bonus-${monthStart}`,
-        date: monthStart,
-        type: "bonus",
-        description: "Bonus approved",
-        amount: totalBonus,
-      });
     }
 
 
