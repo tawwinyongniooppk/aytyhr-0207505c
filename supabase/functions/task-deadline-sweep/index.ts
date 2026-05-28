@@ -160,6 +160,95 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---- (E) END-OF-WINDOW AUTO ALL-DONE
+    // If today is the last day of an assignment window (3,10,17,24 MMT),
+    // any member (staff/assistant) with NO task assignment whose start_date falls
+    // within that window is auto-credited 1 unit (bonus = monthly_bonus / 4).
+    const WINDOWS: Array<[number, number]> = [[1, 3], [8, 10], [15, 17], [22, 24]];
+    const dom = parseInt(today.slice(8, 10), 10);
+    const window = WINDOWS.find(([, e]) => e === dom);
+    if (window) {
+      const [ws, we] = window;
+      const ym = today.slice(0, 7);
+      const winStart = `${ym}-${String(ws).padStart(2, "0")}`;
+      const winEnd = `${ym}-${String(we).padStart(2, "0")}`;
+      const ms = monthStart(today);
+
+      // System user = first admin (calendar_events.created_by must be NOT NULL).
+      const { data: adminRow } = await supabase
+        .from("profiles").select("id").eq("role", "admin").limit(1).maybeSingle();
+      const systemUserId = (adminRow as any)?.id;
+
+      if (systemUserId) {
+        const { data: members } = await supabase
+          .from("profiles").select("id, full_name").in("role", ["staff", "assistant"]);
+
+        // All task events whose start_date falls within this window.
+        const { data: winEvents } = await supabase
+          .from("calendar_events")
+          .select("id, start_date")
+          .eq("event_type", "task")
+          .gte("start_date", winStart)
+          .lte("start_date", winEnd);
+        const winEventIds = (winEvents || []).map((e: any) => e.id);
+        const assignedUserIds = new Set<string>();
+        if (winEventIds.length > 0) {
+          const { data: wAss } = await supabase
+            .from("calendar_event_assignments")
+            .select("user_id, event_id")
+            .in("event_id", winEventIds);
+          (wAss || []).forEach((a: any) => assignedUserIds.add(a.user_id));
+        }
+
+        let autoCredited = 0;
+        for (const m of (members || []) as Array<{ id: string; full_name: string }>) {
+          if (assignedUserIds.has(m.id)) continue;
+
+          const title = `Auto Credit (${winStart} → ${winEnd})`;
+          const { data: ev } = await supabase.from("calendar_events").insert({
+            title,
+            description: "Auto-credited because no task was assigned in this window.",
+            start_date: winStart,
+            end_date: winEnd,
+            event_type: "task",
+            visibility: "private",
+            assigned_to_all: false,
+            created_by: systemUserId,
+          }).select().single();
+          if (!ev) continue;
+
+          await supabase.from("calendar_event_assignments").insert({
+            event_id: (ev as any).id,
+            user_id: m.id,
+            submission_status: "approved",
+            approved_at: new Date().toISOString(),
+            approved_by: systemUserId,
+            auto_approved: true,
+          });
+
+          const { data: perUnit } = await supabase.rpc("compute_bonus_per_unit", {
+            p_user_id: m.id, p_month: ms,
+          });
+          const amount = (perUnit as unknown as number) || 0;
+          if (amount > 0) {
+            await supabase.from("bonus_transactions").insert({
+              user_id: m.id,
+              source: "calendar",
+              month: ms,
+              amount,
+              unit_count: 1,
+              deadline_date: winEnd,
+              approved_date: today,
+              auto_approved: true,
+              title,
+            });
+          }
+          autoCredited++;
+        }
+        (log as any).auto_window_credits = autoCredited;
+      }
+    }
+
     return new Response(JSON.stringify({ ok: true, today, ...log }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

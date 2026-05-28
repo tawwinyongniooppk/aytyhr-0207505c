@@ -343,6 +343,16 @@ export default function CalendarPage() {
       return;
     }
 
+    // (3b) Start day must be one of the allowed assignment days of the month.
+    const startDom = new Date(form.start_date + "T00:00:00").getDate();
+    if (!ALLOWED_ASSIGN_DAYS.includes(startDom)) {
+      toast({
+        title: "Error: Tasks can only be assigned on days 1-3, 8-10, 15-17, or 22-24 of the month.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const deadline = computeDeadline(form.start_date, form.frequency);
 
     // Per-assignee monthly cap (weekly=1 weighted unit, biweekly=2; cap 4/month).
@@ -576,7 +586,7 @@ export default function CalendarPage() {
                       </p>
                     )}
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Any day of the current month is allowed, as long as it's not an Off Day or overlapping with an existing task.
+                    Allowed assign days: 1-3, 8-10, 15-17, 22-24 of the current month — and not an Off Day or overlapping with an existing task.
                   </p>
                 </div>
 
@@ -665,9 +675,9 @@ export default function CalendarPage() {
                               <span className="text-[10px] font-bold text-muted-foreground w-5 shrink-0">#{s.sequence ?? "—"}</span>
                               <span className="font-medium text-sm truncate">{s.full_name || "Unnamed"}</span>
                             </span>
-                            <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${atCap ? "bg-destructive/15 text-destructive" : willExceed ? "bg-warning/15 text-warning" : "bg-accent/15 text-accent"}`}>
-                              {l.weighted}/{MONTHLY_WEIGHT_CAP} Unit{l.weighted === 1 ? "" : "s"}
-                              {atCap && " · Full"}
+                            <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${stats.allDone >= MONTHLY_WEIGHT_CAP ? "bg-destructive/15 text-destructive" : atCap ? "bg-destructive/15 text-destructive" : willExceed ? "bg-warning/15 text-warning" : "bg-accent/15 text-accent"}`}>
+                              {Math.min(stats.allDone, MONTHLY_WEIGHT_CAP)}/{MONTHLY_WEIGHT_CAP} Unit{stats.allDone === 1 ? "" : "s"}
+                              {stats.allDone >= MONTHLY_WEIGHT_CAP && " · Full"}
                             </span>
                           </div>
                           <div className="grid grid-cols-6 gap-1 mt-2">
@@ -691,7 +701,8 @@ export default function CalendarPage() {
                     !form.start_date ||
                     isHolidayDate(form.start_date) ||
                     form.start_date < todayISO() ||
-                    form.start_date > currentMonthEndISO()
+                    form.start_date > currentMonthEndISO() ||
+                    !ALLOWED_ASSIGN_DAYS.includes(new Date(form.start_date + "T00:00:00").getDate())
                   }
                   className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90"
                 >
