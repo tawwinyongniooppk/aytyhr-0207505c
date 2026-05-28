@@ -586,7 +586,7 @@ export default function CalendarPage() {
                       </p>
                     )}
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Any day of the current month is allowed, as long as it's not an Off Day or overlapping with an existing task.
+                    Allowed assign days: 1-3, 8-10, 15-17, 22-24 of the current month — and not an Off Day or overlapping with an existing task.
                   </p>
                 </div>
 
