@@ -343,6 +343,16 @@ export default function CalendarPage() {
       return;
     }
 
+    // (3b) Start day must be one of the allowed assignment days of the month.
+    const startDom = new Date(form.start_date + "T00:00:00").getDate();
+    if (!ALLOWED_ASSIGN_DAYS.includes(startDom)) {
+      toast({
+        title: "Error: Tasks can only be assigned on days 1-3, 8-10, 15-17, or 22-24 of the month.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const deadline = computeDeadline(form.start_date, form.frequency);
 
     // Per-assignee monthly cap (weekly=1 weighted unit, biweekly=2; cap 4/month).
