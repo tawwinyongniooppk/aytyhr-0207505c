@@ -701,7 +701,8 @@ export default function CalendarPage() {
                     !form.start_date ||
                     isHolidayDate(form.start_date) ||
                     form.start_date < todayISO() ||
-                    form.start_date > currentMonthEndISO()
+                    form.start_date > currentMonthEndISO() ||
+                    !ALLOWED_ASSIGN_DAYS.includes(new Date(form.start_date + "T00:00:00").getDate())
                   }
                   className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90"
                 >
