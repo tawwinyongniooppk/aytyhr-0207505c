@@ -665,9 +665,9 @@ export default function CalendarPage() {
                               <span className="text-[10px] font-bold text-muted-foreground w-5 shrink-0">#{s.sequence ?? "—"}</span>
                               <span className="font-medium text-sm truncate">{s.full_name || "Unnamed"}</span>
                             </span>
-                            <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${atCap ? "bg-destructive/15 text-destructive" : willExceed ? "bg-warning/15 text-warning" : "bg-accent/15 text-accent"}`}>
-                              {l.weighted}/{MONTHLY_WEIGHT_CAP} Unit{l.weighted === 1 ? "" : "s"}
-                              {atCap && " · Full"}
+                            <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${stats.allDone >= MONTHLY_WEIGHT_CAP ? "bg-destructive/15 text-destructive" : atCap ? "bg-destructive/15 text-destructive" : willExceed ? "bg-warning/15 text-warning" : "bg-accent/15 text-accent"}`}>
+                              {Math.min(stats.allDone, MONTHLY_WEIGHT_CAP)}/{MONTHLY_WEIGHT_CAP} Unit{stats.allDone === 1 ? "" : "s"}
+                              {stats.allDone >= MONTHLY_WEIGHT_CAP && " · Full"}
                             </span>
                           </div>
                           <div className="grid grid-cols-6 gap-1 mt-2">
