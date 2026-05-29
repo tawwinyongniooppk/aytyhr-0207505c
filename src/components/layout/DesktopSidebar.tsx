@@ -7,15 +7,16 @@ import { useAuth } from "@/hooks/useAuth";
 
 const allNavItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/staff", icon: Users, label: "Staff", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/leave", icon: FileText, label: "Leave", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/calendar", icon: CalendarDays, label: "Calendar", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
-  { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/staff", icon: Users, label: "Staff Setup", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/leave", icon: FileText, label: "Leave & Overtime", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/calendar", icon: CalendarDays, label: "Task Scheduler", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
+  { to: "/tasks", icon: ClipboardList, label: "Task Oversight", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
   { to: "/salaries-bonuses", icon: Coins, label: "Salaries & Bonuses", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: true, personalSalary: false },
+  // My Salary & Bonus moved ABOVE Settings (assistant swap)
+  { to: "/salary", icon: Wallet, label: "My Salary & Bonus", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: true },
   { to: "/settings", icon: Settings, label: "Settings", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
   // Staff-only entries
   { to: "/attendance", icon: Clock, label: "Attendance", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
-  { to: "/salary", icon: Wallet, label: "My Salary & Bonus", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: true },
   { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
   { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
   { to: "/manage-accounts", icon: UserPlus, label: "Accounts", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true, excludeAssistant: false, personalSalary: false },
