@@ -171,6 +171,7 @@ export default function ManageAccounts() {
           role: editForm.role,
           email: editForm.emailPrefix ? editForm.emailPrefix + DOMAIN : undefined,
           password: editForm.password || undefined,
+          class: editForm.class,
         },
       });
       if (res.error || res.data?.error) {
