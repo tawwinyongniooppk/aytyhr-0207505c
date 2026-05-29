@@ -110,6 +110,7 @@ Deno.serve(async (req) => {
     // Update profile (only the fields admin endpoint owns)
     const profileUpdate: Record<string, unknown> = { full_name };
     if (role) profileUpdate.role = role;
+    if (klass) profileUpdate.class = klass;
 
     const { data: updated, error: profileErr } = await adminClient
       .from("profiles")
