@@ -356,11 +356,16 @@ export default function Staff() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm truncate">{member.full_name || "Unnamed"}</h3>
-                    {member.phone && (
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                        <Phone className="h-3 w-3" />{member.phone}
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium">
+                        {member.class || "Neutral"}
                       </span>
-                    )}
+                      {member.phone && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3" />{member.phone}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
