@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, password, full_name, role } = await req.json();
+    const { email, password, full_name, role, sequence, class: klass } = await req.json();
 
     if (!email || !password || !full_name) {
       return new Response(JSON.stringify({ error: "Email, password, and name are required" }), {
@@ -49,6 +49,23 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Invalid role. Admin role cannot be assigned via this endpoint." }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    const ALLOWED_CLASSES = ["Beginner", "Junior", "Senior", "Neutral"];
+    if (klass && !ALLOWED_CLASSES.includes(klass)) {
+      return new Response(JSON.stringify({ error: "Invalid class." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let seqNum: number | undefined;
+    if (sequence !== undefined && sequence !== null && sequence !== "") {
+      seqNum = Number(sequence);
+      if (!Number.isInteger(seqNum) || seqNum < 1 || seqNum > 100) {
+        return new Response(JSON.stringify({ error: "Sequence must be an integer 1–100." }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     if (!email.endsWith("@ayty.com")) {
