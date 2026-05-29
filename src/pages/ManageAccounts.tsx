@@ -17,7 +17,10 @@ interface Account {
   created_at: string;
   avatar_url: string | null;
   sequence: number;
+  class: string;
 }
+
+const CLASS_OPTIONS = ["Beginner", "Junior", "Senior", "Neutral"] as const;
 
 const DOMAIN = "@ayty.com";
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB
@@ -37,12 +40,12 @@ export default function ManageAccounts() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
-  const [createForm, setCreateForm] = useState({ full_name: "", emailPrefix: "", password: "", role: "staff" });
+  const [createForm, setCreateForm] = useState({ full_name: "", emailPrefix: "", password: "", role: "staff", sequence: 100, class: "Neutral" });
 
   const [editOpen, setEditOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [editAccount, setEditAccount] = useState<Account | null>(null);
-  const [editForm, setEditForm] = useState({ full_name: "", emailPrefix: "", password: "", role: "staff", sequence: 100 });
+  const [editForm, setEditForm] = useState({ full_name: "", emailPrefix: "", password: "", role: "staff", sequence: 100, class: "Neutral" });
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -76,14 +79,14 @@ export default function ManageAccounts() {
     setCreateLoading(true);
     try {
       const res = await supabase.functions.invoke("create-staff", {
-        body: { email: createForm.emailPrefix + DOMAIN, password: createForm.password, full_name: createForm.full_name, role: createForm.role },
+        body: { email: createForm.emailPrefix + DOMAIN, password: createForm.password, full_name: createForm.full_name, role: createForm.role, sequence: createForm.sequence, class: createForm.class },
       });
       if (res.error || res.data?.error) {
         toast({ title: "Failed", description: res.data?.error || res.error?.message, variant: "destructive" });
       } else {
         toast({ title: "Account created!", description: `${createForm.full_name} can now log in.` });
         setCreateOpen(false);
-        setCreateForm({ full_name: "", emailPrefix: "", password: "", role: "staff" });
+        setCreateForm({ full_name: "", emailPrefix: "", password: "", role: "staff", sequence: 100, class: "Neutral" });
         loadAccounts();
       }
     } catch (err: any) {
@@ -94,7 +97,7 @@ export default function ManageAccounts() {
 
   const openEdit = (account: Account) => {
     setEditAccount(account);
-    setEditForm({ full_name: account.full_name, emailPrefix: "", password: "", role: account.role, sequence: account.sequence ?? 100 });
+    setEditForm({ full_name: account.full_name, emailPrefix: "", password: "", role: account.role, sequence: account.sequence ?? 100, class: account.class ?? "Neutral" });
     setAvatarPreview(account.avatar_url);
     setAvatarFile(null);
     setEditOpen(true);
@@ -168,6 +171,7 @@ export default function ManageAccounts() {
           role: editForm.role,
           email: editForm.emailPrefix ? editForm.emailPrefix + DOMAIN : undefined,
           password: editForm.password || undefined,
+          class: editForm.class,
         },
       });
       if (res.error || res.data?.error) {
@@ -262,8 +266,9 @@ export default function ManageAccounts() {
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-semibold text-sm truncate">{acc.full_name || "Unnamed"}</h3>
-                      <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         <Badge variant="outline" className="text-[10px]">#{acc.sequence ?? 100}</Badge>
+                        <Badge variant="secondary" className="text-[10px]">{acc.class ?? "Neutral"}</Badge>
                       </div>
                     </div>
                   </div>
@@ -329,6 +334,27 @@ export default function ManageAccounts() {
                   <SelectItem value="staff">Staff</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Class</Label>
+              <Select value={createForm.class} onValueChange={(v) => setCreateForm({ ...createForm, class: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CLASS_OPTIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Instructional grouping. Only IT Manager can change.</p>
+            </div>
+            <div>
+              <Label>Sequence (1–100)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={createForm.sequence}
+                onChange={(e) => setCreateForm({ ...createForm, sequence: Number(e.target.value) })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Lower numbers appear first in lists.</p>
             </div>
             <Button onClick={handleCreate} disabled={createLoading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
               {createLoading ? "Creating..." : "Create Account"}
@@ -419,6 +445,16 @@ export default function ManageAccounts() {
                   <SelectItem value="it_manager">IT Manager</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Class</Label>
+              <Select value={editForm.class} onValueChange={(v) => setEditForm({ ...editForm, class: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CLASS_OPTIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Instructional grouping. Only IT Manager can change.</p>
             </div>
             <div>
               <Label>Sequence (1–100)</Label>

@@ -352,6 +352,7 @@ export type Database = {
           base_salary: number
           check_in_time: string
           check_out_time: string
+          class: string
           created_at: string
           deduction_rate_per_minute: number
           early_deduction_per_minute: number
@@ -372,6 +373,7 @@ export type Database = {
           base_salary?: number
           check_in_time?: string
           check_out_time?: string
+          class?: string
           created_at?: string
           deduction_rate_per_minute?: number
           early_deduction_per_minute?: number
@@ -392,6 +394,7 @@ export type Database = {
           base_salary?: number
           check_in_time?: string
           check_out_time?: string
+          class?: string
           created_at?: string
           deduction_rate_per_minute?: number
           early_deduction_per_minute?: number
@@ -517,6 +520,7 @@ export type Database = {
           base_salary: number
           check_in_time: string
           check_out_time: string
+          class: string
           created_at: string
           deduction_rate_per_minute: number
           early_deduction_per_minute: number
@@ -552,6 +556,7 @@ export type Database = {
           base_salary: number
           check_in_time: string
           check_out_time: string
+          class: string
           created_at: string
           deduction_rate_per_minute: number
           early_deduction_per_minute: number
