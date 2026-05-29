@@ -334,6 +334,27 @@ export default function ManageAccounts() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label>Class</Label>
+              <Select value={createForm.class} onValueChange={(v) => setCreateForm({ ...createForm, class: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CLASS_OPTIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Instructional grouping. Only IT Manager can change.</p>
+            </div>
+            <div>
+              <Label>Sequence (1–100)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={createForm.sequence}
+                onChange={(e) => setCreateForm({ ...createForm, sequence: Number(e.target.value) })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Lower numbers appear first in lists.</p>
+            </div>
             <Button onClick={handleCreate} disabled={createLoading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
               {createLoading ? "Creating..." : "Create Account"}
             </Button>
