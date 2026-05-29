@@ -37,6 +37,7 @@ interface StaffProfile {
   late_deduction_per_minute?: number;
   early_deduction_per_minute?: number;
   partial_leave_deduction_per_minute?: number;
+  class?: string;
 }
 
 const WORK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
