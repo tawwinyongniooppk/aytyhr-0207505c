@@ -97,7 +97,7 @@ export default function ManageAccounts() {
 
   const openEdit = (account: Account) => {
     setEditAccount(account);
-    setEditForm({ full_name: account.full_name, emailPrefix: "", password: "", role: account.role, sequence: account.sequence ?? 100 });
+    setEditForm({ full_name: account.full_name, emailPrefix: "", password: "", role: account.role, sequence: account.sequence ?? 100, class: account.class ?? "Neutral" });
     setAvatarPreview(account.avatar_url);
     setAvatarFile(null);
     setEditOpen(true);
