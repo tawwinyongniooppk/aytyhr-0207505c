@@ -105,12 +105,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update profile with role (profile auto-created by trigger)
+    // Update profile with role/class/sequence (profile auto-created by trigger)
     if (data.user) {
-      await adminClient.from("profiles").update({
+      const profileUpdate: Record<string, unknown> = {
         role: role || "staff",
         full_name: full_name,
-      }).eq("id", data.user.id);
+      };
+      if (klass) profileUpdate.class = klass;
+      if (seqNum !== undefined) profileUpdate.sequence = seqNum;
+      await adminClient.from("profiles").update(profileUpdate).eq("id", data.user.id);
     }
 
     return new Response(JSON.stringify({ success: true, user_id: data.user?.id }), {
