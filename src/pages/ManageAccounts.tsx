@@ -17,7 +17,10 @@ interface Account {
   created_at: string;
   avatar_url: string | null;
   sequence: number;
+  class: string;
 }
+
+const CLASS_OPTIONS = ["Beginner", "Junior", "Senior", "Neutral"] as const;
 
 const DOMAIN = "@ayty.com";
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB
