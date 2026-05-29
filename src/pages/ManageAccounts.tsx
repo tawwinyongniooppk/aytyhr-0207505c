@@ -79,14 +79,14 @@ export default function ManageAccounts() {
     setCreateLoading(true);
     try {
       const res = await supabase.functions.invoke("create-staff", {
-        body: { email: createForm.emailPrefix + DOMAIN, password: createForm.password, full_name: createForm.full_name, role: createForm.role },
+        body: { email: createForm.emailPrefix + DOMAIN, password: createForm.password, full_name: createForm.full_name, role: createForm.role, sequence: createForm.sequence, class: createForm.class },
       });
       if (res.error || res.data?.error) {
         toast({ title: "Failed", description: res.data?.error || res.error?.message, variant: "destructive" });
       } else {
         toast({ title: "Account created!", description: `${createForm.full_name} can now log in.` });
         setCreateOpen(false);
-        setCreateForm({ full_name: "", emailPrefix: "", password: "", role: "staff" });
+        setCreateForm({ full_name: "", emailPrefix: "", password: "", role: "staff", sequence: 100, class: "Neutral" });
         loadAccounts();
       }
     } catch (err: any) {
