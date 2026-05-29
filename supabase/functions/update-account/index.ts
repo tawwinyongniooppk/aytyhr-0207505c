@@ -34,9 +34,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { user_id, full_name, role, email, password } = await req.json();
+    const { user_id, full_name, role, email, password, class: klass } = await req.json();
     if (!user_id || !full_name) {
       return new Response(JSON.stringify({ error: "user_id and full_name are required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const ALLOWED_CLASSES = ["Beginner", "Junior", "Senior", "Neutral"];
+    if (klass !== undefined && klass !== null && !ALLOWED_CLASSES.includes(klass)) {
+      return new Response(JSON.stringify({ error: "Invalid class." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
