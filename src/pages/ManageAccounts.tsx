@@ -446,6 +446,16 @@ export default function ManageAccounts() {
               </Select>
             </div>
             <div>
+              <Label>Class</Label>
+              <Select value={editForm.class} onValueChange={(v) => setEditForm({ ...editForm, class: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CLASS_OPTIONS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Instructional grouping. Only IT Manager can change.</p>
+            </div>
+            <div>
               <Label>Sequence (1–100)</Label>
               <Input type="number" min={1} max={100} value={editForm.sequence} onChange={(e) => setEditForm({ ...editForm, sequence: Number(e.target.value) })} />
               <p className="text-xs text-muted-foreground mt-1">Lower numbers appear first. Visible only to IT Manager.</p>
