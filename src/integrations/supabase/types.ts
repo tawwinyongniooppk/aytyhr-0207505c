@@ -507,7 +507,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_branding: {
+        Row: {
+          key: string | null
+          updated_at: string | null
+          value: string | null
+        }
+        Insert: {
+          key?: string | null
+          updated_at?: string | null
+          value?: string | null
+        }
+        Update: {
+          key?: string | null
+          updated_at?: string | null
+          value?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_list_profiles: {
