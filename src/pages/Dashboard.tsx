@@ -50,7 +50,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRow[]>([]);
-  const [monthAttendance, setMonthAttendance] = useState<AttendanceRow[]>([]);
+  const [monthStats, setMonthStats] = useState<Array<{ user_id: string; total_late_minutes: number; total_early_minutes: number; days_present: number; late_cases: number }>>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRow[]>([]);
   const [pendingTasks, setPendingTasks] = useState(0);
   const [completedTasks, setCompletedTasks] = useState(0);
@@ -68,18 +68,18 @@ export default function Dashboard() {
 
   async function loadData() {
     setLoading(true);
-    const [profilesRes, todayAttRes, monthAttRes, leaveRes, settingsRes, tasksRes] = await Promise.all([
+    const [profilesRes, todayAttRes, monthStatsRes, leaveRes, settingsRes, tasksRes] = await Promise.all([
       supabase.rpc("admin_list_profiles"),
-      supabase.from("attendance").select("*").eq("date", today),
-      supabase.from("attendance").select("*").gte("date", monthStart).lte("date", monthEnd),
+      supabase.from("attendance").select("id,user_id,date,check_in_time,check_out_time,late_minutes,early_minutes,deduction_applied").eq("date", today),
+      supabase.rpc("dashboard_monthly_attendance", { p_month_start: monthStart, p_month_end: monthEnd }),
       supabase.from("leave_requests").select("*").gte("date", monthStart).lte("date", monthEnd),
-      supabase.from("app_settings").select("*").eq("key", "deduction_rate").maybeSingle(),
+      supabase.from("app_settings").select("value").eq("key", "deduction_rate").maybeSingle(),
       supabase.from("tasks").select("completed").gte("created_at", monthStart),
     ]);
 
     setProfiles(profilesRes.data ?? []);
-    setTodayAttendance(todayAttRes.data ?? []);
-    setMonthAttendance(monthAttRes.data ?? []);
+    setTodayAttendance((todayAttRes.data ?? []) as AttendanceRow[]);
+    setMonthStats((monthStatsRes.data ?? []) as any);
     setLeaveRequests(leaveRes.data ?? []);
     if (settingsRes.data?.value) setDeductionRate(Number(settingsRes.data.value));
     const taskRows = (tasksRes.data ?? []) as { completed: boolean }[];
@@ -105,24 +105,24 @@ export default function Dashboard() {
   const approvedToday = leaveRequests.filter((l) => l.date === today && l.status === "approved");
   const rejectedToday = leaveRequests.filter((l) => l.date === today && l.status === "rejected");
 
-  // Monthly stats
-  const monthDeductions = monthAttendance.reduce(
-    (sum, a) => sum + (a.late_minutes + a.early_minutes) * deductionRate,
+  // Monthly stats — aggregated server-side
+  const monthDeductions = monthStats.reduce(
+    (sum, s) => sum + (Number(s.total_late_minutes) + Number(s.total_early_minutes)) * deductionRate,
     0
   );
-  const totalAttendanceDays = monthAttendance.filter((a) => a.check_in_time).length;
-  const totalLateCases = monthAttendance.filter((a) => a.late_minutes > 0).length;
+  const totalAttendanceDays = monthStats.reduce((sum, s) => sum + Number(s.days_present), 0);
+  const totalLateCases = monthStats.reduce((sum, s) => sum + Number(s.late_cases), 0);
 
   // Top 3 deductions this month
-  const deductionByUser: Record<string, number> = {};
-  monthAttendance.forEach((a) => {
-    deductionByUser[a.user_id] = (deductionByUser[a.user_id] || 0) + (a.late_minutes + a.early_minutes) * deductionRate;
-  });
-  const topDeductions: TopDeduction[] = Object.entries(deductionByUser)
-    .map(([uid, total]) => ({ name: profileMap[uid]?.full_name || "Unknown", total }))
+  const topDeductions: TopDeduction[] = monthStats
+    .map((s) => ({
+      name: profileMap[s.user_id]?.full_name || "Unknown",
+      total: (Number(s.total_late_minutes) + Number(s.total_early_minutes)) * deductionRate,
+    }))
     .filter((d) => d.total > 0)
     .sort((a, b) => b.total - a.total)
     .slice(0, 3);
+
 
   const summaryCards = [
     { label: "Total Staff", value: totalStaff, icon: Users, accent: "text-primary", to: "/staff" },
