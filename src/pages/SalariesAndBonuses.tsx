@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Wallet, TrendingDown, DollarSign, Sparkles, Pencil } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Wallet, TrendingDown, DollarSign, Sparkles, Pencil, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -27,6 +28,14 @@ interface SalaryRecord {
   deduction_reason: string;
 }
 
+interface ManualAddition {
+  id: string;
+  user_id: string;
+  title: string;
+  amount: number;
+  created_at: string;
+}
+
 function getMonthStart(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
@@ -40,10 +49,16 @@ export default function SalariesAndBonuses() {
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [salaryMap, setSalaryMap] = useState<Record<string, SalaryRecord>>({});
   const [bonusEarnedMap, setBonusEarnedMap] = useState<Record<string, number>>({});
+  const [additionsMap, setAdditionsMap] = useState<Record<string, ManualAddition[]>>({});
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ bonus: "0", manual_deduction: "0", deduction_reason: "" });
   const [saving, setSaving] = useState(false);
+
+  // Manual Addition dialog
+  const [addOpenFor, setAddOpenFor] = useState<string | null>(null);
+  const [addForm, setAddForm] = useState({ title: "", amount: "" });
+  const [addSaving, setAddSaving] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -53,10 +68,11 @@ export default function SalariesAndBonuses() {
   const load = async () => {
     setLoading(true);
     const monthStart = getMonthStart();
-    const [profilesRes, salariesRes, bonusTxRes] = await Promise.all([
+    const [profilesRes, salariesRes, bonusTxRes, additionsRes] = await Promise.all([
       supabase.rpc("admin_list_profiles"),
       supabase.from("salaries").select("*").eq("month", monthStart),
       supabase.from("bonus_transactions").select("user_id, amount").eq("month", monthStart),
+      supabase.from("salary_manual_additions").select("*").eq("month", monthStart).order("created_at", { ascending: false }),
     ]);
     if (profilesRes.data) {
       const filtered = (profilesRes.data as any[]).filter(
@@ -76,8 +92,18 @@ export default function SalariesAndBonuses() {
       });
       setBonusEarnedMap(earned);
     }
+    if (additionsRes.data) {
+      const map: Record<string, ManualAddition[]> = {};
+      (additionsRes.data as any[]).forEach((a) => {
+        (map[a.user_id] ??= []).push(a as ManualAddition);
+      });
+      setAdditionsMap(map);
+    }
     setLoading(false);
   };
+
+  const additionTotal = (uid: string) =>
+    (additionsMap[uid] || []).reduce((s, a) => s + (Number(a.amount) || 0), 0);
 
   const openEdit = (member: StaffRow) => {
     if (!isAdminRole) return;
@@ -126,6 +152,47 @@ export default function SalariesAndBonuses() {
     setSaving(false);
   };
 
+  const openAdd = (memberId: string) => {
+    if (!isAdminRole) return;
+    setAddOpenFor(memberId);
+    setAddForm({ title: "", amount: "" });
+  };
+
+  const handleAdd = async () => {
+    if (!addOpenFor || !user) return;
+    const amt = Number(addForm.amount);
+    if (!addForm.title.trim() || !Number.isFinite(amt) || amt <= 0) {
+      toast({ title: "Invalid input", description: "Enter a description and a positive amount.", variant: "destructive" });
+      return;
+    }
+    setAddSaving(true);
+    const { error } = await supabase.from("salary_manual_additions").insert({
+      user_id: addOpenFor,
+      month: getMonthStart(),
+      title: addForm.title.trim(),
+      amount: Math.round(amt),
+      created_by: user.id,
+    });
+    if (error) {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: `Added +${Math.round(amt).toLocaleString()} Ks` });
+      setAddOpenFor(null);
+      load();
+    }
+    setAddSaving(false);
+  };
+
+  const removeAddition = async (id: string, amount: number) => {
+    const { error } = await supabase.from("salary_manual_additions").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Failed to remove", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: `Addition removed (-${amount.toLocaleString()} Ks)` });
+      load();
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="space-y-2">
@@ -150,15 +217,15 @@ export default function SalariesAndBonuses() {
     );
   }
 
-  // Aggregate stats — bonus uses earned (sum of bonus_transactions), not the monthly pot.
   const totals = staff.reduce(
     (acc, m) => {
       const sal = salaryMap[m.id];
       const base = sal?.base_salary ?? m.base_salary;
       const bonus = bonusEarnedMap[m.id] ?? 0;
+      const add = additionTotal(m.id);
       const auto = sal?.total_deductions ?? 0;
       const manual = sal?.manual_deduction ?? 0;
-      const final = Math.max(0, base + bonus - auto - manual);
+      const final = Math.max(0, base + bonus + add - auto - manual);
       acc.base += base;
       acc.bonus += bonus;
       acc.deductions += auto + manual;
@@ -219,7 +286,9 @@ export default function SalariesAndBonuses() {
             const bonus = bonusEarnedMap[m.id] ?? 0;
             const auto = sal?.total_deductions ?? 0;
             const manual = sal?.manual_deduction ?? 0;
-            const final = Math.max(0, base + bonus - auto - manual);
+            const add = additionTotal(m.id);
+            const additions = additionsMap[m.id] || [];
+            const final = Math.max(0, base + bonus + add - auto - manual);
             return (
               <div key={m.id} className="rounded-lg border border-border p-3 space-y-2">
                 <div className="flex items-center justify-between gap-3">
@@ -235,7 +304,7 @@ export default function SalariesAndBonuses() {
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs">
                   <div className="rounded bg-muted/40 p-2">
                     <p className="text-muted-foreground">Base</p>
                     <p className="font-semibold">{base.toLocaleString()}</p>
@@ -245,11 +314,21 @@ export default function SalariesAndBonuses() {
                     <p className="font-semibold text-accent">+{bonus.toLocaleString()}<span className="text-[10px] text-muted-foreground"> / {pot.toLocaleString()}</span></p>
                   </div>
                   <div className="rounded bg-destructive/10 p-2">
-                    <p className="text-muted-foreground">- Auto</p>
+                    <p className="text-muted-foreground">- Auto Deduction</p>
                     <p className="font-semibold text-destructive">-{auto.toLocaleString()}</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => isAdminRole && openAdd(m.id)}
+                    className="rounded bg-accent/10 p-2 text-left hover:bg-accent/20 transition-colors disabled:opacity-60"
+                    disabled={!isAdminRole}
+                    title={isAdminRole ? "Add manual addition" : ""}
+                  >
+                    <p className="text-muted-foreground flex items-center gap-1">+ Manual Addition {isAdminRole && <Plus className="h-3 w-3" />}</p>
+                    <p className="font-semibold text-accent">+{add.toLocaleString()}</p>
+                  </button>
                   <div className="rounded bg-destructive/10 p-2">
-                    <p className="text-muted-foreground">- Manual</p>
+                    <p className="text-muted-foreground">- Manual Deduction</p>
                     <p className="font-semibold text-destructive">-{manual.toLocaleString()}</p>
                   </div>
                   <div className="rounded bg-primary/10 p-2">
@@ -257,6 +336,25 @@ export default function SalariesAndBonuses() {
                     <p className="font-bold text-primary">{final.toLocaleString()}</p>
                   </div>
                 </div>
+                {additions.length > 0 && (
+                  <div className="rounded border border-border/60 bg-muted/20 p-2 space-y-1">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Manual Additions</p>
+                    {additions.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between gap-2 text-xs">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate">{a.title}</p>
+                          <p className="text-[10px] text-muted-foreground">{new Date(a.created_at).toLocaleString()}</p>
+                        </div>
+                        <Badge variant="secondary" className="text-[10px]">+{a.amount.toLocaleString()} Ks</Badge>
+                        {isAdminRole && (
+                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeAddition(a.id, a.amount)}>
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {sal?.deduction_reason && (
                   <p className="text-[11px] text-muted-foreground">Reason: {sal.deduction_reason}</p>
                 )}
@@ -292,6 +390,31 @@ export default function SalariesAndBonuses() {
             </div>
             <Button onClick={handleSave} disabled={saving} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
               {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Addition dialog */}
+      <Dialog open={!!addOpenFor} onOpenChange={(v) => { if (!v) setAddOpenFor(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display">Manual Salary Addition</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label>Description</Label>
+              <Input value={addForm.title} onChange={(e) => setAddForm({ ...addForm, title: e.target.value })} placeholder="e.g. Special allowance" />
+            </div>
+            <div>
+              <Label>Amount (kyats)</Label>
+              <Input type="number" min={1} value={addForm.amount} onChange={(e) => setAddForm({ ...addForm, amount: e.target.value })} placeholder="0" />
+              <p className="text-xs text-muted-foreground mt-1">
+                Added on top of Base. Logged as a transaction with date, description and amount.
+              </p>
+            </div>
+            <Button onClick={handleAdd} disabled={addSaving} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+              {addSaving ? "Adding..." : "Add to Salary"}
             </Button>
           </div>
         </DialogContent>
