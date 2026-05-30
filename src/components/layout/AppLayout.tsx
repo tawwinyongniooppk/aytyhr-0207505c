@@ -70,6 +70,11 @@ export function AppLayout() {
     return <Navigate to="/attendance" replace />;
   }
 
+  // Block Neutral-class staff from timetable
+  if (location.pathname === "/my-timetable" && isNeutralClass) {
+    return <Navigate to="/attendance" replace />;
+  }
+
   return (
     <div className="h-screen flex w-full bg-background overflow-hidden">
       <div className="hidden md:flex h-screen overflow-y-auto">
