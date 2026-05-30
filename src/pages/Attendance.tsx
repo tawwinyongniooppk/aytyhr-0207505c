@@ -150,6 +150,17 @@ export default function Attendance() {
   const [record, setRecord] = useState<AttendanceRecord | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [salary, setSalary] = useState<SalaryRecord | null>(null);
+  const [salaryHidden, setSalaryHidden] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("att_salary_hidden") !== "0";
+  });
+  const toggleSalaryVisibility = () => {
+    setSalaryHidden((prev) => {
+      const next = !prev;
+      try { window.localStorage.setItem("att_salary_hidden", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  };
   const [loading, setLoading] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
