@@ -194,6 +194,18 @@ export default function SalaryPage() {
       }
     }
 
+    // Manual additions (Admin-entered, applied on top of Base)
+    for (const a of manualAdditions) {
+      items.push({
+        id: `add-${a.id}`,
+        date: (a.created_at || "").slice(0, 10),
+        type: "manual_addition",
+        description: a.title,
+        amount: Number(a.amount) || 0,
+      });
+    }
+
+
 
     // Per-day auto deductions from attendance, excluding paid-excused days
     const leaveByDate = new Map<string, Set<string>>();
