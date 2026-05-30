@@ -12,13 +12,16 @@ const allNavItems = [
   { to: "/calendar", icon: CalendarDays, label: "Task Scheduler", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
   { to: "/tasks", icon: ClipboardList, label: "Task Oversight", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false },
   { to: "/salaries-bonuses", icon: Coins, label: "Salaries & Bonuses", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: true, personalSalary: false },
-  // My Salary & Bonus moved ABOVE Settings (assistant swap)
-  { to: "/salary", icon: Wallet, label: "My Salary & Bonus", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: true },
+  // Assistant: My Salary & Bonus moved above Settings
+  { to: "/salary", icon: Wallet, label: "My Salary & Bonus", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, assistantSalary: true },
   { to: "/settings", icon: Settings, label: "Settings", adminOnly: true, staffOnly: false, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
-  // Staff-only entries
+  // Staff-only entries (ordered)
   { to: "/attendance", icon: Clock, label: "Attendance", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
-  { to: "/leave", icon: FileText, label: "Leave", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
+  { to: "/my-id", icon: BadgeCheck, label: "My ID", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
   { to: "/tasks", icon: ClipboardList, label: "Tasks", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
+  { to: "/leave", icon: FileText, label: "Leave & OT Request", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
+  { to: "/salary", icon: Wallet, label: "My Salary & Bonus", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
+  { to: "/my-timetable", icon: BookOpen, label: "My Timetable & Lesson Plans", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false, hideForNeutral: true },
   { to: "/manage-accounts", icon: UserPlus, label: "Accounts", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true, excludeAssistant: false, personalSalary: false },
 ];
 
