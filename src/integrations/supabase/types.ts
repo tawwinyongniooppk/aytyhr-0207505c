@@ -548,6 +548,16 @@ export type Database = {
         Args: { p_month: string; p_user_id: string }
         Returns: number
       }
+      dashboard_monthly_attendance: {
+        Args: { p_month_end: string; p_month_start: string }
+        Returns: {
+          days_present: number
+          late_cases: number
+          total_early_minutes: number
+          total_late_minutes: number
+          user_id: string
+        }[]
+      }
       get_leave_balance: { Args: { p_user_id: string }; Returns: number }
       get_profile_full: {
         Args: { p_id: string }
