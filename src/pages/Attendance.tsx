@@ -672,9 +672,10 @@ export default function Attendance() {
           const baseSalary = result.base_salary ?? 0;
           finalDeduction = result.deduction ?? 0;
           setRecord({ ...updatedRecord, deduction_applied: true });
-          setSalary({ base_salary: baseSalary, current_salary: newCurrent, total_deductions: newDeductions });
           setLastDeduction(finalDeduction);
           showSalaryNotification(newCurrent, finalDeduction);
+          // Refresh salary using the client-side recompute path (excludes bonus pot)
+          loadData();
         }
         setShowSalaryModal(true);
       }
