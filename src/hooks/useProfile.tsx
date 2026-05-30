@@ -14,6 +14,7 @@ interface Profile {
   work_day: string;
   avatar_url?: string | null;
   sequence?: number;
+  class?: string;
 }
 
 export function useProfile() {
