@@ -16,13 +16,14 @@ const allNavItems: any[] = [
   { to: "/tasks", icon: ClipboardList, label: "Oversight", fullLabel: "Task Oversight", adminOnly: true },
   { to: "/salaries-bonuses", icon: Coins, label: "Salary", fullLabel: "Salaries & Bonuses", adminOnly: true, excludeAssistant: true },
   // Assistant: My Salary & Bonus then Settings (swapped)
-  { to: "/salary", icon: Wallet, label: "My Salary", fullLabel: "My Salary & Bonus", personalSalary: true },
+  { to: "/salary", icon: Wallet, label: "My Salary", fullLabel: "My Salary & Bonus", assistantSalary: true },
   { to: "/settings", icon: Settings, label: "Settings", fullLabel: "Settings", adminOnly: true, assistantOnly: false },
   // Staff (ordered)
   { to: "/attendance", icon: Clock, label: "Attend", fullLabel: "Attendance", staffOnly: true },
   { to: "/my-id", icon: BadgeCheck, label: "My ID", fullLabel: "My ID", staffOnly: true },
   { to: "/tasks", icon: ClipboardList, label: "Tasks", fullLabel: "Tasks", staffOnly: true },
   { to: "/leave", icon: FileText, label: "Leave & OT", fullLabel: "Leave & OT Request", staffOnly: true },
+  { to: "/salary", icon: Wallet, label: "My Salary", fullLabel: "My Salary & Bonus", staffOnly: true },
   { to: "/my-timetable", icon: BookOpen, label: "Timetable", fullLabel: "My Timetable & Lesson Plans", staffOnly: true, hideForNeutral: true },
   { to: "/manage-accounts", icon: UserPlus, label: "Accounts", fullLabel: "Accounts", itManagerOnly: true },
 ];
