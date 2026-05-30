@@ -39,6 +39,8 @@ const SalaryPage = lazyRetry(() => import("@/pages/SalaryPage"));
 const SalariesAndBonuses = lazyRetry(() => import("@/pages/SalariesAndBonuses"));
 const SettingsPage = lazyRetry(() => import("@/pages/SettingsPage"));
 const ManageAccounts = lazyRetry(() => import("@/pages/ManageAccounts"));
+const MyIdPage = lazyRetry(() => import("@/pages/MyIdPage"));
+const MyTimetablePage = lazyRetry(() => import("@/pages/MyTimetablePage"));
 const NotFound = lazyRetry(() => import("@/pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -83,6 +85,8 @@ const App = () => (
                   <Route path="/salaries-bonuses" element={<SalariesAndBonuses />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/manage-accounts" element={<ManageAccounts />} />
+                  <Route path="/my-id" element={<MyIdPage />} />
+                  <Route path="/my-timetable" element={<MyTimetablePage />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

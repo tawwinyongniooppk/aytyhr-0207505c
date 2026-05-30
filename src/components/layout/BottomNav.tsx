@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
-import { LayoutDashboard, Clock, Wallet, ClipboardList, LogOut, FileText, UserPlus, Users, CalendarDays, Coins, Settings, Menu } from "lucide-react";
+import { LayoutDashboard, Clock, Wallet, ClipboardList, LogOut, FileText, UserPlus, Users, CalendarDays, Coins, Settings, Menu, BadgeCheck, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,31 +16,37 @@ const allNavItems: any[] = [
   { to: "/tasks", icon: ClipboardList, label: "Oversight", fullLabel: "Task Oversight", adminOnly: true },
   { to: "/salaries-bonuses", icon: Coins, label: "Salary", fullLabel: "Salaries & Bonuses", adminOnly: true, excludeAssistant: true },
   // Assistant: My Salary & Bonus then Settings (swapped)
-  { to: "/salary", icon: Wallet, label: "My Salary", fullLabel: "My Salary & Bonus", personalSalary: true },
+  { to: "/salary", icon: Wallet, label: "My Salary", fullLabel: "My Salary & Bonus", assistantSalary: true },
   { to: "/settings", icon: Settings, label: "Settings", fullLabel: "Settings", adminOnly: true, assistantOnly: false },
-  // Staff
+  // Staff (ordered)
   { to: "/attendance", icon: Clock, label: "Attend", fullLabel: "Attendance", staffOnly: true },
-  { to: "/leave", icon: FileText, label: "Leave", fullLabel: "Leave", staffOnly: true },
+  { to: "/my-id", icon: BadgeCheck, label: "My ID", fullLabel: "My ID", staffOnly: true },
   { to: "/tasks", icon: ClipboardList, label: "Tasks", fullLabel: "Tasks", staffOnly: true },
+  { to: "/leave", icon: FileText, label: "Leave & OT", fullLabel: "Leave & OT Request", staffOnly: true },
+  { to: "/salary", icon: Wallet, label: "My Salary", fullLabel: "My Salary & Bonus", staffOnly: true },
+  { to: "/my-timetable", icon: BookOpen, label: "Timetable", fullLabel: "My Timetable & Lesson Plans", staffOnly: true, hideForNeutral: true },
   { to: "/manage-accounts", icon: UserPlus, label: "Accounts", fullLabel: "Accounts", itManagerOnly: true },
 ];
 
 export function BottomNav() {
-  const { isAdmin, isAssistant, isStaff, isItManager } = useProfile();
+  const { isAdmin, isAssistant, isStaff, isItManager, isNeutralClass } = useProfile();
   const { signOut } = useAuth();
   const [open, setOpen] = useState(false);
 
   const navItems = allNavItems.filter((item) => {
     if (item.itManagerOnly) return isItManager;
     if (isItManager) return false;
-    if (item.personalSalary) return isAssistant || isStaff;
+    if (item.assistantSalary) return isAssistant;
     if (item.adminOnly) {
       if (!isAdmin) return false;
       if (item.excludeAssistant && isAssistant) return false;
-      // Settings only for admin/assistant (already adminOnly)
       return true;
     }
-    if (item.staffOnly && isAdmin) return false;
+    if (item.staffOnly) {
+      if (isAdmin) return false;
+      if (item.hideForNeutral && isNeutralClass) return false;
+      return isStaff;
+    }
     return true;
   });
 
