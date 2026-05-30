@@ -69,6 +69,7 @@ export function useProfile() {
   const isStaff = role === "staff" || !role;
   const isItManager = role === "it_manager";
   const canViewSalary = role === "admin" || role === "staff";
+  const isNeutralClass = (profile?.class ?? "Neutral") === "Neutral";
 
-  return { profile, loading, error, isAdmin, isAssistant, isStaff, isItManager, canViewSalary };
+  return { profile, loading, error, isAdmin, isAssistant, isStaff, isItManager, canViewSalary, isNeutralClass };
 }
