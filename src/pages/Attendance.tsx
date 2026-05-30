@@ -899,19 +899,33 @@ export default function Attendance() {
       {salary && (
         <Card className="border border-secondary/30 shadow-none bg-secondary/5">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Wallet className="h-4 w-4 text-secondary" />
-              <span className="font-display font-semibold text-sm">Your Salary This Month</span>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-secondary" />
+                <span className="font-display font-semibold text-sm">Your Salary This Month</span>
+              </div>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-secondary hover:bg-secondary/10"
+                onClick={toggleSalaryVisibility}
+                aria-label={salaryHidden ? "Show salary" : "Hide salary"}
+                title={salaryHidden ? "Show salary" : "Hide salary"}
+              >
+                {salaryHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
             </div>
             <p className="text-2xl font-bold font-display text-secondary">
-              {salary.current_salary.toLocaleString()} kyats
+              {salaryHidden ? "•••••• " : `${salary.current_salary.toLocaleString()} `}kyats
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Base: {salary.base_salary.toLocaleString()} · Deducted: {salary.total_deductions.toLocaleString()}
+              Base: {salaryHidden ? "••••••" : salary.base_salary.toLocaleString()} · Deducted: {salaryHidden ? "••••••" : salary.total_deductions.toLocaleString()}
             </p>
           </CardContent>
         </Card>
       )}
+
 
       {/* Status Card */}
       <Card className="border border-border shadow-none">
