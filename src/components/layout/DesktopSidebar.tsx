@@ -52,7 +52,7 @@ export function DesktopSidebar() {
         <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
           <GraduationCap className="h-5 w-5 text-primary-foreground" />
         </div>
-        <h1 className="font-display text-lg font-bold">StaffPortal</h1>
+        <h1 className="font-display text-lg font-bold">AYTY Smart HR</h1>
       </div>
 
       {profile && (
