@@ -26,19 +26,23 @@ const allNavItems = [
 ];
 
 export function DesktopSidebar() {
-  const { profile, isAdmin, isAssistant, isStaff, isItManager } = useProfile();
+  const { profile, isAdmin, isAssistant, isStaff, isItManager, isNeutralClass } = useProfile();
   const { signOut } = useAuth();
 
   const navItems = allNavItems.filter((item: any) => {
     if (item.itManagerOnly) return isItManager;
     if (isItManager) return false;
-    if (item.personalSalary) return isAssistant || isStaff;
+    if (item.assistantSalary) return isAssistant;
     if (item.adminOnly) {
       if (!isAdmin) return false;
       if (item.excludeAssistant && isAssistant) return false;
       return true;
     }
-    if (item.staffOnly && isAdmin) return false;
+    if (item.staffOnly) {
+      if (isAdmin) return false;
+      if (item.hideForNeutral && isNeutralClass) return false;
+      return isStaff;
+    }
     return true;
   });
 
