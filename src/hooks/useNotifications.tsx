@@ -72,16 +72,49 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           const title = payload.notification?.title || payload.data?.title || "Notification";
           const body = payload.notification?.body || payload.data?.body || "";
           toast(title, { description: body });
+          // Native-style icon badge for foreground messages too.
+          try {
+            const nav: any = navigator;
+            if (nav && typeof nav.setAppBadge === "function") {
+              const next = (Number(sessionStorage.getItem("badge_count") || "0") || 0) + 1;
+              sessionStorage.setItem("badge_count", String(next));
+              nav.setAppBadge(next).catch(() => {});
+            }
+          } catch {
+            /* ignore */
+          }
         });
       } finally {
         if (cancelled) inFlightRef.current = false;
       }
     })();
 
+    // Clear icon badge whenever the app regains focus (native-app behaviour).
+    const clearBadge = () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        sessionStorage.setItem("badge_count", "0");
+        const nav: any = navigator;
+        if (nav && typeof nav.clearAppBadge === "function") {
+          nav.clearAppBadge().catch(() => {});
+        }
+        if (navigator.serviceWorker?.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: "CLEAR_BADGE" });
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    clearBadge();
+    document.addEventListener("visibilitychange", clearBadge);
+    window.addEventListener("focus", clearBadge);
+
     return () => {
       cancelled = true;
       inFlightRef.current = false;
       if (unsub) unsub();
+      document.removeEventListener("visibilitychange", clearBadge);
+      window.removeEventListener("focus", clearBadge);
     };
   }, [userId, loading, isItManager]);
 
