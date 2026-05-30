@@ -4,7 +4,7 @@ import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote } from "lucide-
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction";
+type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction" | "manual_addition";
 interface LedgerEntry {
   id: string;
   date: string; // ISO
@@ -22,6 +22,13 @@ const TYPE_META: Record<LedgerType, { label: string; icon: any; bg: string; fg: 
     badge: "bg-secondary/10 text-secondary",
   },
   bonus: { label: "Bonus", icon: Gift, bg: "bg-accent/10", fg: "text-accent", badge: "bg-accent/10 text-accent" },
+  manual_addition: {
+    label: "Manual Addition",
+    icon: Gift,
+    bg: "bg-accent/10",
+    fg: "text-accent",
+    badge: "bg-accent/15 text-accent",
+  },
   auto_deduction: {
     label: "Auto Deduction",
     icon: TrendingDown,
@@ -37,6 +44,7 @@ const TYPE_META: Record<LedgerType, { label: string; icon: any; bg: string; fg: 
     badge: "bg-destructive/15 text-destructive",
   },
 };
+
 
 interface SalaryData {
   base_salary: number;
