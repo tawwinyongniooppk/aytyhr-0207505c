@@ -85,6 +85,8 @@ const App = () => (
                   <Route path="/salaries-bonuses" element={<SalariesAndBonuses />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/manage-accounts" element={<ManageAccounts />} />
+                  <Route path="/my-id" element={<MyIdPage />} />
+                  <Route path="/my-timetable" element={<MyTimetablePage />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
