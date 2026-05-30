@@ -83,6 +83,13 @@ export function ManualDeductionPanel({
         toast({ title: "Failed to apply", description: error.message, variant: "destructive" });
       } else {
         toast({ title: `Manual deduction applied (-${daysNum} day${daysNum > 1 ? "s" : ""})` });
+        // Notify the affected staff member
+        sendPush({
+          user_ids: [userId],
+          title: "Manual Deduction Applied",
+          body: `${title.trim()} — ${daysNum} day${daysNum > 1 ? "s" : ""} deducted${reason.trim() ? ` (${reason.trim()})` : ""}`,
+          url: "/salary",
+        });
         setUserId(""); setTitle(""); setReason(""); setDays("1");
         setConfirmOpen(false);
         load();
