@@ -13,16 +13,33 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage((payload) => {
+// Native-style app icon badge counter (Badging API).
+let badgeCount = 0;
+async function bumpBadge() {
+  badgeCount += 1;
+  try {
+    if (self.navigator && "setAppBadge" in self.navigator) {
+      await self.navigator.setAppBadge(badgeCount);
+    }
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+messaging.onBackgroundMessage(async (payload) => {
   const title = payload.notification?.title || payload.data?.title || "AYTY Smart HR";
   const body = payload.notification?.body || payload.data?.body || "";
   const url = payload.data?.url || "/";
+  await bumpBadge();
   self.registration.showNotification(title, {
     body,
     icon: "/pwa-192x192.png",
     badge: "/pwa-192x192.png",
     data: { url },
     tag: payload.data?.tag || "ayty-notif",
+    renotify: true,
+    vibrate: [200, 100, 200],
+    requireInteraction: false,
   });
 });
 
@@ -30,7 +47,21 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = event.notification.data?.url || "/";
   event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+    (async () => {
+      // Decrement badge when user taps the notification.
+      try {
+        badgeCount = Math.max(0, badgeCount - 1);
+        if (self.navigator && "setAppBadge" in self.navigator) {
+          if (badgeCount === 0 && "clearAppBadge" in self.navigator) {
+            await self.navigator.clearAppBadge();
+          } else {
+            await self.navigator.setAppBadge(badgeCount);
+          }
+        }
+      } catch (_) {
+        /* ignore */
+      }
+      const wins = await clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const w of wins) {
         if ("focus" in w) {
           w.navigate(url).catch(() => {});
@@ -38,6 +69,20 @@ self.addEventListener("notificationclick", (event) => {
         }
       }
       if (clients.openWindow) return clients.openWindow(url);
-    }),
+    })(),
   );
+});
+
+// Allow the page to reset the badge (e.g. when the app regains focus).
+self.addEventListener("message", async (event) => {
+  if (event.data && event.data.type === "CLEAR_BADGE") {
+    badgeCount = 0;
+    try {
+      if (self.navigator && "clearAppBadge" in self.navigator) {
+        await self.navigator.clearAppBadge();
+      }
+    } catch (_) {
+      /* ignore */
+    }
+  }
 });
