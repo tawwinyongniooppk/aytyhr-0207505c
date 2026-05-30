@@ -519,7 +519,16 @@ export default function CalendarPage() {
 
   const selectedDayEvents = useMemo(() => {
     if (!selectedDate) return [];
-    return filteredEvents.filter((e) => e.start_date <= selectedDate && e.end_date >= selectedDate);
+    const list = filteredEvents.filter((e) => e.start_date <= selectedDate && e.end_date >= selectedDate);
+    // Ordered for clarity: holiday → task → meeting → event, then by start date.
+    const typeOrder: Record<string, number> = { holiday: 0, task: 1, meeting: 2, event: 3 };
+    return [...list].sort((a, b) => {
+      const ta = typeOrder[a.event_type] ?? 9;
+      const tb = typeOrder[b.event_type] ?? 9;
+      if (ta !== tb) return ta - tb;
+      if (a.start_date !== b.start_date) return a.start_date.localeCompare(b.start_date);
+      return a.title.localeCompare(b.title);
+    });
   }, [selectedDate, filteredEvents]);
 
   const toggleAssignee = (id: string) => {
@@ -544,8 +553,8 @@ export default function CalendarPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold font-display">Calendar</h1>
-          <p className="text-muted-foreground text-sm mt-1">To create a new task for everyone</p>
+          <h1 className="text-2xl font-bold font-display bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Task Scheduler</h1>
+          <p className="text-muted-foreground text-sm mt-1">Plan, assign and review tasks across the month</p>
         </div>
         {!isStaff && (
           <Dialog open={open} onOpenChange={setOpen}>
@@ -727,9 +736,9 @@ export default function CalendarPage() {
         </CardContent>
       </Card>
 
-      {/* iOS-style Monthly Calendar */}
-      <Card className="border border-border shadow-sm overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3 pt-4 px-4">
+      {/* Premium Monthly Calendar */}
+      <Card className="border border-border/70 shadow-md overflow-hidden bg-gradient-to-b from-card to-muted/20">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3 pt-4 px-4 border-b border-border/50 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5">
           <div className="flex items-baseline gap-2">
             <CardTitle className="text-2xl font-semibold tracking-tight">
               {currentDate.toLocaleString("default", { month: "long" })}
@@ -888,8 +897,6 @@ export default function CalendarPage() {
       {/* Legend */}
       <div className="flex gap-4 flex-wrap text-xs text-muted-foreground px-1">
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-destructive" /> Holiday / Off Day</span>
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-500" /> Meeting</span>
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-green-500" /> Event</span>
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-orange-500" /> Task</span>
       </div>
 
