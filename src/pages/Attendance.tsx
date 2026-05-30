@@ -347,7 +347,7 @@ export default function Attendance() {
 
       const [attRes, settRes, salRes, profileRes] = await Promise.all([
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
-        supabase.from("app_settings").select("*"),
+        supabase.from("app_settings").select("key,value").in("key", ["start_time","end_time","grace_period_minutes","deduction_rate_per_minute","school_latitude","school_longitude","allowed_radius_meters"]),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
         supabase
           .from("profiles")
