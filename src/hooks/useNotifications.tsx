@@ -72,6 +72,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           const title = payload.notification?.title || payload.data?.title || "Notification";
           const body = payload.notification?.body || payload.data?.body || "";
           toast(title, { description: body });
+          // Native-style icon badge for foreground messages too.
+          try {
+            const nav: any = navigator;
+            if (nav && typeof nav.setAppBadge === "function") {
+              const next = (Number(sessionStorage.getItem("badge_count") || "0") || 0) + 1;
+              sessionStorage.setItem("badge_count", String(next));
+              nav.setAppBadge(next).catch(() => {});
+            }
+          } catch {
+            /* ignore */
+          }
         });
       } finally {
         if (cancelled) inFlightRef.current = false;
