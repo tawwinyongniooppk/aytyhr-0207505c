@@ -39,6 +39,8 @@ const SalaryPage = lazyRetry(() => import("@/pages/SalaryPage"));
 const SalariesAndBonuses = lazyRetry(() => import("@/pages/SalariesAndBonuses"));
 const SettingsPage = lazyRetry(() => import("@/pages/SettingsPage"));
 const ManageAccounts = lazyRetry(() => import("@/pages/ManageAccounts"));
+const MyIdPage = lazyRetry(() => import("@/pages/MyIdPage"));
+const MyTimetablePage = lazyRetry(() => import("@/pages/MyTimetablePage"));
 const NotFound = lazyRetry(() => import("@/pages/NotFound"));
 
 const queryClient = new QueryClient({
