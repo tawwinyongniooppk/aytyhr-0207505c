@@ -451,6 +451,36 @@ export type Database = {
         }
         Relationships: []
       }
+      salary_manual_additions: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          id: string
+          month: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          id?: string
+          month?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          month?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           approved_at: string | null

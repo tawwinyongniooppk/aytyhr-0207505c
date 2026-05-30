@@ -15,6 +15,8 @@ import {
   RefreshCw,
   Loader2,
   Volume2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -148,6 +150,17 @@ export default function Attendance() {
   const [record, setRecord] = useState<AttendanceRecord | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [salary, setSalary] = useState<SalaryRecord | null>(null);
+  const [salaryHidden, setSalaryHidden] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("att_salary_hidden") !== "0";
+  });
+  const toggleSalaryVisibility = () => {
+    setSalaryHidden((prev) => {
+      const next = !prev;
+      try { window.localStorage.setItem("att_salary_hidden", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  };
   const [loading, setLoading] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
@@ -345,7 +358,7 @@ export default function Attendance() {
       const today = new Date().toISOString().split("T")[0];
       const monthStart = getMonthStart();
 
-      const [attRes, settRes, salRes, profileRes] = await Promise.all([
+      const [attRes, settRes, salRes, profileRes, bonusRes, addRes, profSalRes] = await Promise.all([
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("key,value").in("key", ["start_time","end_time","grace_period_minutes","deduction_rate_per_minute","school_latitude","school_longitude","allowed_radius_meters"]),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
@@ -354,6 +367,9 @@ export default function Attendance() {
           .select("role, full_name, work_day, check_in_time, check_out_time, work_schedule")
           .eq("id", user!.id)
           .maybeSingle(),
+        supabase.from("bonus_transactions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
+        supabase.from("salary_manual_additions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
+        supabase.from("profiles").select("base_salary").eq("id", user!.id).maybeSingle(),
       ]);
 
       if (attRes.data) {
@@ -363,7 +379,16 @@ export default function Attendance() {
           setCheckInNotice("Checked in successfully");
         }
       }
-      if (salRes.data) setSalary(salRes.data as unknown as SalaryRecord);
+      {
+        const earnedBonus = (bonusRes.data as any[] | null)?.reduce((s, b) => s + (Number(b.amount) || 0), 0) ?? 0;
+        const additions = (addRes.data as any[] | null)?.reduce((s, a) => s + (Number(a.amount) || 0), 0) ?? 0;
+        const sal = salRes.data as any;
+        const base = Number(sal?.base_salary ?? (profSalRes.data as any)?.base_salary ?? 0);
+        const auto = Number(sal?.total_deductions ?? 0);
+        const manual = Number(sal?.manual_deduction ?? 0);
+        const current = Math.max(0, base + earnedBonus + additions - auto - manual);
+        setSalary({ base_salary: base, current_salary: current, total_deductions: auto + manual });
+      }
       if (profileRes.error) {
         console.error("[Attendance] profile fetch error:", profileRes.error);
       }
@@ -647,9 +672,10 @@ export default function Attendance() {
           const baseSalary = result.base_salary ?? 0;
           finalDeduction = result.deduction ?? 0;
           setRecord({ ...updatedRecord, deduction_applied: true });
-          setSalary({ base_salary: baseSalary, current_salary: newCurrent, total_deductions: newDeductions });
           setLastDeduction(finalDeduction);
           showSalaryNotification(newCurrent, finalDeduction);
+          // Refresh salary using the client-side recompute path (excludes bonus pot)
+          loadData();
         }
         setShowSalaryModal(true);
       }
@@ -874,19 +900,33 @@ export default function Attendance() {
       {salary && (
         <Card className="border border-secondary/30 shadow-none bg-secondary/5">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Wallet className="h-4 w-4 text-secondary" />
-              <span className="font-display font-semibold text-sm">Your Salary This Month</span>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-secondary" />
+                <span className="font-display font-semibold text-sm">Your Salary This Month</span>
+              </div>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-secondary hover:bg-secondary/10"
+                onClick={toggleSalaryVisibility}
+                aria-label={salaryHidden ? "Show salary" : "Hide salary"}
+                title={salaryHidden ? "Show salary" : "Hide salary"}
+              >
+                {salaryHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
             </div>
             <p className="text-2xl font-bold font-display text-secondary">
-              {salary.current_salary.toLocaleString()} kyats
+              {salaryHidden ? "•••••• " : `${salary.current_salary.toLocaleString()} `}kyats
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Base: {salary.base_salary.toLocaleString()} · Deducted: {salary.total_deductions.toLocaleString()}
+              Base: {salaryHidden ? "••••••" : salary.base_salary.toLocaleString()} · Deducted: {salaryHidden ? "••••••" : salary.total_deductions.toLocaleString()}
             </p>
           </CardContent>
         </Card>
       )}
+
 
       {/* Status Card */}
       <Card className="border border-border shadow-none">

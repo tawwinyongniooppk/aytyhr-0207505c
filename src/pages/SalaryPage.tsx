@@ -4,7 +4,7 @@ import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote } from "lucide-
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction";
+type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction" | "manual_addition";
 interface LedgerEntry {
   id: string;
   date: string; // ISO
@@ -22,6 +22,13 @@ const TYPE_META: Record<LedgerType, { label: string; icon: any; bg: string; fg: 
     badge: "bg-secondary/10 text-secondary",
   },
   bonus: { label: "Bonus", icon: Gift, bg: "bg-accent/10", fg: "text-accent", badge: "bg-accent/10 text-accent" },
+  manual_addition: {
+    label: "Manual Addition",
+    icon: Gift,
+    bg: "bg-accent/10",
+    fg: "text-accent",
+    badge: "bg-accent/15 text-accent",
+  },
   auto_deduction: {
     label: "Auto Deduction",
     icon: TrendingDown,
@@ -37,6 +44,7 @@ const TYPE_META: Record<LedgerType, { label: string; icon: any; bg: string; fg: 
     badge: "bg-destructive/15 text-destructive",
   },
 };
+
 
 interface SalaryData {
   base_salary: number;
@@ -60,6 +68,7 @@ export default function SalaryPage() {
   const [attendanceRows, setAttendanceRows] = useState<any[]>([]);
   const [approvedLeaves, setApprovedLeaves] = useState<any[]>([]);
   const [bonusTxs, setBonusTxs] = useState<any[]>([]);
+  const [manualAdditions, setManualAdditions] = useState<any[]>([]);
   const [rates, setRates] = useState<{ late: number; early: number }>({ late: 200, early: 200 });
 
   useEffect(() => {
@@ -71,7 +80,7 @@ export default function SalaryPage() {
     setLoading(true);
     const monthStart = getMonthStart();
 
-    const [salRes, mdRes, attRes, lvRes, profRes, btRes] = await Promise.all([
+    const [salRes, mdRes, attRes, lvRes, profRes, btRes, addRes] = await Promise.all([
       supabase
         .from("salaries")
         .select("base_salary, current_salary, total_deductions, bonus, manual_deduction, deduction_reason")
@@ -98,7 +107,7 @@ export default function SalaryPage() {
         .gte("date", monthStart),
       supabase
         .from("profiles")
-        .select("late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute")
+        .select("late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute, base_salary")
         .eq("id", user!.id)
         .maybeSingle(),
       supabase
@@ -107,13 +116,32 @@ export default function SalaryPage() {
         .eq("user_id", user!.id)
         .eq("month", monthStart)
         .order("approved_date", { ascending: false }),
+      supabase
+        .from("salary_manual_additions")
+        .select("*")
+        .eq("user_id", user!.id)
+        .eq("month", monthStart)
+        .order("created_at", { ascending: false }),
     ]);
 
     if (salRes.data) setSalary(salRes.data as unknown as SalaryData);
+    else if (profRes.data) {
+      // No salary row yet — fall back to profile base so Base/Final displays correctly on day 1.
+      const baseFromProfile = Number((profRes.data as any).base_salary) || 0;
+      setSalary({
+        base_salary: baseFromProfile,
+        current_salary: baseFromProfile,
+        total_deductions: 0,
+        bonus: 0,
+        manual_deduction: 0,
+        deduction_reason: "",
+      });
+    }
     if (mdRes.data) setManualLeaveDeductions(mdRes.data as any[]);
     if (attRes.data) setAttendanceRows(attRes.data as any[]);
     if (lvRes.data) setApprovedLeaves(lvRes.data as any[]);
     if (btRes.data) setBonusTxs(btRes.data as any[]);
+    if (addRes.data) setManualAdditions(addRes.data as any[]);
     if (profRes.data) {
       const legacy = Number((profRes.data as any).deduction_rate_per_minute) || 200;
       setRates({
@@ -126,14 +154,16 @@ export default function SalaryPage() {
   };
 
 
-  // Earned bonus = sum of bonus_transactions for the month (unit/4 * monthly bonus per approval).
+  // Earned bonus = sum of approved bonus_transactions for the month (NOT the monthly bonus pot).
   const baseSalary = Math.max(0, Number(salary?.base_salary ?? 0));
   const earnedBonus = bonusTxs.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
   const totalBonus = earnedBonus;
+  const totalAdditions = manualAdditions.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
   const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
   const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0));
   const totalDeductions = autoDeductions + manualDeductionAmt;
-  const finalSalary = Math.max(0, baseSalary + totalBonus - totalDeductions);
+  const finalSalary = Math.max(0, baseSalary + totalBonus + totalAdditions - totalDeductions);
+
 
   const ledger = useMemo<LedgerEntry[]>(() => {
     const items: LedgerEntry[] = [];
@@ -163,6 +193,18 @@ export default function SalaryPage() {
         });
       }
     }
+
+    // Manual additions (Admin-entered, applied on top of Base)
+    for (const a of manualAdditions) {
+      items.push({
+        id: `add-${a.id}`,
+        date: (a.created_at || "").slice(0, 10),
+        type: "manual_addition",
+        description: a.title,
+        amount: Number(a.amount) || 0,
+      });
+    }
+
 
 
     // Per-day auto deductions from attendance, excluding paid-excused days
@@ -219,7 +261,7 @@ export default function SalaryPage() {
     }
 
     return items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, manualLeaveDeductions, attendanceRows, approvedLeaves, rates, bonusTxs]);
+  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, manualLeaveDeductions, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions]);
 
 
   const currentMonth = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
