@@ -358,7 +358,7 @@ export default function Attendance() {
       const today = new Date().toISOString().split("T")[0];
       const monthStart = getMonthStart();
 
-      const [attRes, settRes, salRes, profileRes] = await Promise.all([
+      const [attRes, settRes, salRes, profileRes, bonusRes, addRes, profSalRes] = await Promise.all([
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("key,value").in("key", ["start_time","end_time","grace_period_minutes","deduction_rate_per_minute","school_latitude","school_longitude","allowed_radius_meters"]),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
@@ -367,6 +367,9 @@ export default function Attendance() {
           .select("role, full_name, work_day, check_in_time, check_out_time, work_schedule")
           .eq("id", user!.id)
           .maybeSingle(),
+        supabase.from("bonus_transactions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
+        supabase.from("salary_manual_additions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
+        supabase.from("profiles").select("base_salary").eq("id", user!.id).maybeSingle(),
       ]);
 
       if (attRes.data) {
@@ -376,7 +379,16 @@ export default function Attendance() {
           setCheckInNotice("Checked in successfully");
         }
       }
-      if (salRes.data) setSalary(salRes.data as unknown as SalaryRecord);
+      {
+        const earnedBonus = (bonusRes.data as any[] | null)?.reduce((s, b) => s + (Number(b.amount) || 0), 0) ?? 0;
+        const additions = (addRes.data as any[] | null)?.reduce((s, a) => s + (Number(a.amount) || 0), 0) ?? 0;
+        const sal = salRes.data as any;
+        const base = Number(sal?.base_salary ?? (profSalRes.data as any)?.base_salary ?? 0);
+        const auto = Number(sal?.total_deductions ?? 0);
+        const manual = Number(sal?.manual_deduction ?? 0);
+        const current = Math.max(0, base + earnedBonus + additions - auto - manual);
+        setSalary({ base_salary: base, current_salary: current, total_deductions: auto + manual });
+      }
       if (profileRes.error) {
         console.error("[Attendance] profile fetch error:", profileRes.error);
       }
