@@ -15,6 +15,8 @@ import {
   RefreshCw,
   Loader2,
   Volume2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
