@@ -29,21 +29,24 @@ const allNavItems: any[] = [
 ];
 
 export function BottomNav() {
-  const { isAdmin, isAssistant, isStaff, isItManager } = useProfile();
+  const { isAdmin, isAssistant, isStaff, isItManager, isNeutralClass } = useProfile();
   const { signOut } = useAuth();
   const [open, setOpen] = useState(false);
 
   const navItems = allNavItems.filter((item) => {
     if (item.itManagerOnly) return isItManager;
     if (isItManager) return false;
-    if (item.personalSalary) return isAssistant || isStaff;
+    if (item.assistantSalary) return isAssistant;
     if (item.adminOnly) {
       if (!isAdmin) return false;
       if (item.excludeAssistant && isAssistant) return false;
-      // Settings only for admin/assistant (already adminOnly)
       return true;
     }
-    if (item.staffOnly && isAdmin) return false;
+    if (item.staffOnly) {
+      if (isAdmin) return false;
+      if (item.hideForNeutral && isNeutralClass) return false;
+      return isStaff;
+    }
     return true;
   });
 
