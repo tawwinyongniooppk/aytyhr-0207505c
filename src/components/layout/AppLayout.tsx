@@ -11,7 +11,7 @@ const dashboardDetailRoutes = ["/staff", "/attendance", "/leave", "/tasks", "/sa
 
 const adminOnlyRoutes = ["/dashboard", "/staff", "/settings", "/calendar"];
 const salaryRoutes = ["/salary"];
-const staffOnlyRoutes = ["/attendance", "/salary"];
+const staffOnlyRoutes = ["/attendance", "/salary", "/my-id", "/my-timetable"];
 const itManagerOnlyRoutes = ["/manage-accounts"];
 
 export function AppLayout() {
