@@ -16,7 +16,7 @@ const itManagerOnlyRoutes = ["/manage-accounts"];
 
 export function AppLayout() {
   const { user, loading, signOut } = useAuth();
-  const { isAdmin, canViewSalary, isItManager, loading: profileLoading, error: profileError } = useProfile();
+  const { isAdmin, canViewSalary, isItManager, isNeutralClass, loading: profileLoading, error: profileError } = useProfile();
   const location = useLocation();
 
   if (loading || profileLoading) {
