@@ -162,6 +162,7 @@ export default function Staff() {
       updateData.late_deduction_per_minute = Math.max(0, Number(form.late_rate) || 0);
       updateData.early_deduction_per_minute = Math.max(0, Number(form.early_rate) || 0);
       updateData.partial_leave_deduction_per_minute = Math.max(0, Number(form.partial_rate) || 0);
+      updateData.overtime_rate_per_minute = Math.max(0, Number(form.overtime_rate) || 0);
     }
 
     // Update the specific staff member's profile and verify the row was changed
