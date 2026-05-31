@@ -9,7 +9,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { cn } from "@/lib/utils";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 import { useNotifications } from "@/hooks/useNotifications";
-import { formatMMTDate, getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
+import { formatMMTDate, getMMTMonthEndISO, getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
 
 interface Profile {
   id: string;
@@ -60,7 +60,7 @@ export default function Dashboard() {
 
   const today = getMMTTodayISO();
   const monthStart = getMMTMonthStartISO();
-  const monthEnd = `${monthStart.slice(0, 7)}-31`;
+  const monthEnd = getMMTMonthEndISO();
 
   useEffect(() => {
     if (!user) return;
