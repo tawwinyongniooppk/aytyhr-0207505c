@@ -23,6 +23,7 @@ const allNavItems = [
   { to: "/salary", icon: Wallet, label: "My Salary & Bonus", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false },
   { to: "/my-timetable", icon: BookOpen, label: "My Timetable & Lesson Plans", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false, hideForNeutral: true },
   { to: "/manage-accounts", icon: UserPlus, label: "Accounts", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true, excludeAssistant: false, personalSalary: false },
+  { to: "/lesson-plans-editor", icon: BookOpen, label: "Lesson Plans Templates", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true, excludeAssistant: false, personalSalary: false },
 ];
 
 export function DesktopSidebar() {
