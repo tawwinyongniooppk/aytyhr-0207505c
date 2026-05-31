@@ -471,6 +471,9 @@ export default function Leave() {
                 onSelect={setSelectedRequest}
               />
             </SectionBlock>
+            <SectionBlock label="B · Overtime Requests" hint="Review staff overtime. Approval auto-adds salary.">
+              <OvertimeSection />
+            </SectionBlock>
           </TabsContent>
         </Tabs>
       )}
