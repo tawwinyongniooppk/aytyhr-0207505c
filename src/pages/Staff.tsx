@@ -302,6 +302,7 @@ export default function Staff() {
       late_rate: String(member.late_deduction_per_minute ?? member.deduction_rate_per_minute ?? 200),
       early_rate: String(member.early_deduction_per_minute ?? member.deduction_rate_per_minute ?? 200),
       partial_rate: String(member.partial_leave_deduction_per_minute ?? member.deduction_rate_per_minute ?? 200),
+      overtime_rate: String((member as any).overtime_rate_per_minute ?? 200),
     });
     setSchedule(normalizeSchedule(member.work_schedule));
     setOpen(true);
