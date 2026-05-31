@@ -131,6 +131,8 @@ export default function SettingsPage() {
         throw result?.error ?? new Error("Test push failed");
       }
       toast({ title: "Test sent", description: "Check your device for the push notification." });
+    } catch (e: any) {
+      toast({ title: "Test failed", description: e?.message ?? String(e), variant: "destructive" });
     } finally {
       setTesting(false);
     }
