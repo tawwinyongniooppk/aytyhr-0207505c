@@ -602,7 +602,7 @@ export default function Attendance() {
 
         notifyAdmins(
           "Staff checked in",
-          `${profile?.full_name ?? "Staff"} checked in${lateMin > 0 ? ` (${lateMin} min late)` : " on time"}`,
+          `${fullName || "Staff"} checked in${lateMin > 0 ? ` (${lateMin} min late)` : " on time"}`,
           "/attendance",
         );
 
