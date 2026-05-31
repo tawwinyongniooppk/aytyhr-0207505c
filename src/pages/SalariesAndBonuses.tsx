@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
+import { formatMMTDateTime, formatMMTMonthLabel, getMMTMonthStartISO } from "@/lib/mmt";
 
 interface StaffRow {
   id: string;
@@ -37,8 +38,7 @@ interface ManualAddition {
 }
 
 function getMonthStart(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  return getMMTMonthStartISO();
 }
 
 export default function SalariesAndBonuses() {
@@ -202,7 +202,7 @@ export default function SalariesAndBonuses() {
     );
   }
 
-  const currentMonth = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const currentMonth = formatMMTMonthLabel(new Date());
 
   if (loading) {
     return (
@@ -343,7 +343,7 @@ export default function SalariesAndBonuses() {
                       <div key={a.id} className="flex items-center justify-between gap-2 text-xs">
                         <div className="min-w-0 flex-1">
                           <p className="truncate">{a.title}</p>
-                          <p className="text-[10px] text-muted-foreground">{new Date(a.created_at).toLocaleString()}</p>
+                          <p className="text-[10px] text-muted-foreground">{formatMMTDateTime(a.created_at)}</p>
                         </div>
                         <Badge variant="secondary" className="text-[10px]">+{a.amount.toLocaleString()} Ks</Badge>
                         {isAdminRole && (
