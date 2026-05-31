@@ -370,6 +370,57 @@ export type Database = {
         }
         Relationships: []
       }
+      overtime_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          end_at: string
+          id: string
+          minutes: number
+          rate_per_minute: number
+          reason: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          start_at: string
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          description?: string
+          end_at: string
+          id?: string
+          minutes?: number
+          rate_per_minute?: number
+          reason?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_at: string
+          status?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          end_at?: string
+          id?: string
+          minutes?: number
+          rate_per_minute?: number
+          reason?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_at?: string
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -385,6 +436,7 @@ export type Database = {
           id: string
           join_date: string | null
           late_deduction_per_minute: number
+          overtime_rate_per_minute: number
           partial_leave_deduction_per_minute: number
           phone: string | null
           role: string
@@ -406,6 +458,7 @@ export type Database = {
           id: string
           join_date?: string | null
           late_deduction_per_minute?: number
+          overtime_rate_per_minute?: number
           partial_leave_deduction_per_minute?: number
           phone?: string | null
           role?: string
@@ -427,6 +480,7 @@ export type Database = {
           id?: string
           join_date?: string | null
           late_deduction_per_minute?: number
+          overtime_rate_per_minute?: number
           partial_leave_deduction_per_minute?: number
           phone?: string | null
           role?: string
@@ -481,6 +535,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          kind: string
           month: string
           title: string
           user_id: string
@@ -490,6 +545,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          kind?: string
           month?: string
           title: string
           user_id: string
@@ -499,6 +555,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          kind?: string
           month?: string
           title?: string
           user_id?: string
@@ -583,6 +640,7 @@ export type Database = {
           id: string
           join_date: string | null
           late_deduction_per_minute: number
+          overtime_rate_per_minute: number
           partial_leave_deduction_per_minute: number
           phone: string | null
           role: string
@@ -629,6 +687,7 @@ export type Database = {
           id: string
           join_date: string | null
           late_deduction_per_minute: number
+          overtime_rate_per_minute: number
           partial_leave_deduction_per_minute: number
           phone: string | null
           role: string
