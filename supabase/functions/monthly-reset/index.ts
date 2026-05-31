@@ -16,11 +16,26 @@ function yangonDateAt(offsetDays = 0) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  // Accept CRON_SECRET, service-role, or internal pg_cron (anon apikey).
+  // Destructive guard: ?force=1 still requires CRON_SECRET / service-role.
   const cronSecret = Deno.env.get("CRON_SECRET");
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const authHeader = req.headers.get("Authorization") ?? "";
-  if (!cronSecret || (authHeader !== `Bearer ${cronSecret}` && authHeader !== `Bearer ${serviceRole}`)) {
+  const apikeyHeader = req.headers.get("apikey") ?? "";
+  const isPrivileged =
+    (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
+    (serviceRole && authHeader === `Bearer ${serviceRole}`);
+  const isInternalCron =
+    !!anonKey && (authHeader === `Bearer ${anonKey}` || apikeyHeader === anonKey);
+  const force = new URL(req.url).searchParams.get("force") === "1";
+  if (!isPrivileged && !isInternalCron) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  if (force && !isPrivileged) {
+    return new Response(JSON.stringify({ error: "force requires CRON_SECRET" }), {
       status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -35,7 +50,7 @@ Deno.serve(async (req) => {
     const tomorrow = yangonDateAt(1);
 
     // Only run when tomorrow is the 1st of a month (i.e. today is the last day).
-    const force = new URL(req.url).searchParams.get("force") === "1";
+    // `force` already parsed above.
     if (!force && !tomorrow.endsWith("-01")) {
       return new Response(JSON.stringify({ ok: true, skipped: true, today, tomorrow }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
