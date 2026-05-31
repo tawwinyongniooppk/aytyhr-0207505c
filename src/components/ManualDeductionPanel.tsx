@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { sendPush } from "@/lib/push";
+import { formatMMTDateTime } from "@/lib/mmt";
 import { Loader2, MinusCircle, Trash2, Inbox } from "lucide-react";
 
 interface ManualDeduction {
@@ -194,7 +195,7 @@ export function ManualDeductionPanel({
                     </div>
                     <p className="text-xs mt-0.5">{d.title}</p>
                     {d.reason && <p className="text-xs text-muted-foreground mt-0.5">{d.reason}</p>}
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(d.created_at).toLocaleString()}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{formatMMTDateTime(d.created_at)}</p>
                   </div>
                   <Button size="icon" variant="ghost" onClick={() => remove(d.id, d.days)} title="Remove (refunds balance)">
                     <Trash2 className="h-4 w-4 text-destructive" />

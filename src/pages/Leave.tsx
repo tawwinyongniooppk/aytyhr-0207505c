@@ -17,6 +17,7 @@ import { sendPush, notifyAdmins } from "@/lib/push";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 import { ManualDeductionPanel } from "@/components/ManualDeductionPanel";
+import { getMMTDateParts } from "@/lib/mmt";
 
 type LeaveType = "leave" | "partial_leave" | "late_excuse";
 
@@ -74,15 +75,15 @@ export default function Leave() {
   // Count this user's already-approved Full Leaves in the same month as the selected request
   const overLimitForUnpaid = (() => {
     if (!selectedRequest || selectedRequest.type !== "leave") return false;
-    const d = new Date(selectedRequest.date + "T00:00:00");
-    const y = d.getFullYear(), m = d.getMonth();
+    const d = getMMTDateParts(`${selectedRequest.date}T00:00:00+06:30`);
+    const y = Number(d.year), m = Number(d.month) - 1;
     const source = canManage ? allRequests : myRequests;
     const count = source.filter((r) =>
       r.user_id === selectedRequest.user_id &&
       r.type === "leave" &&
       r.status === "approved" &&
       r.id !== selectedRequest.id &&
-      (() => { const x = new Date(r.date + "T00:00:00"); return x.getFullYear() === y && x.getMonth() === m; })()
+      (() => { const x = getMMTDateParts(`${r.date}T00:00:00+06:30`); return Number(x.year) === y && Number(x.month) - 1 === m; })()
     ).length;
     return count >= 2;
   })();
@@ -239,8 +240,8 @@ export default function Leave() {
           toast({ title: "Manual deduction required", description: "Description and amount are required.", variant: "destructive" });
           return;
         }
-        const d = new Date(selectedRequest.date + "T00:00:00");
-        const monthStart = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+        const d = getMMTDateParts(`${selectedRequest.date}T00:00:00+06:30`);
+        const monthStart = `${d.year}-${d.month}-01`;
         const { data: existing } = await supabase
           .from("salaries").select("*")
           .eq("user_id", selectedRequest.user_id).eq("month", monthStart).maybeSingle();
@@ -592,7 +593,7 @@ function SubmitForm({
   submitting: boolean;
   existingRequests: LeaveRequest[];
 }) {
-  const dayName = date ? new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" }) : "";
+  const dayName = date ? new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "Asia/Yangon" }).format(new Date(`${date}T00:00:00+06:30`)) : "";
   const isPartial = type === "partial_leave";
 
   const DUPLICATE_MSG = "သင်၏ ခွင့်ချိန် ခွင့်ရက်များကို (2)ကြိမ်မြောက် တူညီစွာ ယူလို့ မရပါ။";

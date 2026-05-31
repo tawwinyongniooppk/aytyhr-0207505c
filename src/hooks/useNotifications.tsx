@@ -6,6 +6,30 @@ import { getMessagingSafe, onMessage, requestFcmToken } from "@/lib/firebase";
 import { isPushEnabled } from "@/lib/push";
 import { toast } from "sonner";
 
+async function showForegroundNotification(title: string, body: string, url: string) {
+  try {
+    if (typeof window === "undefined" || typeof Notification === "undefined") return;
+    if (Notification.permission !== "granted") return;
+
+    const registration = await navigator.serviceWorker?.getRegistration();
+    const options = {
+      body,
+      icon: "/pwa-192x192.png",
+      badge: "/pwa-192x192.png",
+      data: { url },
+      tag: `fg-${url}-${Date.now()}`,
+      vibrate: [200, 100, 200],
+    } as NotificationOptions & { vibrate?: number[]; badge?: string };
+    if (registration) {
+      await registration.showNotification(title, options as NotificationOptions);
+    } else {
+      new Notification(title, options);
+    }
+  } catch (e) {
+    console.warn("[fcm] foreground notification failed", e);
+  }
+}
+
 interface Ctx {
   hasFor: (_route: string) => boolean;
   markRead: (_route: string) => void;
@@ -71,7 +95,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         unsub = onMessage(messaging, (payload) => {
           const title = payload.notification?.title || payload.data?.title || "Notification";
           const body = payload.notification?.body || payload.data?.body || "";
+          const url = payload.data?.url || "/";
           toast(title, { description: body });
+          showForegroundNotification(title, body, url);
           // Native-style icon badge for foreground messages too.
           try {
             const nav: any = navigator;

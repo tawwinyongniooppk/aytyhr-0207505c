@@ -32,6 +32,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
 
 interface AttendanceRecord {
   id: string;
@@ -113,8 +114,7 @@ function formatTime12h(hhmm: string): string {
 }
 
 function getMonthStart(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  return getMMTMonthStartISO();
 }
 
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -218,7 +218,7 @@ export default function Attendance() {
   async function loadHolidayAndLeave() {
     if (!user) return;
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getMMTTodayISO();
       const [evRes, leaveRes, assignRes] = await Promise.all([
         supabase
           .from("calendar_events")
@@ -355,7 +355,7 @@ export default function Attendance() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const today = new Date().toISOString().split("T")[0];
+      const today = getMMTTodayISO();
       const monthStart = getMonthStart();
 
       const [attRes, settRes, salRes, profileRes, bonusRes, addRes, profSalRes] = await Promise.all([
@@ -460,7 +460,7 @@ export default function Attendance() {
   //   1. profiles.work_schedule[today] when present (per-day schedule set by Admin)
   //   2. legacy profiles.work_day + check_in_time/check_out_time (only if today matches)
   //   3. global app_settings defaults
-  const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
+  const todayName = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "Asia/Yangon" }).format(new Date());
   const todaySchedule = workSchedule?.[todayName] ?? null;
   // Only treat as off-day when Admin EXPLICITLY set active=false for today.
   // Missing key or partial entry => assume working day (matches Settings intent).
@@ -564,7 +564,7 @@ export default function Attendance() {
       });
 
       const lateMin = isWorkingDay ? calcLateMinutes(effectiveStartTime, settings.grace_period_minutes) : 0;
-      const today = now.toISOString().split("T")[0];
+      const today = getMMTTodayISO();
       const locationStatus = getLocationStatusLabel();
 
       const insertData: any = {
@@ -628,7 +628,7 @@ export default function Attendance() {
 
       const now = new Date();
       const earlyMin = isWorkingDay ? calcEarlyMinutes(expectedCheckOutTime) : 0;
-      const today = now.toISOString().split("T")[0];
+      const today = getMMTTodayISO();
 
       // Only update check_out_time from the client. early_minutes is a
       // protected field and is computed/written server-side by the
@@ -739,7 +739,8 @@ export default function Attendance() {
       {(() => {
         void nowTick;
         const now = new Date();
-        const after6 = now.getHours() >= 6;
+        const yangonHour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: "Asia/Yangon" }).format(now));
+        const after6 = yangonHour >= 6;
         if (!after6) return null;
         if (checkedIn) return null;
         const displayName = fullName || "မင်္ဂလာပါ";

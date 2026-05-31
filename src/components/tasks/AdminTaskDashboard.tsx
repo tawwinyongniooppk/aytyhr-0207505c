@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { sendPush } from "@/lib/push";
 import { toast } from "sonner";
+import { getMMTTodayISO } from "@/lib/mmt";
 
 interface TaskRow {
   id: string;
@@ -141,7 +142,7 @@ export function AdminTaskDashboard({
   const [editForm, setEditForm] = useState({ title: "", description: "" });
   const [editSaving, setEditSaving] = useState(false);
 
-  const nowDate = new Date().toISOString().split("T")[0];
+  const nowDate = getMMTTodayISO();
 
   function openEdit(item: UnifiedItem) {
     setEditItem(item);

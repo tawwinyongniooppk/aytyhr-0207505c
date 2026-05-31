@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { notifyAdmins } from "@/lib/push";
+import { getMMTTodayISO } from "@/lib/mmt";
 import { toast } from "sonner";
 
 interface TaskRow {
@@ -57,7 +58,7 @@ interface StaffTaskViewProps {
   staffNames?: Record<string, string>;
 }
 
-const nowDate = () => new Date().toISOString().split("T")[0];
+const nowDate = () => getMMTTodayISO();
 
 function sortByDeadline<T extends { dueDate?: string | null; status: string }>(items: T[]): T[] {
   const statusOrder: Record<string, number> = { overdue: 0, rejected: 1, not_started: 2, in_progress: 3, submitted: 4, approved: 5 };

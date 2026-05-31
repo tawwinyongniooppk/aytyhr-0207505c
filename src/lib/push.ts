@@ -29,9 +29,9 @@ export async function sendPush(args: {
   data?: Record<string, string>;
 }) {
   const ids = (args.user_ids || []).filter(Boolean);
-  if (!ids.length) return;
+  if (!ids.length) return { ok: false, error: "No recipients" };
   try {
-    await supabase.functions.invoke("send-push", {
+    const { data, error } = await supabase.functions.invoke("send-push", {
       body: {
         user_ids: ids,
         title: args.title,
@@ -40,8 +40,11 @@ export async function sendPush(args: {
         data: args.data ?? {},
       },
     });
+    if (error) throw error;
+    return { ok: true, data };
   } catch (e) {
     console.error("[push] send failed", e);
+    return { ok: false, error: e };
   }
 }
 

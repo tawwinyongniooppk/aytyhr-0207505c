@@ -11,6 +11,7 @@ import { defaultTemplate } from "@/lib/lessonPlanDefaults";
 import { exportPagesToPdf } from "@/lib/exportPdf";
 import { canOpenGmailCompose } from "@/lib/uaSupport";
 import type { LessonPlanTemplate } from "@/lib/lessonPlanTypes";
+import { formatMMTDate, getMMTDateParts } from "@/lib/mmt";
 
 function clearUnlockedValues(t: LessonPlanTemplate): LessonPlanTemplate {
   return {
@@ -60,10 +61,11 @@ export default function MyTimetablePage() {
     if (!canvasRef.current || !template) return;
     setExporting(true);
     try {
-      const filename = `LessonPlan_${cls}_${new Date().toISOString().slice(0,10)}.pdf`;
+      const { year, month, day } = getMMTDateParts(new Date());
+      const filename = `LessonPlan_${cls}_${year}-${month}-${day}.pdf`;
       await exportPagesToPdf([canvasRef.current], template.page.size, template.page.orientation, filename);
       if (alsoReport) {
-        const subject = encodeURIComponent(`Lesson Plan – ${profile?.full_name ?? "Staff"} – ${new Date().toLocaleDateString()}`);
+        const subject = encodeURIComponent(`Lesson Plan – ${profile?.full_name ?? "Staff"} – ${formatMMTDate(new Date())}`);
         const body = encodeURIComponent(`Dear Admin,\n\nPlease find my lesson plan attached (file: ${filename}).\n\nBest regards,\n${profile?.full_name ?? ""}`);
         window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`, "_blank");
       }
