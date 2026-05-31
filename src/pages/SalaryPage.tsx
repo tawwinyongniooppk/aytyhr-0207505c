@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote } from "lucide-react";
+import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatMMTDate, formatMMTMonthLabel, getMMTDateParts, getMMTMonthStartISO } from "@/lib/mmt";
 
-type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction" | "manual_addition";
+type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction" | "manual_addition" | "auto_addition";
 interface LedgerEntry {
   id: string;
   date: string; // ISO
@@ -25,10 +25,17 @@ const TYPE_META: Record<LedgerType, { label: string; icon: any; bg: string; fg: 
   bonus: { label: "Bonus", icon: Gift, bg: "bg-accent/10", fg: "text-accent", badge: "bg-accent/10 text-accent" },
   manual_addition: {
     label: "Manual Addition",
-    icon: Gift,
+    icon: Plus,
     bg: "bg-accent/10",
     fg: "text-accent",
     badge: "bg-accent/15 text-accent",
+  },
+  auto_addition: {
+    label: "Auto Addition",
+    icon: Plus,
+    bg: "bg-primary/10",
+    fg: "text-primary",
+    badge: "bg-primary/15 text-primary",
   },
   auto_deduction: {
     label: "Auto Deduction",
