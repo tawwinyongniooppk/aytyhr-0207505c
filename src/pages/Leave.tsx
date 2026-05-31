@@ -418,6 +418,10 @@ export default function Leave() {
               Approval actions and any required manual salary deductions appear in the review dialog and apply to the salary record in real time.
             </div>
           </SectionBlock>
+
+          <SectionBlock label="D · Overtime Requests" hint="Review staff overtime. Approval auto-adds salary.">
+            <OvertimeSection />
+          </SectionBlock>
         </>
       )}
 
