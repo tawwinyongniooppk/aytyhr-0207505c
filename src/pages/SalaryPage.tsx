@@ -165,7 +165,13 @@ export default function SalaryPage() {
   const baseSalary = Math.max(0, Number(salary?.base_salary ?? 0));
   const earnedBonus = bonusTxs.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
   const totalBonus = earnedBonus;
-  const totalAdditions = manualAdditions.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  const autoAdditions = manualAdditions
+    .filter((a) => (a.kind || "manual") === "auto")
+    .reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  const manualAddTotal = manualAdditions
+    .filter((a) => (a.kind || "manual") === "manual")
+    .reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  const totalAdditions = autoAdditions + manualAddTotal;
   const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
   const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0));
   const totalDeductions = autoDeductions + manualDeductionAmt;
@@ -198,15 +204,16 @@ export default function SalaryPage() {
       }
     }
 
-    // Manual additions (Admin-entered, applied on top of Base)
+    // Salary additions (Admin manual or system-issued OT auto)
     for (const a of manualAdditions) {
+      const isAuto = (a.kind || "manual") === "auto";
       items.push({
         id: `add-${a.id}`,
         date: (() => {
           const { year, month, day } = getMMTDateParts(a.created_at);
           return `${year}-${month}-${day}`;
         })(),
-        type: "manual_addition",
+        type: isAuto ? "auto_addition" : "manual_addition",
         description: a.title,
         amount: Number(a.amount) || 0,
       });
