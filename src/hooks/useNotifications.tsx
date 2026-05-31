@@ -12,17 +12,18 @@ async function showForegroundNotification(title: string, body: string, url: stri
     if (Notification.permission !== "granted") return;
 
     const registration = await navigator.serviceWorker?.getRegistration();
+    const options = {
+      body,
+      icon: "/pwa-192x192.png",
+      badge: "/pwa-192x192.png",
+      data: { url },
+      tag: `fg-${url}-${Date.now()}`,
+      vibrate: [200, 100, 200],
+    } as NotificationOptions & { vibrate?: number[]; badge?: string };
     if (registration) {
-      await registration.showNotification(title, {
-        body,
-        icon: "/pwa-192x192.png",
-        badge: "/pwa-192x192.png",
-        data: { url },
-        tag: `fg-${url}-${Date.now()}`,
-        vibrate: [200, 100, 200],
-      });
+      await registration.showNotification(title, options as NotificationOptions);
     } else {
-      new Notification(title, { body, icon: "/pwa-192x192.png", tag: `fg-${Date.now()}` });
+      new Notification(title, options);
     }
   } catch (e) {
     console.warn("[fcm] foreground notification failed", e);
