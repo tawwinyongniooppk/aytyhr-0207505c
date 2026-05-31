@@ -1,121 +1,122 @@
-# Task Management Overhaul Plan
+# Lesson Plans Template Editor
 
 ## Goals
-Rework Task Management around a **monthly 4-Unit quota per staff**, with a strict status flow, deadline-driven (non-recurring) auto-approve, bonus-splitting tied to unit completion, and monthly auto-reset of salary/bonus logs.
+- IT Manager က Beginner / Junior / Senior class သုံးခုအတွက် lesson plan template (1 section, 3 cards) ကို Excel/Word-like UI နဲ့ ပြင်နိုင်ဖို့။
+- Staff က မိမိ class နဲ့ ကိုက်ညီတဲ့ template ကို My Timetable & Lesson Plans မှာ မြင်ပြီး cell တွေထဲ စာဖြည့်၊ PDF export/Download (+ optional Gmail compose) လုပ်နိုင်ဖို့။
+- Staff ဖြည့်တဲ့ data ကို database ထဲ **လုံးဝ မသိမ်း** — usage တက်စေနိုင်တဲ့ query/storage/API ဘာမှ မပါစေရ။ Template data သာ DB မှာ ရှိ။
 
----
+## Scope of storage (Lovable Cloud usage)
+- DB write/read က IT Manager template save/load time မှာသာ ဖြစ်မယ်။ Class သုံးခုဆို row သုံးခုသာ။
+- Staff side: read template once on page load → ပြီးရင် client-only။ No realtime, no inserts, no logs.
 
-## 1. Data Model Changes (Migration)
+## Data Model
+New table `lesson_plan_templates`:
+- `id` uuid PK
+- `class` text unique — `'Beginner' | 'Junior' | 'Senior'`
+- `template_json` jsonb — full editor document (layout, cards, cells, locked content, styles)
+- `updated_by` uuid, `updated_at` timestamptz
 
-### `tasks` table — add columns
-- `unit_count` int NOT NULL DEFAULT 1 — 1 = weekly task, 2 = bi-weekly task
-- `acknowledged_at` timestamptz NULL — set when staff clicks "I understand, I will do it"
-- `auto_approved` boolean NOT NULL DEFAULT false
-- `bonus_amount` int NOT NULL DEFAULT 0 — slice of monthly bonus tied to this task
-- `overdue` boolean NOT NULL DEFAULT false
+RLS:
+- SELECT: any authenticated user (staff needs to render their class template).
+- INSERT/UPDATE: only `it_manager` role.
+- DELETE: none.
 
-### Status flow (`submission_status`)
-`new` → `in_progress` (after acknowledge) → `submitted` (after staff submit) → `approved` | `rejected` | `overdue`
+GRANTs: `authenticated` (SELECT, INSERT, UPDATE), `service_role` ALL.
 
-### `salaries` table — bonus split tracking
-Add helper table `bonus_transactions`:
-- `user_id`, `task_id`, `month`, `amount`, `deadline_date`, `approved_date`, `created_at`
-- RLS: staff read own; admin read all; admin/assistant insert.
+## Template JSON shape
+```
+{
+  page: { size: 'A4'|'Legal', orientation: 'portrait'|'landscape', margins: {...} },
+  branding: { logoUrl, headerText, watermark: { url, text, opacity } },
+  palette: 'palette1'..'palette6',
+  border: { size, style, color },
+  letterheadFooterText: string,
+  cards: [Card, Card, Card]   // exactly 3 cards in 1 section
+}
+Card = {
+  title, bgColor, borderColor,
+  rows: [
+    { cells: [{ id, locked, value, fontFamily, fontSize, color, bgColor, align, minFontSize: 12 }] }
+  ]
+}
+```
+Locked cells = IT Manager content (read-only for staff). Unlocked cells = staff editable.
 
-### Constraint enforcement
-Trigger on `tasks` INSERT: count current-month units for assignee, reject if `existing_units + unit_count > 4`.
+## IT Manager — Lesson Plans Template Editor page
+- New route `/lesson-plans-editor` (IT Manager only).
+- Sidebar entry “Lesson Plans Templates” added to IT Manager nav.
+- Tabs: **Beginner / Junior / Senior** — each is a full template editor for that class.
+- Editor capabilities (per cell + global):
+  - School logo + header text placement, watermark image/text + opacity slider.
+  - 6 curated premium color palettes (switch).
+  - Border size/shape/color, letterhead footer text.
+  - Font family, font size, font color, cell background color, text align.
+  - Page size A4 / Legal, orientation portrait / landscape.
+  - Lock toggle per cell (locked content cannot be edited by staff).
+  - Add/remove rows per card; 3 cards fixed per class.
+- Live preview pane shows the page bounded by the chosen paper size.
+- Save button → upserts the row for that class.
 
----
+### Editor library
+Use **Handsontable Community** (`handsontable` MIT) for the spreadsheet feel:
+- Per-cell read-only flag, per-cell renderer for font/size/color/bg, merge cells, alt-enter newline, word-wrap with auto row-height growth.
+- No external connector needed → no Lovable usage hit on the staff side.
 
-## 2. Status Flow Rules
+(If Handsontable license footprint is a concern we fall back to a thin custom TanStack-Table + `contentEditable` grid; same JSON contract.)
 
-| From | To | Trigger |
-|------|----|---------|
-| new | in_progress | Staff acknowledges |
-| in_progress | submitted | Staff submits |
-| submitted | approved | Admin approves OR auto-approve at deadline |
-| submitted | rejected | Admin rejects → back to in_progress, no unit completion |
-| in_progress / new | overdue | Deadline passed without submit |
+## Staff — My Timetable & Lesson Plans
+- On mount: `select template_json from lesson_plan_templates where class = profile.class` (1 row, cached in React state). No further DB I/O.
+- Render the template inside an A4/Legal-sized container at CSS print scale.
+- Locked cells render as plain styled text. Unlocked cells become inputs with:
+  - Alt+Enter / Enter → newline within cell (textarea behavior).
+  - Word-wrap; cell auto-grows **downward**; cells below shift down (paginated).
+  - **Width is fixed** to template column width — never overflows horizontally.
+  - Min font size 12 enforced; if IT Manager pinned font/size on that cell, staff input inherits it and cannot change it.
+- Pagination: a Page component splits content when vertical overflow detected and starts a new A4/Legal page below. Horizontal bounds are hard-locked.
 
-Approving (manual or auto) inserts the task's `bonus_amount` into `bonus_transactions` and updates current month's `salaries.bonus`.
+### Action bar
+Three actions at top of the lesson plan page:
+1. **Export & Download (PDF)** — always shown.
+2. **Export, Download & Report to Admin** — shown only when device supports opening Gmail compose. Detection:
+   - Hide on iOS Safari (UA check: iOS && Safari && not Chrome/Edge).
+   - Show on Chrome/Edge desktop & Android.
 
----
+### Export flow
+- Render visible pages → `html2canvas` per page → `jsPDF` multi-page PDF → `saveAs(blob, 'LessonPlan_<class>_<date>.pdf')` (uses `file-saver`).
+- “Report to Admin” variant: after download triggers, open
+  `https://mail.google.com/mail/?view=cm&fs=1&to=<admin@ayty.com>&su=Lesson Plan – <staff name> – <date>&body=...`
+  in a new tab. User attaches the just-downloaded file manually (browsers cannot pre-attach for security).
+- Immediately after either action, show modal:
+  - **အဆင်ပြေတယ်** → clear all unlocked cell values in state (template format intact, no DB write).
+  - **အဆင်မပြေဘူး** → close modal, return to editing.
 
-## 3. Bonus Splitting
+### iOS Safari
+- Only “Export & Download” is shown; same post-export confirm modal.
 
-When admin sets monthly bonus for staff on Salaries page:
-- Read assignee's tasks for the month, sum `unit_count` (cap at 4)
-- Split bonus equally per unit: `per_unit = bonus / 4`
-- Update each task's `bonus_amount = per_unit * unit_count`
-- Only approved (or auto-approved) units actually credit the bonus transaction.
+## Navigation & Roles
+- `DesktopSidebar` + `BottomNav`: add “Lesson Plans Templates” item gated to `isItManager`.
+- `AppLayout` allow-list updated so `/lesson-plans-editor` is reachable only by IT Manager (other roles → redirect).
 
----
+## Dependencies to add
+- `handsontable` (editor grid)
+- `jspdf`, `html2canvas`, `file-saver` (client export)
+- Tiny UA helper for iOS Safari detection (no library).
 
-## 4. Auto-Approve & Overdue (No Recurring Cron)
+## Files (planned)
+- `supabase/migrations/<ts>_lesson_plan_templates.sql`
+- `src/pages/LessonPlansEditor.tsx` (IT Manager)
+- `src/components/lesson-plans/TemplateEditor.tsx`
+- `src/components/lesson-plans/TemplateCanvas.tsx` (shared renderer for editor preview + staff view)
+- `src/components/lesson-plans/PaletteSwitcher.tsx`
+- `src/components/lesson-plans/ExportActions.tsx`
+- `src/components/lesson-plans/SatisfactionModal.tsx`
+- `src/lib/lessonPlanDefaults.ts` (default JSON for the 3 classes, 6 palettes)
+- `src/lib/exportPdf.ts` (html2canvas + jsPDF wrapper)
+- `src/lib/uaSupport.ts` (iOS Safari detection)
+- Update `src/pages/MyTimetablePage.tsx` to load + render template + actions.
+- Update `src/App.tsx` route, `DesktopSidebar.tsx`, `BottomNav.tsx`, `AppLayout.tsx`.
 
-Replace any 5-minute cron with a **single daily cron at end-of-day Yangon time (23:55 MMT = 17:25 UTC)**:
-- Find tasks with `due_date = today` and status = `submitted` → auto-approve, set `auto_approved=true`, insert bonus transaction.
-- Find tasks with `due_date < today` and status IN (`new`, `in_progress`) → mark `overdue=true`, status='overdue'.
-
-Edge function: `task-deadline-sweep` (new).
-
----
-
-## 5. Monthly Reset (MMT 23:59 last day)
-
-Cron at `55 17 28-31 * *` UTC, function checks `tomorrow_yangon.day == 1`, then:
-- Delete current-month rows from `salaries`, `bonus_transactions`, `leave_manual_deductions`
-- Reset task logs older than today (extend existing `purge_old_*` functions)
-
-Edge function: `monthly-reset` (new).
-
----
-
-## 6. UI Changes
-
-### `Tasks.tsx` / `StaffTaskView.tsx`
-- New tab structure: **New (4 max) | In Progress | Submitted | Overdue | Done**
-- Badge count capped at 4
-- Staff view: each "new" task shows **"I understand, I will do it"** button → transitions to in_progress
-- Submitted card shows "Awaiting approval"
-
-### `AdminTaskDashboard.tsx`
-- When creating task from Calendar: prompt for **Unit (1 = weekly, 2 = bi-weekly)**, validate ≤ remaining units
-- Show per-staff `usedUnits / 4` indicator
-- Submitted tab: Approve / Reject buttons
-
-### `SalariesAndBonuses.tsx`
-- Bonus input shows split preview: `Bonus ÷ 4 per unit × completed units = payable`
-- Bonus Transactions table with `Deadline Date | Approved Date | Amount`
-
-### `SalaryPage.tsx` (staff)
-- Bonus transactions list with deadline & approve dates
-
----
-
-## 7. Files to Change
-
-**New**
-- `supabase/functions/task-deadline-sweep/index.ts`
-- `supabase/functions/monthly-reset/index.ts`
-- Migration: schema + cron schedules
-
-**Edit**
-- `src/pages/Tasks.tsx` — quota check, new status flow
-- `src/components/tasks/StaffTaskView.tsx` — acknowledge button, new tabs, badge cap
-- `src/components/tasks/AdminTaskDashboard.tsx` — unit picker, quota indicator, reject flow
-- `src/pages/SalariesAndBonuses.tsx` — bonus split UI + transactions
-- `src/pages/SalaryPage.tsx` — bonus transactions for staff
-- `src/pages/CalendarPage.tsx` — pass unit_count when creating task events
-
-**Unschedule**
-- Any prior recurring `auto-approve*` or `*-every-5-min` jobs related to tasks
-
----
-
-## Open Questions
-1. If a bi-weekly (2-unit) task overruns and only 1 week was acknowledged, do we still pay 2 units' bonus on approve? **Assumption:** yes, bonus tracks `unit_count`, not duration.
-2. If admin changes monthly bonus after some tasks already approved, do we re-bill past `bonus_transactions`? **Assumption:** only future approvals use the new per-unit amount; existing transactions are immutable.
-3. Bonus split — divide by **fixed 4** every month, or by actual `unit_count` assigned that month? Spec says "4 ပုံခွဲ" → **fixed /4**.
-
-Confirm these assumptions or adjust before I build.
+## Notes on “zero ongoing usage”
+- Only 3 template rows total; staff page makes a single SELECT per visit (well within free tier).
+- No realtime channels, no edge functions, no storage uploads from staff.
+- Logo/watermark images stored as base64 inside `template_json` OR pasted URL — IT Manager’s choice. Default = base64 so no extra Storage bucket needed.

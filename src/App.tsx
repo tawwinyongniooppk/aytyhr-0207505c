@@ -41,6 +41,7 @@ const SettingsPage = lazyRetry(() => import("@/pages/SettingsPage"));
 const ManageAccounts = lazyRetry(() => import("@/pages/ManageAccounts"));
 const MyIdPage = lazyRetry(() => import("@/pages/MyIdPage"));
 const MyTimetablePage = lazyRetry(() => import("@/pages/MyTimetablePage"));
+const LessonPlansEditor = lazyRetry(() => import("@/pages/LessonPlansEditor"));
 const NotFound = lazyRetry(() => import("@/pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -87,6 +88,7 @@ const App = () => (
                   <Route path="/manage-accounts" element={<ManageAccounts />} />
                   <Route path="/my-id" element={<MyIdPage />} />
                   <Route path="/my-timetable" element={<MyTimetablePage />} />
+                  <Route path="/lesson-plans-editor" element={<LessonPlansEditor />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
