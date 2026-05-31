@@ -346,6 +346,30 @@ export type Database = {
         }
         Relationships: []
       }
+      lesson_plan_templates: {
+        Row: {
+          class: string
+          id: string
+          template_json: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          class: string
+          id?: string
+          template_json?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          class?: string
+          id?: string
+          template_json?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
