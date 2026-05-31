@@ -38,6 +38,7 @@ interface StaffProfile {
   late_deduction_per_minute?: number;
   early_deduction_per_minute?: number;
   partial_leave_deduction_per_minute?: number;
+  overtime_rate_per_minute?: number;
   class?: string;
 }
 
@@ -95,7 +96,7 @@ export default function Staff() {
     full_name: "", role: "staff", base_salary: "300000",
     phone: "", emergency_phone: "", join_date: "",
     bonus: "0", manual_deduction: "0", deduction_reason: "",
-    late_rate: "200", early_rate: "200", partial_rate: "200",
+    late_rate: "200", early_rate: "200", partial_rate: "200", overtime_rate: "200",
   });
   const [schedule, setSchedule] = useState<WeekSchedule>(defaultSchedule());
   const [addForm, setAddForm] = useState({ full_name: "", email: "", password: "", role: "staff", base_salary: "300000", phone: "" });
@@ -161,6 +162,7 @@ export default function Staff() {
       updateData.late_deduction_per_minute = Math.max(0, Number(form.late_rate) || 0);
       updateData.early_deduction_per_minute = Math.max(0, Number(form.early_rate) || 0);
       updateData.partial_leave_deduction_per_minute = Math.max(0, Number(form.partial_rate) || 0);
+      updateData.overtime_rate_per_minute = Math.max(0, Number(form.overtime_rate) || 0);
     }
 
     // Update the specific staff member's profile and verify the row was changed
@@ -239,7 +241,7 @@ export default function Staff() {
 
     toast({ title: "Saved", description: `Updated schedule for ${form.full_name || "staff member"}.` });
 
-    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", emergency_phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", late_rate: "200", early_rate: "200", partial_rate: "200" });
+    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", emergency_phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", late_rate: "200", early_rate: "200", partial_rate: "200", overtime_rate: "200" });
     setSchedule(defaultSchedule());
     setEditId(null);
     setOpen(false);
@@ -300,6 +302,7 @@ export default function Staff() {
       late_rate: String(member.late_deduction_per_minute ?? member.deduction_rate_per_minute ?? 200),
       early_rate: String(member.early_deduction_per_minute ?? member.deduction_rate_per_minute ?? 200),
       partial_rate: String(member.partial_leave_deduction_per_minute ?? member.deduction_rate_per_minute ?? 200),
+      overtime_rate: String((member as any).overtime_rate_per_minute ?? 200),
     });
     setSchedule(normalizeSchedule(member.work_schedule));
     setOpen(true);
@@ -432,7 +435,7 @@ export default function Staff() {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", emergency_phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", late_rate: "200", early_rate: "200", partial_rate: "200" }); setSchedule(defaultSchedule()); } }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", emergency_phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", late_rate: "200", early_rate: "200", partial_rate: "200", overtime_rate: "200" }); setSchedule(defaultSchedule()); } }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">Edit Staff</DialogTitle>
@@ -525,14 +528,14 @@ export default function Staff() {
               </div>
             </section>
 
-            {/* 4. Salary Deduction Rate (Admin only, staff-specific) */}
+            {/* 4. Time-Based Adjustment (Admin only, staff-specific) */}
             {isAdminRole && (
               <section className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
                 <header className="flex items-center gap-2">
                   <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center">4</span>
-                  <p className="text-xs font-semibold text-primary uppercase tracking-wide">Salary Deduction Rate (per minute)</p>
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wide">Time-Based Adjustment (per minute)</p>
                 </header>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Late entry / min</Label>
                     <Input type="number" value={form.late_rate} onChange={(e) => setForm({ ...form, late_rate: e.target.value })} />
@@ -542,11 +545,15 @@ export default function Staff() {
                     <Input type="number" value={form.early_rate} onChange={(e) => setForm({ ...form, early_rate: e.target.value })} />
                   </div>
                   <div>
+                    <Label className="text-xs">Overtime / min</Label>
+                    <Input type="number" value={form.overtime_rate} onChange={(e) => setForm({ ...form, overtime_rate: e.target.value })} />
+                  </div>
+                  <div>
                     <Label className="text-xs">Partial leave / min</Label>
                     <Input type="number" value={form.partial_rate} onChange={(e) => setForm({ ...form, partial_rate: e.target.value })} />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Stored per staff member (not in global Settings).</p>
+                <p className="text-xs text-muted-foreground">Stored per staff member. Late/Early/Partial deduct from salary; Overtime adds to salary on approval.</p>
               </section>
             )}
 

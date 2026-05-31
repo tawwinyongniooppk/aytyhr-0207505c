@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote } from "lucide-react";
+import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatMMTDate, formatMMTMonthLabel, getMMTDateParts, getMMTMonthStartISO } from "@/lib/mmt";
 
-type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction" | "manual_addition";
+type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction" | "manual_addition" | "auto_addition";
 interface LedgerEntry {
   id: string;
   date: string; // ISO
@@ -25,10 +25,17 @@ const TYPE_META: Record<LedgerType, { label: string; icon: any; bg: string; fg: 
   bonus: { label: "Bonus", icon: Gift, bg: "bg-accent/10", fg: "text-accent", badge: "bg-accent/10 text-accent" },
   manual_addition: {
     label: "Manual Addition",
-    icon: Gift,
+    icon: Plus,
     bg: "bg-accent/10",
     fg: "text-accent",
     badge: "bg-accent/15 text-accent",
+  },
+  auto_addition: {
+    label: "Auto Addition",
+    icon: Plus,
+    bg: "bg-primary/10",
+    fg: "text-primary",
+    badge: "bg-primary/15 text-primary",
   },
   auto_deduction: {
     label: "Auto Deduction",
@@ -158,7 +165,13 @@ export default function SalaryPage() {
   const baseSalary = Math.max(0, Number(salary?.base_salary ?? 0));
   const earnedBonus = bonusTxs.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
   const totalBonus = earnedBonus;
-  const totalAdditions = manualAdditions.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  const autoAdditions = manualAdditions
+    .filter((a) => (a.kind || "manual") === "auto")
+    .reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  const manualAddTotal = manualAdditions
+    .filter((a) => (a.kind || "manual") === "manual")
+    .reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  const totalAdditions = autoAdditions + manualAddTotal;
   const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
   const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0));
   const totalDeductions = autoDeductions + manualDeductionAmt;
@@ -191,15 +204,16 @@ export default function SalaryPage() {
       }
     }
 
-    // Manual additions (Admin-entered, applied on top of Base)
+    // Salary additions (Admin manual or system-issued OT auto)
     for (const a of manualAdditions) {
+      const isAuto = (a.kind || "manual") === "auto";
       items.push({
         id: `add-${a.id}`,
         date: (() => {
           const { year, month, day } = getMMTDateParts(a.created_at);
           return `${year}-${month}-${day}`;
         })(),
-        type: "manual_addition",
+        type: isAuto ? "auto_addition" : "manual_addition",
         description: a.title,
         amount: Number(a.amount) || 0,
       });
@@ -284,7 +298,7 @@ export default function SalaryPage() {
         <p className="text-muted-foreground text-sm mt-1">{currentMonth}</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <Card className="border border-border shadow-none min-w-0">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
@@ -300,12 +314,27 @@ export default function SalaryPage() {
         <Card className="border border-accent/30 shadow-none bg-accent/5 min-w-0">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="h-4 w-4 text-accent shrink-0" />
+              <Gift className="h-4 w-4 text-accent shrink-0" />
               <span className="text-xs text-muted-foreground truncate">Bonus</span>
             </div>
             <p className="text-base sm:text-lg font-bold font-display text-accent break-words">
               +{totalBonus.toLocaleString()}{" "}
               <span className="text-xs font-normal text-muted-foreground">Ks</span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border border-primary/30 shadow-none bg-primary/5 min-w-0">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Plus className="h-4 w-4 text-primary shrink-0" />
+              <span className="text-xs text-muted-foreground truncate">Additions</span>
+            </div>
+            <p className="text-base sm:text-lg font-bold font-display text-primary break-words">
+              +{totalAdditions.toLocaleString()}{" "}
+              <span className="text-xs font-normal text-muted-foreground">Ks</span>
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1 break-words">
+              Auto: {autoAdditions.toLocaleString()} · Manual: {manualAddTotal.toLocaleString()}
             </p>
           </CardContent>
         </Card>
@@ -337,6 +366,7 @@ export default function SalaryPage() {
           </CardContent>
         </Card>
       </div>
+
 
       <Card className="border border-border shadow-none">
         <CardHeader>
