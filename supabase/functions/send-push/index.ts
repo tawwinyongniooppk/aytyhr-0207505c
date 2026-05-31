@@ -171,9 +171,14 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             message: {
               token: row.token,
-              notification: { title, body: message },
+              // Data-only payload: ensures Firebase service worker
+              // `onBackgroundMessage` runs so we can bump the app badge,
+              // play sound + vibration, and customise the notification.
               data: { url, title, body: message, ...data },
-              webpush: { fcm_options: { link: url } },
+              webpush: {
+                headers: { Urgency: "high", TTL: "300" },
+                fcm_options: { link: url },
+              },
             },
           }),
         });
