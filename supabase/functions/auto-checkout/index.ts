@@ -16,6 +16,15 @@ const corsHeaders = {
 
 const PENALTY_MINUTES = 5;
 const GRACE_AFTER_CHECKOUT_MIN = 30;
+const YANGON_OFFSET_MS = 6.5 * 60 * 60 * 1000;
+
+function yangonNow() {
+  return new Date(Date.now() + YANGON_OFFSET_MS);
+}
+
+function yangonTodayISO() {
+  return yangonNow().toISOString().slice(0, 10);
+}
 
 function getMonthStart(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
@@ -27,7 +36,7 @@ function weekdayName(d: Date): string {
 
 function resolveExpectedCheckOut(profile: any, settingsEnd: string): string {
   const ws = profile?.work_schedule ?? null;
-  const today = weekdayName(new Date());
+  const today = weekdayName(yangonNow());
   const day = ws?.[today];
   if (day?.active && day?.check_out) return day.check_out as string;
   if (profile?.work_day === today && profile?.check_out_time) return profile.check_out_time as string;
@@ -60,8 +69,8 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
+    const now = yangonNow();
+    const today = yangonTodayISO();
     const monthStart = getMonthStart(now);
 
     // 1. Load today's open attendance rows (checked-in, not checked-out)
