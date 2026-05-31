@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
+import { formatMMTMonthLabel, getMMTMonthStartISO } from "@/lib/mmt";
 
 interface DaySchedule {
   active: boolean;
@@ -77,8 +78,7 @@ interface SalaryRecord {
 }
 
 function getMonthStart(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  return getMMTMonthStartISO();
 }
 
 export default function Staff() {
@@ -305,7 +305,7 @@ export default function Staff() {
     setOpen(true);
   };
 
-  const currentMonth = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const currentMonth = formatMMTMonthLabel(new Date());
 
   if (loading) {
     return (
