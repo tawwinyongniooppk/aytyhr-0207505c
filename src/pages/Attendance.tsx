@@ -693,6 +693,11 @@ export default function Attendance() {
       toast({ title: checkoutMsg });
       setCheckInNotice(null);
       setCheckOutNotice(checkoutMsg);
+      notifyAdmins(
+        "Staff checked out",
+        `${fullName || "Staff"} checked out${earlyMin > 0 ? ` (${earlyMin} min early)` : ""}${excuseNote}`,
+        "/attendance",
+      );
     } catch (e) {
       console.error("handleCheckOut error:", e);
       toast({
