@@ -36,6 +36,13 @@ export function getMMTMonthStartISO() {
   return `${year}-${month}-01`;
 }
 
+export function getMMTMonthEndISO() {
+  const { year, month } = getMMTDateParts(new Date());
+  const nextMonthUtc = new Date(Date.UTC(Number(year), Number(month), 0));
+  const day = String(nextMonthUtc.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function formatMMTDate(value: string | number | Date, locale = "en-US") {
   return formatInMMT(
     value,
