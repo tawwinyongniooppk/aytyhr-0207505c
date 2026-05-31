@@ -9,6 +9,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { cn } from "@/lib/utils";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 import { useNotifications } from "@/hooks/useNotifications";
+import { formatMMTDate, getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
 
 interface Profile {
   id: string;
@@ -57,9 +58,9 @@ export default function Dashboard() {
   const [deductionRate, setDeductionRate] = useState(200);
   const [loading, setLoading] = useState(true);
 
-  const today = new Date().toISOString().split("T")[0];
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
-  const monthEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split("T")[0];
+  const today = getMMTTodayISO();
+  const monthStart = getMMTMonthStartISO();
+  const monthEnd = `${monthStart.slice(0, 7)}-31`;
 
   useEffect(() => {
     if (!user) return;
@@ -141,7 +142,7 @@ export default function Dashboard() {
 
   function formatTime(ts: string | null) {
     if (!ts) return "—";
-    return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Yangon" });
   }
 
   if (loading) {
@@ -167,7 +168,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold font-display">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Today's overview — {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
+        <p className="text-muted-foreground text-sm mt-1">Today's overview — {formatMMTDate(new Date(), "en-US")}</p>
       </div>
 
       <LeaveBalanceCard />
