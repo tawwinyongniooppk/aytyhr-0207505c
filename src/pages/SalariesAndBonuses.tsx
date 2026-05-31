@@ -289,9 +289,10 @@ export default function SalariesAndBonuses() {
             const bonus = bonusEarnedMap[m.id] ?? 0;
             const auto = sal?.total_deductions ?? 0;
             const manual = sal?.manual_deduction ?? 0;
-            const add = additionTotal(m.id);
+            const autoAdd = additionTotal(m.id, "auto");
+            const manualAdd = additionTotal(m.id, "manual");
             const additions = additionsMap[m.id] || [];
-            const final = Math.max(0, base + bonus + add - auto - manual);
+            const final = Math.max(0, base + bonus + autoAdd + manualAdd - auto - manual);
             return (
               <div key={m.id} className="rounded-lg border border-border p-3 space-y-2">
                 <div className="flex items-center justify-between gap-3">
@@ -307,14 +308,18 @@ export default function SalariesAndBonuses() {
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
                   <div className="rounded bg-muted/40 p-2">
-                    <p className="text-muted-foreground">Base</p>
+                    <p className="text-muted-foreground">Base Salary</p>
                     <p className="font-semibold">{base.toLocaleString()}</p>
                   </div>
                   <div className="rounded bg-accent/10 p-2">
                     <p className="text-muted-foreground">+ Bonus (earned)</p>
                     <p className="font-semibold text-accent">+{bonus.toLocaleString()}<span className="text-[10px] text-muted-foreground"> / {pot.toLocaleString()}</span></p>
+                  </div>
+                  <div className="rounded bg-accent/10 p-2">
+                    <p className="text-muted-foreground">+ Auto Addition</p>
+                    <p className="font-semibold text-accent">+{autoAdd.toLocaleString()}</p>
                   </div>
                   <div className="rounded bg-destructive/10 p-2">
                     <p className="text-muted-foreground">- Auto Deduction</p>
@@ -328,34 +333,42 @@ export default function SalariesAndBonuses() {
                     title={isAdminRole ? "Add manual addition" : ""}
                   >
                     <p className="text-muted-foreground flex items-center gap-1">+ Manual Addition {isAdminRole && <Plus className="h-3 w-3" />}</p>
-                    <p className="font-semibold text-accent">+{add.toLocaleString()}</p>
+                    <p className="font-semibold text-accent">+{manualAdd.toLocaleString()}</p>
                   </button>
                   <div className="rounded bg-destructive/10 p-2">
                     <p className="text-muted-foreground">- Manual Deduction</p>
                     <p className="font-semibold text-destructive">-{manual.toLocaleString()}</p>
                   </div>
                   <div className="rounded bg-primary/10 p-2">
-                    <p className="text-muted-foreground">Final</p>
+                    <p className="text-muted-foreground">Final Salary</p>
                     <p className="font-bold text-primary">{final.toLocaleString()}</p>
                   </div>
                 </div>
                 {additions.length > 0 && (
                   <div className="rounded border border-border/60 bg-muted/20 p-2 space-y-1">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Manual Additions</p>
-                    {additions.map((a) => (
-                      <div key={a.id} className="flex items-center justify-between gap-2 text-xs">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate">{a.title}</p>
-                          <p className="text-[10px] text-muted-foreground">{formatMMTDateTime(a.created_at)}</p>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Additions</p>
+                    {additions.map((a) => {
+                      const isAuto = (a.kind || "manual") === "auto";
+                      return (
+                        <div key={a.id} className="flex items-center justify-between gap-2 text-xs">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate">
+                              <Badge variant="secondary" className={`text-[9px] mr-1 ${isAuto ? "bg-primary/15 text-primary" : ""}`}>
+                                {isAuto ? "AUTO" : "MANUAL"}
+                              </Badge>
+                              {a.title}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">{formatMMTDateTime(a.created_at)}</p>
+                          </div>
+                          <Badge variant="secondary" className="text-[10px]">+{a.amount.toLocaleString()} Ks</Badge>
+                          {isAdminRole && !isAuto && (
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeAddition(a.id, a.amount)}>
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
+                          )}
                         </div>
-                        <Badge variant="secondary" className="text-[10px]">+{a.amount.toLocaleString()} Ks</Badge>
-                        {isAdminRole && (
-                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeAddition(a.id, a.amount)}>
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 {sal?.deduction_reason && (
