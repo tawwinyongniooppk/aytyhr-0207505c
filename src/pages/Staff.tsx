@@ -241,7 +241,7 @@ export default function Staff() {
 
     toast({ title: "Saved", description: `Updated schedule for ${form.full_name || "staff member"}.` });
 
-    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", emergency_phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", late_rate: "200", early_rate: "200", partial_rate: "200" });
+    setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", emergency_phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", late_rate: "200", early_rate: "200", partial_rate: "200", overtime_rate: "200" });
     setSchedule(defaultSchedule());
     setEditId(null);
     setOpen(false);
@@ -434,7 +434,7 @@ export default function Staff() {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", emergency_phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", late_rate: "200", early_rate: "200", partial_rate: "200" }); setSchedule(defaultSchedule()); } }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditId(null); setForm({ full_name: "", role: "staff", base_salary: "300000", phone: "", emergency_phone: "", join_date: "", bonus: "0", manual_deduction: "0", deduction_reason: "", late_rate: "200", early_rate: "200", partial_rate: "200", overtime_rate: "200" }); setSchedule(defaultSchedule()); } }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">Edit Staff</DialogTitle>
