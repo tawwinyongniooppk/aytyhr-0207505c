@@ -26,6 +26,7 @@ const allNavItems: any[] = [
   { to: "/salary", icon: Wallet, label: "My Salary", fullLabel: "My Salary & Bonus", staffOnly: true },
   { to: "/my-timetable", icon: BookOpen, label: "Timetable", fullLabel: "My Timetable & Lesson Plans", staffOnly: true, hideForNeutral: true },
   { to: "/manage-accounts", icon: UserPlus, label: "Accounts", fullLabel: "Accounts", itManagerOnly: true },
+  { to: "/lesson-plans-editor", icon: BookOpen, label: "Templates", fullLabel: "Lesson Plans Templates", itManagerOnly: true },
 ];
 
 export function BottomNav() {
