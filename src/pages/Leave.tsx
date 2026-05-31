@@ -17,6 +17,7 @@ import { sendPush, notifyAdmins } from "@/lib/push";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 import { ManualDeductionPanel } from "@/components/ManualDeductionPanel";
+import { OvertimeSection } from "@/components/OvertimeSection";
 import { getMMTDateParts } from "@/lib/mmt";
 
 type LeaveType = "leave" | "partial_leave" | "late_excuse";
@@ -375,6 +376,10 @@ export default function Leave() {
           <SectionBlock label="3 · My Leave Logs" hint="Status of your past requests.">
             <MyRequestsList requests={myRequests} statusBadge={statusBadge} />
           </SectionBlock>
+
+          <SectionBlock label="4 · Overtime Requests" hint="Submit overtime for time already worked. Cannot be future.">
+            <OvertimeSection />
+          </SectionBlock>
         </>
       )}
 
@@ -413,6 +418,10 @@ export default function Leave() {
               Approval actions and any required manual salary deductions appear in the review dialog and apply to the salary record in real time.
             </div>
           </SectionBlock>
+
+          <SectionBlock label="D · Overtime Requests" hint="Review staff overtime. Approval auto-adds salary.">
+            <OvertimeSection />
+          </SectionBlock>
         </>
       )}
 
@@ -442,6 +451,9 @@ export default function Leave() {
             <SectionBlock label="3 · My Leave Logs" hint="Status of your past requests.">
               <MyRequestsList requests={myRequests} statusBadge={statusBadge} />
             </SectionBlock>
+            <SectionBlock label="4 · Overtime Requests" hint="Submit overtime for time already worked.">
+              <OvertimeSection />
+            </SectionBlock>
           </TabsContent>
           <TabsContent value="manage" className="space-y-6 mt-4">
             <SectionBlock
@@ -458,6 +470,9 @@ export default function Leave() {
                 statusBadge={statusBadge}
                 onSelect={setSelectedRequest}
               />
+            </SectionBlock>
+            <SectionBlock label="B · Overtime Requests" hint="Review staff overtime. Approval auto-adds salary.">
+              <OvertimeSection />
             </SectionBlock>
           </TabsContent>
         </Tabs>

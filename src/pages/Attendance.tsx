@@ -33,6 +33,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
+import { notifyAdmins } from "@/lib/push";
 
 interface AttendanceRecord {
   id: string;
@@ -599,6 +600,12 @@ export default function Attendance() {
             lateMin > 0 ? `Checked in (${lateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}`,
         });
 
+        notifyAdmins(
+          "Staff checked in",
+          `${fullName || "Staff"} checked in${lateMin > 0 ? ` (${lateMin} min late)` : " on time"}`,
+          "/attendance",
+        );
+
         // Show salary notification after check-in
         const estimatedDeduction = lateMin * settings.deduction_rate_per_minute;
         showSalaryNotification(sal.current_salary, estimatedDeduction);
@@ -686,6 +693,11 @@ export default function Attendance() {
       toast({ title: checkoutMsg });
       setCheckInNotice(null);
       setCheckOutNotice(checkoutMsg);
+      notifyAdmins(
+        "Staff checked out",
+        `${fullName || "Staff"} checked out${earlyMin > 0 ? ` (${earlyMin} min early)` : ""}${excuseNote}`,
+        "/attendance",
+      );
     } catch (e) {
       console.error("handleCheckOut error:", e);
       toast({
