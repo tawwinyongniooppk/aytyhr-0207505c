@@ -45,8 +45,8 @@ export function AppLayout() {
     );
   }
 
-  // IT Manager can only access manage-accounts
-  if (isItManager && location.pathname !== "/manage-accounts") {
+  // IT Manager can only access manage-accounts and lesson-plans-editor
+  if (isItManager && !itManagerOnlyRoutes.includes(location.pathname)) {
     return <Navigate to="/manage-accounts" replace />;
   }
 
