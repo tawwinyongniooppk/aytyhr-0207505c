@@ -225,10 +225,11 @@ export default function SalariesAndBonuses() {
       const sal = salaryMap[m.id];
       const base = sal?.base_salary ?? m.base_salary;
       const bonus = bonusEarnedMap[m.id] ?? 0;
-      const add = additionTotal(m.id);
+      const autoAdd = additionTotal(m.id, "auto");
+      const manualAdd = additionTotal(m.id, "manual");
       const auto = sal?.total_deductions ?? 0;
       const manual = sal?.manual_deduction ?? 0;
-      const final = Math.max(0, base + bonus + add - auto - manual);
+      const final = Math.max(0, base + bonus + autoAdd + manualAdd - auto - manual);
       acc.base += base;
       acc.bonus += bonus;
       acc.deductions += auto + manual;
