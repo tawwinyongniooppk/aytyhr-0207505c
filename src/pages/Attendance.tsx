@@ -599,6 +599,12 @@ export default function Attendance() {
             lateMin > 0 ? `Checked in (${lateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}`,
         });
 
+        notifyAdmins(
+          "Staff checked in",
+          `${profile?.full_name ?? "Staff"} checked in${lateMin > 0 ? ` (${lateMin} min late)` : " on time"}`,
+          "/attendance",
+        );
+
         // Show salary notification after check-in
         const estimatedDeduction = lateMin * settings.deduction_rate_per_minute;
         showSalaryNotification(sal.current_salary, estimatedDeduction);
