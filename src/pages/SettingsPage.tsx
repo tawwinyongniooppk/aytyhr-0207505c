@@ -121,12 +121,15 @@ export default function SettingsPage() {
     if (!user) return;
     setTesting(true);
     try {
-      await sendPush({
+      const result = await sendPush({
         user_ids: [user.id],
         title: "Test notification",
         body: "If you can see this, push notifications are working.",
         url: "/settings",
       });
+      if (!result?.ok) {
+        throw result?.error ?? new Error("Test push failed");
+      }
       toast({ title: "Test sent", description: "Check your device for the push notification." });
     } finally {
       setTesting(false);
