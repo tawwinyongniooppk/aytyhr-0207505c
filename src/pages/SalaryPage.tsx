@@ -298,7 +298,7 @@ export default function SalaryPage() {
         <p className="text-muted-foreground text-sm mt-1">{currentMonth}</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <Card className="border border-border shadow-none min-w-0">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
@@ -314,12 +314,27 @@ export default function SalaryPage() {
         <Card className="border border-accent/30 shadow-none bg-accent/5 min-w-0">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="h-4 w-4 text-accent shrink-0" />
+              <Gift className="h-4 w-4 text-accent shrink-0" />
               <span className="text-xs text-muted-foreground truncate">Bonus</span>
             </div>
             <p className="text-base sm:text-lg font-bold font-display text-accent break-words">
               +{totalBonus.toLocaleString()}{" "}
               <span className="text-xs font-normal text-muted-foreground">Ks</span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border border-primary/30 shadow-none bg-primary/5 min-w-0">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Plus className="h-4 w-4 text-primary shrink-0" />
+              <span className="text-xs text-muted-foreground truncate">Additions</span>
+            </div>
+            <p className="text-base sm:text-lg font-bold font-display text-primary break-words">
+              +{totalAdditions.toLocaleString()}{" "}
+              <span className="text-xs font-normal text-muted-foreground">Ks</span>
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1 break-words">
+              Auto: {autoAdditions.toLocaleString()} · Manual: {manualAddTotal.toLocaleString()}
             </p>
           </CardContent>
         </Card>
@@ -351,6 +366,7 @@ export default function SalaryPage() {
           </CardContent>
         </Card>
       </div>
+
 
       <Card className="border border-border shadow-none">
         <CardHeader>
