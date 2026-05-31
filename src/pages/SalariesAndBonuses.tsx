@@ -35,6 +35,7 @@ interface ManualAddition {
   title: string;
   amount: number;
   created_at: string;
+  kind?: string;
 }
 
 function getMonthStart(): string {
