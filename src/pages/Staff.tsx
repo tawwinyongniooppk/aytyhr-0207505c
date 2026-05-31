@@ -528,14 +528,14 @@ export default function Staff() {
               </div>
             </section>
 
-            {/* 4. Salary Deduction Rate (Admin only, staff-specific) */}
+            {/* 4. Time-Based Adjustment (Admin only, staff-specific) */}
             {isAdminRole && (
               <section className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
                 <header className="flex items-center gap-2">
                   <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center">4</span>
-                  <p className="text-xs font-semibold text-primary uppercase tracking-wide">Salary Deduction Rate (per minute)</p>
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wide">Time-Based Adjustment (per minute)</p>
                 </header>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Late entry / min</Label>
                     <Input type="number" value={form.late_rate} onChange={(e) => setForm({ ...form, late_rate: e.target.value })} />
@@ -545,11 +545,15 @@ export default function Staff() {
                     <Input type="number" value={form.early_rate} onChange={(e) => setForm({ ...form, early_rate: e.target.value })} />
                   </div>
                   <div>
+                    <Label className="text-xs">Overtime / min</Label>
+                    <Input type="number" value={form.overtime_rate} onChange={(e) => setForm({ ...form, overtime_rate: e.target.value })} />
+                  </div>
+                  <div>
                     <Label className="text-xs">Partial leave / min</Label>
                     <Input type="number" value={form.partial_rate} onChange={(e) => setForm({ ...form, partial_rate: e.target.value })} />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Stored per staff member (not in global Settings).</p>
+                <p className="text-xs text-muted-foreground">Stored per staff member. Late/Early/Partial deduct from salary; Overtime adds to salary on approval.</p>
               </section>
             )}
 
