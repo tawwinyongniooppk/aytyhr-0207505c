@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { formatMMTDate, formatMMTMonthLabel, getMMTDateParts, getMMTMonthStartISO } from "@/lib/mmt";
 
 type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction" | "manual_addition";
 interface LedgerEntry {
@@ -56,8 +57,7 @@ interface SalaryData {
 }
 
 function getMonthStart(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  return getMMTMonthStartISO();
 }
 
 export default function SalaryPage() {
@@ -168,10 +168,7 @@ export default function SalaryPage() {
   const ledger = useMemo<LedgerEntry[]>(() => {
     const items: LedgerEntry[] = [];
     const monthStart = getMonthStart();
-    const monthLabel = new Date(monthStart + "T00:00:00").toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
+    const monthLabel = formatMMTMonthLabel(`${monthStart}T00:00:00+06:30`);
 
     if (baseSalary > 0) {
       items.push({
@@ -198,7 +195,10 @@ export default function SalaryPage() {
     for (const a of manualAdditions) {
       items.push({
         id: `add-${a.id}`,
-        date: (a.created_at || "").slice(0, 10),
+        date: (() => {
+          const { year, month, day } = getMMTDateParts(a.created_at);
+          return `${year}-${month}-${day}`;
+        })(),
         type: "manual_addition",
         description: a.title,
         amount: Number(a.amount) || 0,
@@ -264,7 +264,7 @@ export default function SalaryPage() {
   }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, manualLeaveDeductions, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions]);
 
 
-  const currentMonth = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const currentMonth = formatMMTMonthLabel(new Date());
 
   if (loading) {
     return (
@@ -350,13 +350,7 @@ export default function SalaryPage() {
               {ledger.map((e) => {
                 const meta = TYPE_META[e.type];
                 const Icon = meta.icon;
-                const dateLabel = e.date
-                  ? new Date(e.date + "T00:00:00").toLocaleDateString("en-US", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })
-                  : "";
+                const dateLabel = e.date ? formatMMTDate(`${e.date}T00:00:00+06:30`) : "";
                 const isCredit = e.amount > 0;
 
                 return (
