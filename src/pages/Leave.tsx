@@ -376,6 +376,10 @@ export default function Leave() {
           <SectionBlock label="3 · My Leave Logs" hint="Status of your past requests.">
             <MyRequestsList requests={myRequests} statusBadge={statusBadge} />
           </SectionBlock>
+
+          <SectionBlock label="4 · Overtime Requests" hint="Submit overtime for time already worked. Cannot be future.">
+            <OvertimeSection />
+          </SectionBlock>
         </>
       )}
 
