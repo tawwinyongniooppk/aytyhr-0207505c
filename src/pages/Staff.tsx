@@ -96,7 +96,7 @@ export default function Staff() {
     full_name: "", role: "staff", base_salary: "300000",
     phone: "", emergency_phone: "", join_date: "",
     bonus: "0", manual_deduction: "0", deduction_reason: "",
-    late_rate: "200", early_rate: "200", partial_rate: "200",
+    late_rate: "200", early_rate: "200", partial_rate: "200", overtime_rate: "200",
   });
   const [schedule, setSchedule] = useState<WeekSchedule>(defaultSchedule());
   const [addForm, setAddForm] = useState({ full_name: "", email: "", password: "", role: "staff", base_salary: "300000", phone: "" });
