@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     const tomorrow = yangonDateAt(1);
 
     // Only run when tomorrow is the 1st of a month (i.e. today is the last day).
-    const force = new URL(req.url).searchParams.get("force") === "1";
+    // `force` already parsed above.
     if (!force && !tomorrow.endsWith("-01")) {
       return new Response(JSON.stringify({ ok: true, skipped: true, today, tomorrow }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
