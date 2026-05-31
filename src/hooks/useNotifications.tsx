@@ -19,7 +19,6 @@ async function showForegroundNotification(title: string, body: string, url: stri
         badge: "/pwa-192x192.png",
         data: { url },
         tag: `fg-${url}-${Date.now()}`,
-        renotify: true,
         vibrate: [200, 100, 200],
       });
     } else {
