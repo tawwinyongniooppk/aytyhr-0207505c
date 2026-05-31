@@ -103,8 +103,10 @@ export default function SalariesAndBonuses() {
     setLoading(false);
   };
 
-  const additionTotal = (uid: string) =>
-    (additionsMap[uid] || []).reduce((s, a) => s + (Number(a.amount) || 0), 0);
+  const additionTotal = (uid: string, kind?: "manual" | "auto") =>
+    (additionsMap[uid] || [])
+      .filter((a) => (kind ? (a.kind || "manual") === kind : true))
+      .reduce((s, a) => s + (Number(a.amount) || 0), 0);
 
   const openEdit = (member: StaffRow) => {
     if (!isAdminRole) return;
