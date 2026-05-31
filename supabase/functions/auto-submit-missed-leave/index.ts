@@ -11,6 +11,15 @@ const corsHeaders = {
 
 const GRACE_AFTER_CHECKIN_MIN = 120; // 2 hours
 const AUTO_REASON = "[AUTO] Missed check-in — auto-submitted by system";
+const YANGON_OFFSET_MS = 6.5 * 60 * 60 * 1000;
+
+function yangonNow() {
+  return new Date(Date.now() + YANGON_OFFSET_MS);
+}
+
+function yangonTodayISO() {
+  return yangonNow().toISOString().slice(0, 10);
+}
 
 function weekdayName(d: Date): string {
   return d.toLocaleDateString("en-US", { weekday: "long" });
@@ -18,7 +27,7 @@ function weekdayName(d: Date): string {
 
 function resolveExpected(profile: any, settingsStart: string): { time: string; active: boolean } {
   const ws = profile?.work_schedule ?? null;
-  const today = weekdayName(new Date());
+  const today = weekdayName(yangonNow());
   const day = ws?.[today];
   if (day) {
     return { time: (day.check_in as string) || settingsStart || "09:00", active: !!day.active };
@@ -55,8 +64,8 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
+    const now = yangonNow();
+    const today = yangonTodayISO();
 
     // Load staff-like profiles (skip it_manager which has no attendance flow)
     const { data: profiles, error: pErr } = await admin
