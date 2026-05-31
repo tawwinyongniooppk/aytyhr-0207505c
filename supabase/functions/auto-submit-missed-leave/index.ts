@@ -32,10 +32,17 @@ function resolveExpected(profile: any, settingsStart: string): { time: string; a
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  // Accept CRON_SECRET, service-role, or internal pg_cron (anon apikey).
   const cronSecret = Deno.env.get("CRON_SECRET");
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const authHeader = req.headers.get("Authorization") ?? "";
-  if (!cronSecret || (authHeader !== `Bearer ${cronSecret}` && authHeader !== `Bearer ${serviceRole}`)) {
+  const apikeyHeader = req.headers.get("apikey") ?? "";
+  const allowed =
+    (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
+    (serviceRole && authHeader === `Bearer ${serviceRole}`) ||
+    (!!anonKey && (authHeader === `Bearer ${anonKey}` || apikeyHeader === anonKey));
+  if (!allowed) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
