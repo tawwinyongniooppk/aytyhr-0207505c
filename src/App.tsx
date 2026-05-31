@@ -88,6 +88,7 @@ const App = () => (
                   <Route path="/manage-accounts" element={<ManageAccounts />} />
                   <Route path="/my-id" element={<MyIdPage />} />
                   <Route path="/my-timetable" element={<MyTimetablePage />} />
+                  <Route path="/lesson-plans-editor" element={<LessonPlansEditor />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
