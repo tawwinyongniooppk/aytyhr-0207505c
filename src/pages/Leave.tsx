@@ -132,7 +132,9 @@ export default function Leave() {
   const friendlyLeaveError = (msg: string): string => {
     if (msg.includes("OFF_DAY")) return "သင်၏ Off Day အပေါ်တွင် Leave Request တင်လို့ မရပါ။";
     if (msg.includes("DUPLICATE")) return "တရက်တည်းအတွက် တူညီသော Leave ကို နှစ်ကြိမ် ယူ၍ မရပါ။";
-    if (msg.includes("MONTHLY_LIMIT")) return "တလအတွင်း ခွင့်ရက် (၂)ရက်ထက် ပိုပြီး ယူ၍ မရပါ။";
+    if (msg.includes("MONTHLY_LIMIT_FULL")) return "တလအတွင်း Full Leave (၂)ကြိမ်ထက် ပိုပြီး ယူ၍ မရပါ။";
+    if (msg.includes("MONTHLY_LIMIT_HALF")) return "တလအတွင်း Half Leave (၄)ကြိမ်ထက် ပိုပြီး ယူ၍ မရပါ။";
+    if (msg.includes("MONTHLY_LIMIT")) return "တလအတွင်း ခွင့်ရက် ကန့်သတ် ကျော်လွန်နေပါသည်။";
     return msg;
   };
 
@@ -263,6 +265,23 @@ export default function Leave() {
           body: `${halfDeductTitle.trim()} — ${amt.toLocaleString()} Ks deducted`,
           url: "/salary",
         });
+        // Afternoon Half-Leave approval shifts check-out to 12:00 PM — notify all parties.
+        if (
+          selectedRequest.type === "half_leave" &&
+          selectedRequest.half_period === "afternoon"
+        ) {
+          notifyAdmins(
+            "Afternoon Half-Leave approved",
+            `${selectedRequest.profile_name ?? "Staff"} ၏ check-out time သည် ${selectedRequest.date} နေ့အတွက် 12:00 PM သို့ ပြောင်းသွားပါပြီ။`,
+            "/leave",
+          );
+          sendPush({
+            user_ids: [selectedRequest.user_id],
+            title: "Check-out time updated",
+            body: "Afternoon Half-Leave approved. သင်၏ Check-out time သည် 12:00 PM သို့ ပြောင်းသွားပါပြီ။",
+            url: "/attendance",
+          });
+        }
         setSelectedRequest(null);
         setHalfDeductTitle("");
         setHalfDeductAmount("");
@@ -584,33 +603,44 @@ export default function Leave() {
                   </div>
                 </div>
               )}
-              {selectedRequest.status === "pending" && (
-                <div className="flex flex-col gap-2 pt-2">
-                  <Button
-                    onClick={() => handleReview(selectedRequest.id, "approved")}
-                    disabled={reviewingId === selectedRequest.id}
-                    className="bg-accent text-accent-foreground hover:bg-accent/90 active:scale-[0.98] transition-transform"
-                  >
-                    {reviewingId === selectedRequest.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <><CheckCircle className="h-4 w-4 mr-2" /> Approve</>
-                    )}
-                  </Button>
-                  <Button
-                    onClick={() => handleReview(selectedRequest.id, "rejected")}
-                    disabled={reviewingId === selectedRequest.id}
-                    variant="outline"
-                    className="border-destructive text-destructive hover:bg-destructive/10 active:scale-[0.98] transition-transform"
-                  >
-                    {reviewingId === selectedRequest.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <><XCircle className="h-4 w-4 mr-2" /> Reject</>
-                    )}
-                  </Button>
-                </div>
-              )}
+              {selectedRequest.status === "pending" && (() => {
+                const financialRequest =
+                  selectedRequest.type === "half_leave" || fullLeaveOverCap;
+                if (isAssistant && financialRequest) {
+                  return (
+                    <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs text-warning-foreground">
+                      Admin approval required. Assistant Admin သည် Financial Statement ပါသော Request များကို Approve / Reject လုပ်ခွင့် မရှိပါ။
+                    </div>
+                  );
+                }
+                return (
+                  <div className="flex flex-col gap-2 pt-2">
+                    <Button
+                      onClick={() => handleReview(selectedRequest.id, "approved")}
+                      disabled={reviewingId === selectedRequest.id}
+                      className="bg-accent text-accent-foreground hover:bg-accent/90 active:scale-[0.98] transition-transform"
+                    >
+                      {reviewingId === selectedRequest.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <><CheckCircle className="h-4 w-4 mr-2" /> Approve</>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleReview(selectedRequest.id, "rejected")}
+                      disabled={reviewingId === selectedRequest.id}
+                      variant="outline"
+                      className="border-destructive text-destructive hover:bg-destructive/10 active:scale-[0.98] transition-transform"
+                    >
+                      {reviewingId === selectedRequest.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <><XCircle className="h-4 w-4 mr-2" /> Reject</>
+                      )}
+                    </Button>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </DialogContent>

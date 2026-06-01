@@ -1,122 +1,63 @@
-# Lesson Plans Template Editor
+## Goal
+Mirror the existing Morning Half-Leave / auto-Full-Leave logic for the Afternoon Half-Leave flow, link Half-Leave with check-in, enforce monthly leave caps (Full ≤2, Half ≤4), and lock financial approvals to Admin only (Assistant Admin sees but cannot approve).
 
-## Goals
-- IT Manager က Beginner / Junior / Senior class သုံးခုအတွက် lesson plan template (1 section, 3 cards) ကို Excel/Word-like UI နဲ့ ပြင်နိုင်ဖို့။
-- Staff က မိမိ class နဲ့ ကိုက်ညီတဲ့ template ကို My Timetable & Lesson Plans မှာ မြင်ပြီး cell တွေထဲ စာဖြည့်၊ PDF export/Download (+ optional Gmail compose) လုပ်နိုင်ဖို့။
-- Staff ဖြည့်တဲ့ data ကို database ထဲ **လုံးဝ မသိမ်း** — usage တက်စေနိုင်တဲ့ query/storage/API ဘာမှ မပါစေရ။ Template data သာ DB မှာ ရှိ။
+## 1) Afternoon Half-Leave (Admin-only approval)
 
-## Scope of storage (Lovable Cloud usage)
-- DB write/read က IT Manager template save/load time မှာသာ ဖြစ်မယ်။ Class သုံးခုဆို row သုံးခုသာ။
-- Staff side: read template once on page load → ပြီးရင် client-only။ No realtime, no inserts, no logs.
+**Submission**
+- Staff/Assistant can submit `half_leave` with `half_period = 'afternoon'`.
+- On insert → FCM push (sound + badge) to all Admin + Assistant Admin: "Afternoon Half-Leave request submitted by {name}".
 
-## Data Model
-New table `lesson_plan_templates`:
-- `id` uuid PK
-- `class` text unique — `'Beginner' | 'Junior' | 'Senior'`
-- `template_json` jsonb — full editor document (layout, cards, cells, locked content, styles)
-- `updated_by` uuid, `updated_at` timestamptz
+**Approval (Admin only, requires Manual Deduction)**
+- In `src/pages/Leave.tsx`, when the request is `half_leave` (morning OR afternoon), require the Admin to enter Description + Amount before Approve becomes enabled. Same UI block already used for over-cap Full Leave.
+- On Approve:
+  - Insert `salary_manual_deductions` row (title = description, amount, source = `'half_leave'`).
+  - Update `leave_requests` status = approved → existing `apply_leave_balance_change` trigger already deducts 0.5 from `leave_balances`. The user's "လက်ကျန် 9.5/8.5..." info reads from the same balance, so it updates automatically.
+  - FCM push to the staff: "Half-Leave approved. Manual Deduction {amount} Ks — {description}".
+  - For Afternoon Half-Leave specifically: also broadcast a "Check-out time shifted to 12:00 PM" notification to Admin + Assistant Admin + the Staff.
 
-RLS:
-- SELECT: any authenticated user (staff needs to render their class template).
-- INSERT/UPDATE: only `it_manager` role.
-- DELETE: none.
+**Attendance side (Afternoon Half-Leave shifts check-out)**
+- Mirror existing Morning Half-Leave check-in override in `src/pages/Attendance.tsx`: when there is an approved `half_leave` with `half_period='afternoon'` for today, the expected **check-out** time becomes **12:00 MMT** (check-in stays at the admin-set time).
+- `apply-attendance-deduction` edge function: when computing `early_minutes` for the day, if afternoon half-leave is approved, treat expected check-out as `12:00`.
 
-GRANTs: `authenticated` (SELECT, INSERT, UPDATE), `service_role` ALL.
+## 2) Auto early-leave deduction (+30 min past check-out)
 
-## Template JSON shape
-```
-{
-  page: { size: 'A4'|'Legal', orientation: 'portrait'|'landscape', margins: {...} },
-  branding: { logoUrl, headerText, watermark: { url, text, opacity } },
-  palette: 'palette1'..'palette6',
-  border: { size, style, color },
-  letterheadFooterText: string,
-  cards: [Card, Card, Card]   // exactly 3 cards in 1 section
-}
-Card = {
-  title, bgColor, borderColor,
-  rows: [
-    { cells: [{ id, locked, value, fontFamily, fontSize, color, bgColor, align, minFontSize: 12 }] }
-  ]
-}
-```
-Locked cells = IT Manager content (read-only for staff). Unlocked cells = staff editable.
+- New behavior in `auto-submit-missed-leave` (rename concept to a single "attendance-sweep" job): if a staff has checked in but has **not** checked out by `expected_check_out + 30min` (where expected respects the Afternoon Half-Leave 12:00 override), apply a one-time **1000 Ks** deduction (5 min × `early_deduction_per_minute` 200) via `salary_manual_deductions` with source = `'auto_early_out'` and title = `Auto early-out deduction`.
+- Idempotency: skip if a row with `source='auto_early_out'` already exists for that user+date. Also mark `attendance.deduction_applied = true` (or a new flag) so we never re-charge.
+- FCM push to that staff: "Check-out မလုပ်ခဲ့သဖြင့် 1,000 Ks Auto Deduction ဖြတ်ထားပါသည်။".
 
-## IT Manager — Lesson Plans Template Editor page
-- New route `/lesson-plans-editor` (IT Manager only).
-- Sidebar entry “Lesson Plans Templates” added to IT Manager nav.
-- Tabs: **Beginner / Junior / Senior** — each is a full template editor for that class.
-- Editor capabilities (per cell + global):
-  - School logo + header text placement, watermark image/text + opacity slider.
-  - 6 curated premium color palettes (switch).
-  - Border size/shape/color, letterhead footer text.
-  - Font family, font size, font color, cell background color, text align.
-  - Page size A4 / Legal, orientation portrait / landscape.
-  - Lock toggle per cell (locked content cannot be edited by staff).
-  - Add/remove rows per card; 3 cards fixed per class.
-- Live preview pane shows the page bounded by the chosen paper size.
-- Save button → upserts the row for that class.
+## 3) Half-Leave linked with check-in (+30 min late ⇒ auto Half-Leave request)
 
-### Editor library
-Use **Handsontable Community** (`handsontable` MIT) for the spreadsheet feel:
-- Per-cell read-only flag, per-cell renderer for font/size/color/bg, merge cells, alt-enter newline, word-wrap with auto row-height growth.
-- No external connector needed → no Lovable usage hit on the staff side.
+- Same sweep job: for each user, if no check-in by `expected_check_in + 30min` AND no morning half-leave already approved AND no auto request yet today → insert a `half_leave` request with `half_period='morning'`, `status='pending'`, `payment_type='unpaid'`, `reason='[AUTO] Late check-in (+30min) — auto Half-Leave'`.
+- Existing 2hr Full-Leave auto-escalation stays as a second tier (still triggers if user never shows up).
+- Idempotency: one auto half-leave per user per day (detected by `[AUTO]` prefix + type='half_leave').
+- FCM push to Admin + Assistant Admin + Staff.
 
-(If Handsontable license footprint is a concern we fall back to a thin custom TanStack-Table + `contentEditable` grid; same JSON contract.)
+The pg_cron job already calls this function every 5 min; we just expand its body — no new schedule needed.
 
-## Staff — My Timetable & Lesson Plans
-- On mount: `select template_json from lesson_plan_templates where class = profile.class` (1 row, cached in React state). No further DB I/O.
-- Render the template inside an A4/Legal-sized container at CSS print scale.
-- Locked cells render as plain styled text. Unlocked cells become inputs with:
-  - Alt+Enter / Enter → newline within cell (textarea behavior).
-  - Word-wrap; cell auto-grows **downward**; cells below shift down (paginated).
-  - **Width is fixed** to template column width — never overflows horizontally.
-  - Min font size 12 enforced; if IT Manager pinned font/size on that cell, staff input inherits it and cannot change it.
-- Pagination: a Page component splits content when vertical overflow detected and starts a new A4/Legal page below. Horizontal bounds are hard-locked.
+## 4) Monthly caps (server-enforced)
 
-### Action bar
-Three actions at top of the lesson plan page:
-1. **Export & Download (PDF)** — always shown.
-2. **Export, Download & Report to Admin** — shown only when device supports opening Gmail compose. Detection:
-   - Hide on iOS Safari (UA check: iOS && Safari && not Chrome/Edge).
-   - Show on Chrome/Edge desktop & Android.
+Update `public.enforce_leave_request_submission()` trigger:
+- Currently caps to 2 days equivalent (full=1, half=0.5).
+- New rule: count by **type** instead.
+  - `type='leave'`: max 2 non-rejected per month.
+  - `type='half_leave'`: max 4 non-rejected per month (regardless of morning/afternoon).
+- Same `MONTHLY_LIMIT` error code so the existing UI catches it.
+- Also update `src/pages/Leave.tsx` client-side pre-check messages.
 
-### Export flow
-- Render visible pages → `html2canvas` per page → `jsPDF` multi-page PDF → `saveAs(blob, 'LessonPlan_<class>_<date>.pdf')` (uses `file-saver`).
-- “Report to Admin” variant: after download triggers, open
-  `https://mail.google.com/mail/?view=cm&fs=1&to=<admin@ayty.com>&su=Lesson Plan – <staff name> – <date>&body=...`
-  in a new tab. User attaches the just-downloaded file manually (browsers cannot pre-attach for security).
-- Immediately after either action, show modal:
-  - **အဆင်ပြေတယ်** → clear all unlocked cell values in state (template format intact, no DB write).
-  - **အဆင်မပြေဘူး** → close modal, return to editing.
+## 5) Assistant Admin = view-only for financial requests
 
-### iOS Safari
-- Only “Export & Download” is shown; same post-export confirm modal.
+In `src/pages/Leave.tsx`:
+- For rows of type `half_leave` and for over-cap `leave` requests (anything needing Manual Deduction), if `useProfile().isAssistant` is true: hide Approve / Reject buttons; show a read-only badge ("Admin approval required" / "Approved by Admin" / "Rejected by Admin").
+- Assistant can still see status + reviewer name once Admin acts.
 
-## Navigation & Roles
-- `DesktopSidebar` + `BottomNav`: add “Lesson Plans Templates” item gated to `isItManager`.
-- `AppLayout` allow-list updated so `/lesson-plans-editor` is reachable only by IT Manager (other roles → redirect).
+## 6) Files / migrations
 
-## Dependencies to add
-- `handsontable` (editor grid)
-- `jspdf`, `html2canvas`, `file-saver` (client export)
-- Tiny UA helper for iOS Safari detection (no library).
+- **Migration** `enforce_leave_request_submission`: change cap logic to per-type (2 full, 4 half).
+- **Edge function** `auto-submit-missed-leave/index.ts`: add the +30-min half-leave auto-request branch and the +30-min auto early-out 1,000 Ks deduction branch.
+- **`src/pages/Leave.tsx`**: notifications on afternoon submit, require manual deduction for any half_leave approval, assistant view-only, updated cap labels.
+- **`src/pages/Attendance.tsx`**: afternoon half-leave shifts expected check-out to 12:00.
+- **`supabase/functions/apply-attendance-deduction/index.ts`**: respect afternoon half-leave override for early_minutes.
 
-## Files (planned)
-- `supabase/migrations/<ts>_lesson_plan_templates.sql`
-- `src/pages/LessonPlansEditor.tsx` (IT Manager)
-- `src/components/lesson-plans/TemplateEditor.tsx`
-- `src/components/lesson-plans/TemplateCanvas.tsx` (shared renderer for editor preview + staff view)
-- `src/components/lesson-plans/PaletteSwitcher.tsx`
-- `src/components/lesson-plans/ExportActions.tsx`
-- `src/components/lesson-plans/SatisfactionModal.tsx`
-- `src/lib/lessonPlanDefaults.ts` (default JSON for the 3 classes, 6 palettes)
-- `src/lib/exportPdf.ts` (html2canvas + jsPDF wrapper)
-- `src/lib/uaSupport.ts` (iOS Safari detection)
-- Update `src/pages/MyTimetablePage.tsx` to load + render template + actions.
-- Update `src/App.tsx` route, `DesktopSidebar.tsx`, `BottomNav.tsx`, `AppLayout.tsx`.
-
-## Notes on “zero ongoing usage”
-- Only 3 template rows total; staff page makes a single SELECT per visit (well within free tier).
-- No realtime channels, no edge functions, no storage uploads from staff.
-- Logo/watermark images stored as base64 inside `template_json` OR pasted URL — IT Manager’s choice. Default = base64 so no extra Storage bucket needed.
+## Notes
+- "အခါခါ Query မတက်ရ": the sweep is the single cron-driven job (existing 5-min schedule); pages do not poll for these conditions. UI just reads notifications + the leave/salary rows that are already loaded.
+- No new tables. Reuses `salary_manual_deductions`, `leave_requests`, `leave_balances`, `attendance`.

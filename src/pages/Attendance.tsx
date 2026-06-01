@@ -183,6 +183,7 @@ export default function Attendance() {
   const [isHolidayToday, setIsHolidayToday] = useState(false);
   const [hasFullLeaveToday, setHasFullLeaveToday] = useState(false);
   const [hasMorningHalfLeaveToday, setHasMorningHalfLeaveToday] = useState(false);
+  const [hasAfternoonHalfLeaveToday, setHasAfternoonHalfLeaveToday] = useState(false);
   const [nowTick, setNowTick] = useState<number>(Date.now());
   const [location, setLocation] = useState<LocationState>({
     status: "idle",
@@ -246,6 +247,9 @@ export default function Attendance() {
       setHasFullLeaveToday(fullLeave);
       setHasMorningHalfLeaveToday(
         leaves.some((l) => l.type === "half_leave" && l.half_period === "morning"),
+      );
+      setHasAfternoonHalfLeaveToday(
+        leaves.some((l) => l.type === "half_leave" && l.half_period === "afternoon"),
       );
     } catch {
       /* ignore */
@@ -481,12 +485,14 @@ export default function Attendance() {
   // Morning Half-Leave approved → check-in expectation shifts to 12:00 PM (MMT).
   // Check-out expectation stays as Admin/Assistant configured.
   const expectedCheckInTime = hasMorningHalfLeaveToday ? "12:00" : baseExpectedCheckInTime;
-  const expectedCheckOutTime =
+  const baseExpectedCheckOutTime =
     todaySchedule && todaySchedule.active !== false && todaySchedule.check_out
       ? todaySchedule.check_out
       : isSpecialDay && staffCheckOutTime
         ? staffCheckOutTime
         : settings.end_time;
+  // Afternoon Half-Leave approved → check-out expectation shifts to 12:00 PM (MMT).
+  const expectedCheckOutTime = hasAfternoonHalfLeaveToday ? "12:00" : baseExpectedCheckOutTime;
   const geoBlocked = schoolConfigured && location.status === "granted" && location.isInside === false;
   const geoDenied = location.status === "denied";
   const geoError = location.status === "error";
