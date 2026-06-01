@@ -359,7 +359,7 @@ export default function SalaryPage() {
               <Wallet className="h-4 w-4 text-secondary shrink-0" />
               <span className="text-xs text-muted-foreground truncate">Final Salary</span>
             </div>
-            <p className="text-base sm:text-lg font-bold font-display text-secondary break-words">
+            <p className={`text-base sm:text-lg font-bold font-display break-words ${finalSalary < 0 ? "text-destructive" : "text-secondary"}`}>
               {finalSalary.toLocaleString()}
               <span className="text-xs font-normal text-muted-foreground"> Ks</span>
             </p>
