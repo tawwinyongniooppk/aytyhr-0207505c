@@ -155,6 +155,7 @@ export default function Leave() {
         status: "pending",
         start_time: type === "partial_leave" ? startTime : null,
         end_time: type === "partial_leave" ? endTime : null,
+        half_period: type === "half_leave" ? halfPeriod : null,
       };
       const { error } = await supabase.from("leave_requests").insert(payload);
 
@@ -162,14 +163,19 @@ export default function Leave() {
         toast({ title: "Failed to submit", description: friendlyLeaveError(error.message), variant: "destructive" });
       } else {
         toast({ title: "Leave request submitted successfully ✓" });
+        const typeText =
+          type === "half_leave"
+            ? `${halfPeriodLabel(halfPeriod)}`
+            : TYPE_LABEL[type];
         notifyAdmins(
           "New leave request",
-          `${profile?.full_name ?? "Staff"} requested ${TYPE_LABEL[type]} on ${date}`,
+          `${profile?.full_name ?? "Staff"} requested ${typeText} on ${date}`,
           "/leave",
         );
         setDate("");
         setReason("");
         setType("leave");
+        setHalfPeriod("morning");
         setStartTime("");
         setEndTime("");
         loadData();
@@ -183,7 +189,65 @@ export default function Leave() {
     requestId: string,
     decision: "approved" | "rejected",
   ) => {
-    if (!user) return;
+    if (!user || !selectedRequest) return;
+
+    // Half Leave approvals require manual deduction (title + amount)
+    if (decision === "approved" && selectedRequest.type === "half_leave") {
+      const amt = parseInt(halfDeductAmount, 10);
+      if (!halfDeductTitle.trim() || !Number.isFinite(amt) || amt <= 0) {
+        toast({
+          title: "Manual deduction required",
+          description: "Half Leave အတွက် Description နှင့် Amount ဖြည့်ပါ။",
+          variant: "destructive",
+        });
+        return;
+      }
+      setReviewingId(requestId);
+      try {
+        const monthStart = `${selectedRequest.date.slice(0, 7)}-01`;
+        const { error: dedErr } = await (supabase as any)
+          .from("salary_manual_deductions")
+          .insert({
+            user_id: selectedRequest.user_id,
+            month: monthStart,
+            title: halfDeductTitle.trim(),
+            amount: amt,
+            source: "half_leave",
+            created_by: user.id,
+          });
+        if (dedErr) {
+          toast({ title: "Deduction failed", description: dedErr.message, variant: "destructive" });
+          return;
+        }
+        const { error } = await supabase
+          .from("leave_requests")
+          .update({
+            status: "approved",
+            reviewed_by: user.id,
+            reviewed_at: new Date().toISOString(),
+            payment_type: "paid",
+          })
+          .eq("id", requestId);
+        if (error) {
+          toast({ title: "Review failed", description: error.message, variant: "destructive" });
+          return;
+        }
+        toast({ title: "Half Leave approved ✓" });
+        sendPush({
+          user_ids: [selectedRequest.user_id],
+          title: "Half Leave approved",
+          body: `${halfDeductTitle.trim()} — ${amt.toLocaleString()} Ks deducted`,
+          url: "/salary",
+        });
+        setSelectedRequest(null);
+        setHalfDeductTitle("");
+        setHalfDeductAmount("");
+        loadData();
+      } finally {
+        setReviewingId(null);
+      }
+      return;
+    }
 
     setReviewingId(requestId);
     try {
@@ -206,17 +270,15 @@ export default function Leave() {
       toast({
         title: decision === "approved" ? "Leave approved ✓" : "Leave request rejected",
       });
-      if (selectedRequest) {
-        sendPush({
-          user_ids: [selectedRequest.user_id],
-          title: decision === "approved" ? "Leave approved" : "Leave rejected",
-          body:
-            decision === "approved"
-              ? `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was approved.`
-              : `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was rejected.`,
-          url: "/leave",
-        });
-      }
+      sendPush({
+        user_ids: [selectedRequest.user_id],
+        title: decision === "approved" ? "Leave approved" : "Leave rejected",
+        body:
+          decision === "approved"
+            ? `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was approved.`
+            : `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was rejected.`,
+        url: "/leave",
+      });
       setSelectedRequest(null);
       loadData();
     } finally {
