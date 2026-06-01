@@ -40,8 +40,12 @@ interface LeaveRequest {
   created_at: string;
   start_time: string | null;
   end_time: string | null;
+  half_period?: "morning" | "afternoon" | null;
   profile_name?: string;
 }
+
+const halfPeriodLabel = (p?: string | null) =>
+  p === "morning" ? "Morning Half-Leave" : p === "afternoon" ? "Afternoon Half-Leave" : "";
 
 export default function Leave() {
   const { user } = useAuth();
@@ -52,6 +56,7 @@ export default function Leave() {
   const [date, setDate] = useState("");
   const [reason, setReason] = useState("");
   const [type, setType] = useState<LeaveType>("leave");
+  const [halfPeriod, setHalfPeriod] = useState<"morning" | "afternoon">("morning");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [loading, setLoading] = useState(true);
@@ -63,8 +68,8 @@ export default function Leave() {
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
   const [staffList, setStaffList] = useState<{ id: string; full_name: string }[]>([]);
-  const [unpaidDesc, setUnpaidDesc] = useState("");
-  const [unpaidAmount, setUnpaidAmount] = useState("");
+  const [halfDeductTitle, setHalfDeductTitle] = useState("");
+  const [halfDeductAmount, setHalfDeductAmount] = useState("");
 
   const canManage = isAdmin || isAssistant;
   const canSubmitLeave = isStaff || isAssistant;
@@ -150,6 +155,7 @@ export default function Leave() {
         status: "pending",
         start_time: type === "partial_leave" ? startTime : null,
         end_time: type === "partial_leave" ? endTime : null,
+        half_period: type === "half_leave" ? halfPeriod : null,
       };
       const { error } = await supabase.from("leave_requests").insert(payload);
 
@@ -157,14 +163,19 @@ export default function Leave() {
         toast({ title: "Failed to submit", description: friendlyLeaveError(error.message), variant: "destructive" });
       } else {
         toast({ title: "Leave request submitted successfully ✓" });
+        const typeText =
+          type === "half_leave"
+            ? `${halfPeriodLabel(halfPeriod)}`
+            : TYPE_LABEL[type];
         notifyAdmins(
           "New leave request",
-          `${profile?.full_name ?? "Staff"} requested ${TYPE_LABEL[type]} on ${date}`,
+          `${profile?.full_name ?? "Staff"} requested ${typeText} on ${date}`,
           "/leave",
         );
         setDate("");
         setReason("");
         setType("leave");
+        setHalfPeriod("morning");
         setStartTime("");
         setEndTime("");
         loadData();
@@ -178,7 +189,65 @@ export default function Leave() {
     requestId: string,
     decision: "approved" | "rejected",
   ) => {
-    if (!user) return;
+    if (!user || !selectedRequest) return;
+
+    // Half Leave approvals require manual deduction (title + amount)
+    if (decision === "approved" && selectedRequest.type === "half_leave") {
+      const amt = parseInt(halfDeductAmount, 10);
+      if (!halfDeductTitle.trim() || !Number.isFinite(amt) || amt <= 0) {
+        toast({
+          title: "Manual deduction required",
+          description: "Half Leave အတွက် Description နှင့် Amount ဖြည့်ပါ။",
+          variant: "destructive",
+        });
+        return;
+      }
+      setReviewingId(requestId);
+      try {
+        const monthStart = `${selectedRequest.date.slice(0, 7)}-01`;
+        const { error: dedErr } = await (supabase as any)
+          .from("salary_manual_deductions")
+          .insert({
+            user_id: selectedRequest.user_id,
+            month: monthStart,
+            title: halfDeductTitle.trim(),
+            amount: amt,
+            source: "half_leave",
+            created_by: user.id,
+          });
+        if (dedErr) {
+          toast({ title: "Deduction failed", description: dedErr.message, variant: "destructive" });
+          return;
+        }
+        const { error } = await supabase
+          .from("leave_requests")
+          .update({
+            status: "approved",
+            reviewed_by: user.id,
+            reviewed_at: new Date().toISOString(),
+            payment_type: "paid",
+          })
+          .eq("id", requestId);
+        if (error) {
+          toast({ title: "Review failed", description: error.message, variant: "destructive" });
+          return;
+        }
+        toast({ title: "Half Leave approved ✓" });
+        sendPush({
+          user_ids: [selectedRequest.user_id],
+          title: "Half Leave approved",
+          body: `${halfDeductTitle.trim()} — ${amt.toLocaleString()} Ks deducted`,
+          url: "/salary",
+        });
+        setSelectedRequest(null);
+        setHalfDeductTitle("");
+        setHalfDeductAmount("");
+        loadData();
+      } finally {
+        setReviewingId(null);
+      }
+      return;
+    }
 
     setReviewingId(requestId);
     try {
@@ -201,17 +270,15 @@ export default function Leave() {
       toast({
         title: decision === "approved" ? "Leave approved ✓" : "Leave request rejected",
       });
-      if (selectedRequest) {
-        sendPush({
-          user_ids: [selectedRequest.user_id],
-          title: decision === "approved" ? "Leave approved" : "Leave rejected",
-          body:
-            decision === "approved"
-              ? `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was approved.`
-              : `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was rejected.`,
-          url: "/leave",
-        });
-      }
+      sendPush({
+        user_ids: [selectedRequest.user_id],
+        title: decision === "approved" ? "Leave approved" : "Leave rejected",
+        body:
+          decision === "approved"
+            ? `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was approved.`
+            : `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was rejected.`,
+        url: "/leave",
+      });
       setSelectedRequest(null);
       loadData();
     } finally {
@@ -290,6 +357,7 @@ export default function Leave() {
               date={date} setDate={setDate}
               reason={reason} setReason={setReason}
               type={type} setType={setType}
+              halfPeriod={halfPeriod} setHalfPeriod={setHalfPeriod}
               startTime={startTime} setStartTime={setStartTime}
               endTime={endTime} setEndTime={setEndTime}
               onSubmit={handleSubmit}
@@ -366,6 +434,7 @@ export default function Leave() {
                 date={date} setDate={setDate}
                 reason={reason} setReason={setReason}
                 type={type} setType={setType}
+                halfPeriod={halfPeriod} setHalfPeriod={setHalfPeriod}
                 startTime={startTime} setStartTime={setStartTime}
                 endTime={endTime} setEndTime={setEndTime}
                 onSubmit={handleSubmit}
@@ -418,7 +487,14 @@ export default function Leave() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Type</span>
-                  <span className="font-medium">{TYPE_LABEL[selectedRequest.type]}</span>
+                  <span className="font-medium">
+                    {TYPE_LABEL[selectedRequest.type]}
+                    {selectedRequest.type === "half_leave" && selectedRequest.half_period && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        ({halfPeriodLabel(selectedRequest.half_period)})
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Date</span>
@@ -439,6 +515,31 @@ export default function Leave() {
                   {statusBadge(selectedRequest.status)}
                 </div>
               </div>
+              {selectedRequest.status === "pending" && selectedRequest.type === "half_leave" && (
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                    Manual Deduction (required to approve)
+                  </p>
+                  <div>
+                    <Label className="text-xs">Description</Label>
+                    <Input
+                      value={halfDeductTitle}
+                      onChange={(e) => setHalfDeductTitle(e.target.value)}
+                      placeholder="e.g. Half-Leave deduction"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Amount (Ks)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={halfDeductAmount}
+                      onChange={(e) => setHalfDeductAmount(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              )}
               {selectedRequest.status === "pending" && (
                 <div className="flex flex-col gap-2 pt-2">
                   <Button
@@ -465,7 +566,6 @@ export default function Leave() {
                     )}
                   </Button>
                 </div>
-
               )}
             </div>
           )}
@@ -479,12 +579,14 @@ export default function Leave() {
 
 function SubmitForm({
   date, setDate, reason, setReason, type, setType,
+  halfPeriod, setHalfPeriod,
   startTime, setStartTime, endTime, setEndTime,
   onSubmit, submitting, existingRequests,
 }: {
   date: string; setDate: (v: string) => void;
   reason: string; setReason: (v: string) => void;
   type: LeaveType; setType: (v: LeaveType) => void;
+  halfPeriod: "morning" | "afternoon"; setHalfPeriod: (v: "morning" | "afternoon") => void;
   startTime: string; setStartTime: (v: string) => void;
   endTime: string; setEndTime: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -493,6 +595,7 @@ function SubmitForm({
 }) {
   const dayName = date ? new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "Asia/Yangon" }).format(new Date(`${date}T00:00:00+06:30`)) : "";
   const isPartial = type === "partial_leave";
+  const isHalf = type === "half_leave";
 
   const DUPLICATE_MSG = "သင်၏ ခွင့်ချိန် ခွင့်ရက်များကို (2)ကြိမ်မြောက် တူညီစွာ ယူလို့ မရပါ။";
 
@@ -504,6 +607,9 @@ function SubmitForm({
   const fullLeaveDuplicate =
     type === "leave" && activeOnDate.some((r) => r.type === "leave");
 
+  const halfLeaveDuplicate =
+    isHalf && activeOnDate.some((r) => r.type === "half_leave" && (r.half_period ?? "") === halfPeriod);
+
   const partialOverlap =
     isPartial && startTime && endTime && startTime < endTime
       ? activeOnDate.some(
@@ -511,13 +617,12 @@ function SubmitForm({
             r.type === "partial_leave" &&
             r.start_time &&
             r.end_time &&
-            // overlap if start < other.end and end > other.start
             startTime < r.end_time.slice(0, 5) &&
             endTime > r.start_time.slice(0, 5),
         )
       : false;
 
-  const hasDuplicate = fullLeaveDuplicate || partialOverlap;
+  const hasDuplicate = fullLeaveDuplicate || partialOverlap || halfLeaveDuplicate;
 
   const isValid =
     date && reason && (!isPartial || (startTime && endTime && startTime < endTime)) && !hasDuplicate;
@@ -537,14 +642,36 @@ function SubmitForm({
                 <Label htmlFor="leave" className="cursor-pointer">Full Leave</Label>
               </div>
               <div className="flex items-center space-x-2">
+                <RadioGroupItem value="half_leave" id="half_leave" />
+                <Label htmlFor="half_leave" className="cursor-pointer">Half Leave</Label>
+              </div>
+              <div className="flex items-center space-x-2">
                 <RadioGroupItem value="partial_leave" id="partial_leave" />
                 <Label htmlFor="partial_leave" className="cursor-pointer">Partial Leave</Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="late_excuse" id="late_excuse" />
-                <Label htmlFor="late_excuse" className="cursor-pointer">Late Excuse</Label>
-              </div>
             </RadioGroup>
+            {isHalf && (
+              <div className="mt-3 pl-1">
+                <Label className="mb-1.5 block text-xs text-muted-foreground">Half-Leave Period</Label>
+                <RadioGroup
+                  value={halfPeriod}
+                  onValueChange={(v) => setHalfPeriod(v as "morning" | "afternoon")}
+                  className="flex flex-wrap gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="morning" id="hp-morning" />
+                    <Label htmlFor="hp-morning" className="cursor-pointer">Morning Half-Leave</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="afternoon" id="hp-afternoon" />
+                    <Label htmlFor="hp-afternoon" className="cursor-pointer">Afternoon Half-Leave</Label>
+                  </div>
+                </RadioGroup>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Half Leave က ခွင့်လက်ကျန်ရက်မှ (၀.၅)ရက် နှုတ်ပါမည်။ Admin Approve သည့်အခါ Manual Deduction ထည့်ပါမည်။
+                </p>
+              </div>
+            )}
             {isPartial && (
               <p className="text-xs text-muted-foreground mt-2">
                 Partial Leave is treated as a minute-based deduction (like late check-in / early check-out) and does not reduce your leave-day balance.
@@ -555,7 +682,7 @@ function SubmitForm({
             <Label>Date</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             {dayName && <p className="text-xs text-muted-foreground mt-1">{dayName}</p>}
-            {fullLeaveDuplicate && (
+            {(fullLeaveDuplicate || halfLeaveDuplicate) && (
               <p className="text-xs text-destructive mt-1.5 font-medium">{DUPLICATE_MSG}</p>
             )}
           </div>
@@ -581,8 +708,8 @@ function SubmitForm({
               onChange={(e) => setReason(e.target.value)}
               placeholder={
                 type === "leave" ? "Reason for leave" :
-                type === "partial_leave" ? "Reason for partial leave" :
-                "Reason for being late"
+                type === "half_leave" ? "Reason for half leave" :
+                "Reason for partial leave"
               }
               rows={3}
             />
@@ -629,6 +756,9 @@ function MyRequestsList({
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium">{req.date}</p>
                     <Badge variant="outline" className="text-xs">{TYPE_LABEL[req.type]}</Badge>
+                    {req.type === "half_leave" && req.half_period && (
+                      <span className="text-xs text-muted-foreground">{halfPeriodLabel(req.half_period)}</span>
+                    )}
                     {req.type === "partial_leave" && req.start_time && req.end_time && (
                       <span className="text-xs text-muted-foreground">{req.start_time.slice(0,5)}–{req.end_time.slice(0,5)}</span>
                     )}
@@ -729,6 +859,9 @@ function ManageSection({
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <p className="text-xs text-muted-foreground">{req.date}</p>
                       <Badge variant="outline" className="text-xs">{TYPE_LABEL[req.type]}</Badge>
+                      {req.type === "half_leave" && req.half_period && (
+                        <span className="text-xs text-muted-foreground">{halfPeriodLabel(req.half_period)}</span>
+                      )}
                       {req.type === "partial_leave" && req.start_time && req.end_time && (
                         <span className="text-xs text-muted-foreground">{req.start_time.slice(0,5)}–{req.end_time.slice(0,5)}</span>
                       )}

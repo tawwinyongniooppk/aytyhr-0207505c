@@ -76,6 +76,7 @@ export default function SalaryPage() {
   const [approvedLeaves, setApprovedLeaves] = useState<any[]>([]);
   const [bonusTxs, setBonusTxs] = useState<any[]>([]);
   const [manualAdditions, setManualAdditions] = useState<any[]>([]);
+  const [manualDeductionsList, setManualDeductionsList] = useState<any[]>([]);
   const [rates, setRates] = useState<{ late: number; early: number }>({ late: 200, early: 200 });
 
   useEffect(() => {
@@ -87,7 +88,7 @@ export default function SalaryPage() {
     setLoading(true);
     const monthStart = getMonthStart();
 
-    const [salRes, mdRes, attRes, lvRes, profRes, btRes, addRes] = await Promise.all([
+    const [salRes, mdRes, attRes, lvRes, profRes, btRes, addRes, smdRes] = await Promise.all([
       supabase
         .from("salaries")
         .select("base_salary, current_salary, total_deductions, bonus, manual_deduction, deduction_reason")
@@ -129,6 +130,12 @@ export default function SalaryPage() {
         .eq("user_id", user!.id)
         .eq("month", monthStart)
         .order("created_at", { ascending: false }),
+      (supabase as any)
+        .from("salary_manual_deductions")
+        .select("*")
+        .eq("user_id", user!.id)
+        .eq("month", monthStart)
+        .order("created_at", { ascending: false }),
     ]);
 
     if (salRes.data) setSalary(salRes.data as unknown as SalaryData);
@@ -149,6 +156,7 @@ export default function SalaryPage() {
     if (lvRes.data) setApprovedLeaves(lvRes.data as any[]);
     if (btRes.data) setBonusTxs(btRes.data as any[]);
     if (addRes.data) setManualAdditions(addRes.data as any[]);
+    if ((smdRes as any).data) setManualDeductionsList((smdRes as any).data as any[]);
     if (profRes.data) {
       const legacy = Number((profRes.data as any).deduction_rate_per_minute) || 200;
       setRates({
@@ -173,7 +181,8 @@ export default function SalaryPage() {
     .reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
   const totalAdditions = autoAdditions + manualAddTotal;
   const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
-  const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0));
+  const manualDeductionTxTotal = manualDeductionsList.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0)) + manualDeductionTxTotal;
   const totalDeductions = autoDeductions + manualDeductionAmt;
   const finalSalary = baseSalary + totalBonus + totalAdditions - totalDeductions;
 
@@ -253,13 +262,28 @@ export default function SalaryPage() {
       });
     }
 
-    if (manualDeductionAmt > 0) {
+    const legacyManual = Math.max(0, Number(salary?.manual_deduction ?? 0));
+    if (legacyManual > 0) {
       items.push({
         id: `manual-${monthStart}`,
         date: monthStart,
         type: "manual_deduction",
         description: salary?.deduction_reason || "Manual salary deduction",
-        amount: -manualDeductionAmt,
+        amount: -legacyManual,
+      });
+    }
+
+    // Per-transaction manual deductions (e.g. Half Leave approvals)
+    for (const d of manualDeductionsList) {
+      items.push({
+        id: `smd-${d.id}`,
+        date: (() => {
+          const { year, month, day } = getMMTDateParts(d.created_at);
+          return `${year}-${month}-${day}`;
+        })(),
+        type: "manual_deduction",
+        description: d.title,
+        amount: -(Number(d.amount) || 0),
       });
     }
 
@@ -275,7 +299,7 @@ export default function SalaryPage() {
     }
 
     return items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, manualLeaveDeductions, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions]);
+  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, salary?.manual_deduction, manualLeaveDeductions, manualDeductionsList, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions]);
 
 
   const currentMonth = formatMMTMonthLabel(new Date());
