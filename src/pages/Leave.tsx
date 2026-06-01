@@ -487,7 +487,14 @@ export default function Leave() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Type</span>
-                  <span className="font-medium">{TYPE_LABEL[selectedRequest.type]}</span>
+                  <span className="font-medium">
+                    {TYPE_LABEL[selectedRequest.type]}
+                    {selectedRequest.type === "half_leave" && selectedRequest.half_period && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        ({halfPeriodLabel(selectedRequest.half_period)})
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Date</span>
@@ -508,6 +515,31 @@ export default function Leave() {
                   {statusBadge(selectedRequest.status)}
                 </div>
               </div>
+              {selectedRequest.status === "pending" && selectedRequest.type === "half_leave" && (
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                    Manual Deduction (required to approve)
+                  </p>
+                  <div>
+                    <Label className="text-xs">Description</Label>
+                    <Input
+                      value={halfDeductTitle}
+                      onChange={(e) => setHalfDeductTitle(e.target.value)}
+                      placeholder="e.g. Half-Leave deduction"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Amount (Ks)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={halfDeductAmount}
+                      onChange={(e) => setHalfDeductAmount(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              )}
               {selectedRequest.status === "pending" && (
                 <div className="flex flex-col gap-2 pt-2">
                   <Button
@@ -534,7 +566,6 @@ export default function Leave() {
                     )}
                   </Button>
                 </div>
-
               )}
             </div>
           )}
