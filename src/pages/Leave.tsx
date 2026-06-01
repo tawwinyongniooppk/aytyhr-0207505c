@@ -40,8 +40,12 @@ interface LeaveRequest {
   created_at: string;
   start_time: string | null;
   end_time: string | null;
+  half_period?: "morning" | "afternoon" | null;
   profile_name?: string;
 }
+
+const halfPeriodLabel = (p?: string | null) =>
+  p === "morning" ? "Morning Half-Leave" : p === "afternoon" ? "Afternoon Half-Leave" : "";
 
 export default function Leave() {
   const { user } = useAuth();
@@ -52,6 +56,7 @@ export default function Leave() {
   const [date, setDate] = useState("");
   const [reason, setReason] = useState("");
   const [type, setType] = useState<LeaveType>("leave");
+  const [halfPeriod, setHalfPeriod] = useState<"morning" | "afternoon">("morning");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [loading, setLoading] = useState(true);
@@ -63,8 +68,8 @@ export default function Leave() {
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
   const [staffList, setStaffList] = useState<{ id: string; full_name: string }[]>([]);
-  const [unpaidDesc, setUnpaidDesc] = useState("");
-  const [unpaidAmount, setUnpaidAmount] = useState("");
+  const [halfDeductTitle, setHalfDeductTitle] = useState("");
+  const [halfDeductAmount, setHalfDeductAmount] = useState("");
 
   const canManage = isAdmin || isAssistant;
   const canSubmitLeave = isStaff || isAssistant;
