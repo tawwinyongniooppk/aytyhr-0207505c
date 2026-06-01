@@ -48,10 +48,15 @@ export function LeaveBalanceCard({ userId }: { userId?: string }) {
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading balance…
             </div>
           ) : (
-            <p className="text-sm font-medium leading-snug">
-              သင်၏ ခွင့်လက်ကျန်ရက်မှာ{" "}
-              <span className="text-primary font-bold text-base">{balance}</span> ရက် ဖြစ်ပါသည်။
-            </p>
+            <div className="space-y-1">
+              <p className="text-sm font-medium leading-snug">
+                သင်၏ ခွင့်လက်ကျန်ရက်မှာ{" "}
+                <span className="text-primary font-bold text-base">{balance}</span> ရက် ဖြစ်ပါသည်။
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                သင့်ကို System မှ (၁)လကို အများဆုံး (၂)ရက်နှင့် စာသင်နှစ် (၁)နှစ်လုံးစာအတွက် အများဆုံး (၁၀)ရက်သာ ခွင့်ပြုထားပါသည်။
+              </p>
+            </div>
           )}
         </div>
       </CardContent>
