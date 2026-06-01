@@ -548,12 +548,14 @@ export default function Leave() {
 
 function SubmitForm({
   date, setDate, reason, setReason, type, setType,
+  halfPeriod, setHalfPeriod,
   startTime, setStartTime, endTime, setEndTime,
   onSubmit, submitting, existingRequests,
 }: {
   date: string; setDate: (v: string) => void;
   reason: string; setReason: (v: string) => void;
   type: LeaveType; setType: (v: LeaveType) => void;
+  halfPeriod: "morning" | "afternoon"; setHalfPeriod: (v: "morning" | "afternoon") => void;
   startTime: string; setStartTime: (v: string) => void;
   endTime: string; setEndTime: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -562,6 +564,7 @@ function SubmitForm({
 }) {
   const dayName = date ? new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "Asia/Yangon" }).format(new Date(`${date}T00:00:00+06:30`)) : "";
   const isPartial = type === "partial_leave";
+  const isHalf = type === "half_leave";
 
   const DUPLICATE_MSG = "သင်၏ ခွင့်ချိန် ခွင့်ရက်များကို (2)ကြိမ်မြောက် တူညီစွာ ယူလို့ မရပါ။";
 
@@ -573,6 +576,9 @@ function SubmitForm({
   const fullLeaveDuplicate =
     type === "leave" && activeOnDate.some((r) => r.type === "leave");
 
+  const halfLeaveDuplicate =
+    isHalf && activeOnDate.some((r) => r.type === "half_leave" && (r.half_period ?? "") === halfPeriod);
+
   const partialOverlap =
     isPartial && startTime && endTime && startTime < endTime
       ? activeOnDate.some(
@@ -580,13 +586,12 @@ function SubmitForm({
             r.type === "partial_leave" &&
             r.start_time &&
             r.end_time &&
-            // overlap if start < other.end and end > other.start
             startTime < r.end_time.slice(0, 5) &&
             endTime > r.start_time.slice(0, 5),
         )
       : false;
 
-  const hasDuplicate = fullLeaveDuplicate || partialOverlap;
+  const hasDuplicate = fullLeaveDuplicate || partialOverlap || halfLeaveDuplicate;
 
   const isValid =
     date && reason && (!isPartial || (startTime && endTime && startTime < endTime)) && !hasDuplicate;
@@ -606,14 +611,36 @@ function SubmitForm({
                 <Label htmlFor="leave" className="cursor-pointer">Full Leave</Label>
               </div>
               <div className="flex items-center space-x-2">
+                <RadioGroupItem value="half_leave" id="half_leave" />
+                <Label htmlFor="half_leave" className="cursor-pointer">Half Leave</Label>
+              </div>
+              <div className="flex items-center space-x-2">
                 <RadioGroupItem value="partial_leave" id="partial_leave" />
                 <Label htmlFor="partial_leave" className="cursor-pointer">Partial Leave</Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="late_excuse" id="late_excuse" />
-                <Label htmlFor="late_excuse" className="cursor-pointer">Late Excuse</Label>
-              </div>
             </RadioGroup>
+            {isHalf && (
+              <div className="mt-3 pl-1">
+                <Label className="mb-1.5 block text-xs text-muted-foreground">Half-Leave Period</Label>
+                <RadioGroup
+                  value={halfPeriod}
+                  onValueChange={(v) => setHalfPeriod(v as "morning" | "afternoon")}
+                  className="flex flex-wrap gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="morning" id="hp-morning" />
+                    <Label htmlFor="hp-morning" className="cursor-pointer">Morning Half-Leave</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="afternoon" id="hp-afternoon" />
+                    <Label htmlFor="hp-afternoon" className="cursor-pointer">Afternoon Half-Leave</Label>
+                  </div>
+                </RadioGroup>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Half Leave က ခွင့်လက်ကျန်ရက်မှ (၀.၅)ရက် နှုတ်ပါမည်။ Admin Approve သည့်အခါ Manual Deduction ထည့်ပါမည်။
+                </p>
+              </div>
+            )}
             {isPartial && (
               <p className="text-xs text-muted-foreground mt-2">
                 Partial Leave is treated as a minute-based deduction (like late check-in / early check-out) and does not reduce your leave-day balance.
@@ -624,7 +651,7 @@ function SubmitForm({
             <Label>Date</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             {dayName && <p className="text-xs text-muted-foreground mt-1">{dayName}</p>}
-            {fullLeaveDuplicate && (
+            {(fullLeaveDuplicate || halfLeaveDuplicate) && (
               <p className="text-xs text-destructive mt-1.5 font-medium">{DUPLICATE_MSG}</p>
             )}
           </div>
@@ -650,8 +677,8 @@ function SubmitForm({
               onChange={(e) => setReason(e.target.value)}
               placeholder={
                 type === "leave" ? "Reason for leave" :
-                type === "partial_leave" ? "Reason for partial leave" :
-                "Reason for being late"
+                type === "half_leave" ? "Reason for half leave" :
+                "Reason for partial leave"
               }
               rows={3}
             />
