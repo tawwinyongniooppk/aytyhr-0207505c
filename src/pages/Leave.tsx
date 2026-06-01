@@ -185,19 +185,43 @@ export default function Leave() {
     }
   };
 
+  // Monthly leave equivalent (Full=1, Half=0.5) already approved for the user
+  // of the selected request, excluding the request itself.
+  const monthlyApprovedEquiv = (() => {
+    if (!selectedRequest) return 0;
+    const monthPrefix = selectedRequest.date.slice(0, 7);
+    return allRequests
+      .filter(
+        (r) =>
+          r.user_id === selectedRequest.user_id &&
+          r.id !== selectedRequest.id &&
+          r.date.startsWith(monthPrefix) &&
+          r.status === "approved" &&
+          (r.type === "leave" || r.type === "half_leave"),
+      )
+      .reduce((sum, r) => sum + (r.type === "leave" ? 1 : 0.5), 0);
+  })();
+  const fullLeaveOverCap =
+    !!selectedRequest && selectedRequest.type === "leave" && monthlyApprovedEquiv >= 2;
+
   const handleReview = async (
     requestId: string,
     decision: "approved" | "rejected",
   ) => {
     if (!user || !selectedRequest) return;
 
-    // Half Leave approvals require manual deduction (title + amount)
-    if (decision === "approved" && selectedRequest.type === "half_leave") {
+    const needsManualDeduction =
+      decision === "approved" &&
+      (selectedRequest.type === "half_leave" || fullLeaveOverCap);
+
+    if (needsManualDeduction) {
       const amt = parseInt(halfDeductAmount, 10);
       if (!halfDeductTitle.trim() || !Number.isFinite(amt) || amt <= 0) {
         toast({
           title: "Manual deduction required",
-          description: "Half Leave အတွက် Description နှင့် Amount ဖြည့်ပါ။",
+          description: fullLeaveOverCap
+            ? "လအတွင်း ခွင့်ရက် (၂)ရက် ကျော်လွန်နေသဖြင့် Description နှင့် Amount ဖြည့်ပါ။"
+            : "Half Leave အတွက် Description နှင့် Amount ဖြည့်ပါ။",
           variant: "destructive",
         });
         return;
@@ -212,7 +236,7 @@ export default function Leave() {
             month: monthStart,
             title: halfDeductTitle.trim(),
             amount: amt,
-            source: "half_leave",
+            source: fullLeaveOverCap ? "leave_over_cap" : "half_leave",
             created_by: user.id,
           });
         if (dedErr) {
@@ -232,10 +256,10 @@ export default function Leave() {
           toast({ title: "Review failed", description: error.message, variant: "destructive" });
           return;
         }
-        toast({ title: "Half Leave approved ✓" });
+        toast({ title: fullLeaveOverCap ? "Leave approved (manual deduction) ✓" : "Half Leave approved ✓" });
         sendPush({
           user_ids: [selectedRequest.user_id],
-          title: "Half Leave approved",
+          title: fullLeaveOverCap ? "Leave approved — Manual Deduction" : "Half Leave approved",
           body: `${halfDeductTitle.trim()} — ${amt.toLocaleString()} Ks deducted`,
           url: "/salary",
         });
@@ -270,12 +294,26 @@ export default function Leave() {
       toast({
         title: decision === "approved" ? "Leave approved ✓" : "Leave request rejected",
       });
+      // Morning Half-Leave approval shifts check-in to 12:00 PM — notify all parties.
+      if (
+        decision === "approved" &&
+        selectedRequest.type === "half_leave" &&
+        selectedRequest.half_period === "morning"
+      ) {
+        notifyAdmins(
+          "Morning Half-Leave approved",
+          `${selectedRequest.profile_name ?? "Staff"} ၏ check-in time သည် ${selectedRequest.date} နေ့အတွက် 12:00 PM သို့ ပြောင်းသွားပါပြီ။`,
+          "/leave",
+        );
+      }
       sendPush({
         user_ids: [selectedRequest.user_id],
         title: decision === "approved" ? "Leave approved" : "Leave rejected",
         body:
           decision === "approved"
-            ? `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was approved.`
+            ? selectedRequest.type === "half_leave" && selectedRequest.half_period === "morning"
+              ? `Morning Half-Leave approved. သင်၏ Check-in time သည် 12:00 PM သို့ ပြောင်းသွားပါပြီ။`
+              : `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was approved.`
             : `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was rejected.`,
         url: "/leave",
       });
@@ -515,17 +553,23 @@ export default function Leave() {
                   {statusBadge(selectedRequest.status)}
                 </div>
               </div>
-              {selectedRequest.status === "pending" && selectedRequest.type === "half_leave" && (
+              {selectedRequest.status === "pending" &&
+                (selectedRequest.type === "half_leave" || fullLeaveOverCap) && (
                 <div className="space-y-2 pt-2 border-t border-border">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                     Manual Deduction (required to approve)
                   </p>
+                  {fullLeaveOverCap && (
+                    <p className="text-xs text-warning">
+                      လအတွင်း ခွင့်ရက် (၂)ရက် ကျော်လွန်နေပါပြီ — Description နှင့် Amount ထည့်ပါ။
+                    </p>
+                  )}
                   <div>
                     <Label className="text-xs">Description</Label>
                     <Input
                       value={halfDeductTitle}
                       onChange={(e) => setHalfDeductTitle(e.target.value)}
-                      placeholder="e.g. Half-Leave deduction"
+                      placeholder={fullLeaveOverCap ? "e.g. Over-cap leave deduction" : "e.g. Half-Leave deduction"}
                     />
                   </div>
                   <div>

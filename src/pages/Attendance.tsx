@@ -182,6 +182,7 @@ export default function Attendance() {
   const [salaryNotification, setSalaryNotification] = useState<{ remaining: number; deduction: number } | null>(null);
   const [isHolidayToday, setIsHolidayToday] = useState(false);
   const [hasFullLeaveToday, setHasFullLeaveToday] = useState(false);
+  const [hasMorningHalfLeaveToday, setHasMorningHalfLeaveToday] = useState(false);
   const [nowTick, setNowTick] = useState<number>(Date.now());
   const [location, setLocation] = useState<LocationState>({
     status: "idle",
@@ -229,7 +230,7 @@ export default function Attendance() {
           .gte("end_date", today),
         supabase
           .from("leave_requests")
-          .select("id, type, start_time, end_time, status")
+          .select("id, type, start_time, end_time, status, half_period")
           .eq("user_id", user.id)
           .eq("date", today)
           .eq("status", "approved"),
@@ -238,10 +239,14 @@ export default function Attendance() {
       const myEventIds = new Set(((assignRes.data as any[]) || []).map((r) => r.event_id));
       const holiday = ((evRes.data as any[]) || []).some((e) => e.assigned_to_all || myEventIds.has(e.id));
       setIsHolidayToday(holiday);
-      const fullLeave = ((leaveRes.data as any[]) || []).some(
+      const leaves = (leaveRes.data as any[]) || [];
+      const fullLeave = leaves.some(
         (l) => l.type === "leave" && !l.start_time && !l.end_time,
       );
       setHasFullLeaveToday(fullLeave);
+      setHasMorningHalfLeaveToday(
+        leaves.some((l) => l.type === "half_leave" && l.half_period === "morning"),
+      );
     } catch {
       /* ignore */
     }
@@ -467,12 +472,15 @@ export default function Attendance() {
   // Missing key or partial entry => assume working day (matches Settings intent).
   const isWorkingDay = todaySchedule ? todaySchedule.active !== false : true;
   const isSpecialDay = !!staffWorkDay && staffWorkDay === todayName;
-  const expectedCheckInTime =
+  const baseExpectedCheckInTime =
     todaySchedule && todaySchedule.active !== false && todaySchedule.check_in
       ? todaySchedule.check_in
       : isSpecialDay && staffCheckInTime
         ? staffCheckInTime
         : settings.start_time;
+  // Morning Half-Leave approved → check-in expectation shifts to 12:00 PM (MMT).
+  // Check-out expectation stays as Admin/Assistant configured.
+  const expectedCheckInTime = hasMorningHalfLeaveToday ? "12:00" : baseExpectedCheckInTime;
   const expectedCheckOutTime =
     todaySchedule && todaySchedule.active !== false && todaySchedule.check_out
       ? todaySchedule.check_out
