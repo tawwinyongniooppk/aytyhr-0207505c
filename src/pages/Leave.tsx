@@ -603,33 +603,44 @@ export default function Leave() {
                   </div>
                 </div>
               )}
-              {selectedRequest.status === "pending" && (
-                <div className="flex flex-col gap-2 pt-2">
-                  <Button
-                    onClick={() => handleReview(selectedRequest.id, "approved")}
-                    disabled={reviewingId === selectedRequest.id}
-                    className="bg-accent text-accent-foreground hover:bg-accent/90 active:scale-[0.98] transition-transform"
-                  >
-                    {reviewingId === selectedRequest.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <><CheckCircle className="h-4 w-4 mr-2" /> Approve</>
-                    )}
-                  </Button>
-                  <Button
-                    onClick={() => handleReview(selectedRequest.id, "rejected")}
-                    disabled={reviewingId === selectedRequest.id}
-                    variant="outline"
-                    className="border-destructive text-destructive hover:bg-destructive/10 active:scale-[0.98] transition-transform"
-                  >
-                    {reviewingId === selectedRequest.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <><XCircle className="h-4 w-4 mr-2" /> Reject</>
-                    )}
-                  </Button>
-                </div>
-              )}
+              {selectedRequest.status === "pending" && (() => {
+                const financialRequest =
+                  selectedRequest.type === "half_leave" || fullLeaveOverCap;
+                if (isAssistant && financialRequest) {
+                  return (
+                    <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs text-warning-foreground">
+                      Admin approval required. Assistant Admin သည် Financial Statement ပါသော Request များကို Approve / Reject လုပ်ခွင့် မရှိပါ။
+                    </div>
+                  );
+                }
+                return (
+                  <div className="flex flex-col gap-2 pt-2">
+                    <Button
+                      onClick={() => handleReview(selectedRequest.id, "approved")}
+                      disabled={reviewingId === selectedRequest.id}
+                      className="bg-accent text-accent-foreground hover:bg-accent/90 active:scale-[0.98] transition-transform"
+                    >
+                      {reviewingId === selectedRequest.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <><CheckCircle className="h-4 w-4 mr-2" /> Approve</>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleReview(selectedRequest.id, "rejected")}
+                      disabled={reviewingId === selectedRequest.id}
+                      variant="outline"
+                      className="border-destructive text-destructive hover:bg-destructive/10 active:scale-[0.98] transition-transform"
+                    >
+                      {reviewingId === selectedRequest.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <><XCircle className="h-4 w-4 mr-2" /> Reject</>
+                      )}
+                    </Button>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </DialogContent>
