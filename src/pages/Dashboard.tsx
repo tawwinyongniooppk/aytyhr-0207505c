@@ -455,13 +455,22 @@ export default function Dashboard() {
                 <span className="text-sm font-bold text-destructive">{totalLateCases}</span>
               </div>
               {canViewSalary && (
-                <div
-                  onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
-                  className="flex items-center justify-between py-2 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
-                >
-                  <span className="text-sm text-muted-foreground">Total Deductions</span>
-                  <span className="text-sm font-bold text-destructive">{monthDeductions.toLocaleString()} Ks</span>
-                </div>
+                <>
+                  <div
+                    onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
+                    className="flex items-center justify-between py-2 border-b border-border rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                  >
+                    <span className="text-sm text-muted-foreground">Total Deductions</span>
+                    <span className="text-sm font-bold text-destructive">{monthDeductions.toLocaleString()} Ks</span>
+                  </div>
+                  <div
+                    onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
+                    className="flex items-center justify-between py-2 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                  >
+                    <span className="text-sm text-muted-foreground flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Avg / Day</span>
+                    <span className="text-sm font-bold">{avgDailyDeduction.toLocaleString()} Ks</span>
+                  </div>
+                </>
               )}
             </div>
           </CardContent>
