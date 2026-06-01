@@ -367,6 +367,29 @@ export default function SalaryPage() {
         </Card>
       </div>
 
+      <Card className="border border-border shadow-none bg-muted/30">
+        <CardContent className="p-4">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
+            Salary Formula
+          </p>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
+            <span className="text-foreground">{baseSalary.toLocaleString()}</span>
+            <span className="text-[10px] text-muted-foreground">Base</span>
+            <span className="text-muted-foreground">+</span>
+            <span className="text-accent">{totalBonus.toLocaleString()}</span>
+            <span className="text-[10px] text-muted-foreground">Bonus</span>
+            <span className="text-muted-foreground">+</span>
+            <span className="text-primary">{totalAdditions.toLocaleString()}</span>
+            <span className="text-[10px] text-muted-foreground">Additions</span>
+            <span className="text-muted-foreground">−</span>
+            <span className="text-destructive">{totalDeductions.toLocaleString()}</span>
+            <span className="text-[10px] text-muted-foreground">Deductions</span>
+            <span className="text-muted-foreground">=</span>
+            <span className="text-secondary font-bold">{finalSalary.toLocaleString()}</span>
+            <span className="text-[10px] text-muted-foreground">Final Ks</span>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border border-border shadow-none">
         <CardHeader>
