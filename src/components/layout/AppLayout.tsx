@@ -61,14 +61,14 @@ export function AppLayout() {
     return <Navigate to="/attendance" replace />;
   }
 
-  // Redirect admin/assistant away from staff-only routes
+  // Redirect admin (non-assistant) away from staff-only routes
   if (isAdmin && staffOnlyRoutes.includes(location.pathname)) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Redirect assistant away from salary routes
-  if (!canViewSalary && salaryRoutes.includes(location.pathname)) {
-    return <Navigate to="/attendance" replace />;
+  // /salary is available to staff and assistant only — block pure admin and it_manager
+  if (staffOrAssistantRoutes.includes(location.pathname) && !isAssistant && !canViewSalary) {
+    return <Navigate to={isAdmin ? "/dashboard" : "/attendance"} replace />;
   }
 
   // Block Neutral-class staff from timetable
