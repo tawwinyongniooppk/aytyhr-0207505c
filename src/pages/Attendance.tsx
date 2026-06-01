@@ -472,12 +472,15 @@ export default function Attendance() {
   // Missing key or partial entry => assume working day (matches Settings intent).
   const isWorkingDay = todaySchedule ? todaySchedule.active !== false : true;
   const isSpecialDay = !!staffWorkDay && staffWorkDay === todayName;
-  const expectedCheckInTime =
+  const baseExpectedCheckInTime =
     todaySchedule && todaySchedule.active !== false && todaySchedule.check_in
       ? todaySchedule.check_in
       : isSpecialDay && staffCheckInTime
         ? staffCheckInTime
         : settings.start_time;
+  // Morning Half-Leave approved → check-in expectation shifts to 12:00 PM (MMT).
+  // Check-out expectation stays as Admin/Assistant configured.
+  const expectedCheckInTime = hasMorningHalfLeaveToday ? "12:00" : baseExpectedCheckInTime;
   const expectedCheckOutTime =
     todaySchedule && todaySchedule.active !== false && todaySchedule.check_out
       ? todaySchedule.check_out
