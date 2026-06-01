@@ -78,6 +78,14 @@ Deno.serve(async (req) => {
       expectedOut = (s?.value as string) || "16:00";
     }
 
+    // Afternoon Half-Leave approved for today → expected check-out shifts to 12:00 MMT.
+    {
+      const { data: afHalf } = await admin.from("leave_requests")
+        .select("id").eq("user_id", user.id).eq("date", today)
+        .eq("type", "half_leave").eq("half_period", "afternoon").eq("status", "approved").maybeSingle();
+      if (afHalf) expectedOut = "12:00";
+    }
+
     // Compute early_minutes from actual check_out_time vs expected, in Yangon time.
     // Using setHours on a UTC Date uses the SERVER's local tz (UTC) — that produced
     // 300+ minute "early" values for a 3:15 PM Yangon check-out. Compare minute-of-day
