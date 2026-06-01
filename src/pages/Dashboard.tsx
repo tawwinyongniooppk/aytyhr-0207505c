@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2, ListChecks, ChevronRight } from "lucide-react";
+import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2, ListChecks, ChevronRight, Activity, CheckCircle2, UserX, Sparkles } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -164,17 +165,89 @@ export default function Dashboard() {
     );
   }
 
+  const absentToday = Math.max(0, totalStaff - presentToday - onLeaveToday);
+  const onTimeToday = Math.max(0, presentToday - lateToday);
+  const attendanceRate = totalStaff > 0 ? Math.round((presentToday / totalStaff) * 100) : 0;
+  const punctualityRate = presentToday > 0 ? Math.round((onTimeToday / presentToday) * 100) : 0;
+  const taskTotal = pendingTasks + completedTasks;
+  const taskCompletion = taskTotal > 0 ? Math.round((completedTasks / taskTotal) * 100) : 0;
+  const avgDailyDeduction = totalAttendanceDays > 0 ? Math.round(monthDeductions / totalAttendanceDays) : 0;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold font-display">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Today's overview — {formatMMTDate(new Date(), "en-US")}</p>
+      {/* Premium Hero */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-background to-accent/5 p-5 md:p-7">
+        <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-primary/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-12 h-48 w-48 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
+        <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-primary mb-2">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span className="uppercase tracking-wider">Live Overview</span>
+            </div>
+            <h1 className="text-3xl font-bold font-display tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground text-sm mt-1">{formatMMTDate(new Date(), "en-US")} · Myanmar Standard Time</p>
+          </div>
+          <div className="grid grid-cols-3 gap-3 md:gap-5 md:min-w-[420px]">
+            <div className="rounded-xl bg-card/70 backdrop-blur border border-border/60 px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Attendance</p>
+              <p className="text-lg font-bold font-display text-primary">{attendanceRate}%</p>
+              <Progress value={attendanceRate} className="h-1 mt-1.5" />
+            </div>
+            <div className="rounded-xl bg-card/70 backdrop-blur border border-border/60 px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Punctuality</p>
+              <p className="text-lg font-bold font-display text-accent">{punctualityRate}%</p>
+              <Progress value={punctualityRate} className="h-1 mt-1.5" />
+            </div>
+            <div className="rounded-xl bg-card/70 backdrop-blur border border-border/60 px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Tasks Done</p>
+              <p className="text-lg font-bold font-display text-secondary">{taskCompletion}%</p>
+              <Progress value={taskCompletion} className="h-1 mt-1.5" />
+            </div>
+          </div>
+        </div>
       </div>
 
       <LeaveBalanceCard />
 
+      {/* Pulse Strip — at-a-glance today */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div onClick={() => navigate("/attendance")} className="group cursor-pointer rounded-xl border border-border bg-gradient-to-br from-accent/5 to-transparent p-4 hover:border-accent/40 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <CheckCircle2 className="h-4 w-4 text-accent" />
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-accent/80">On time</span>
+          </div>
+          <p className="text-2xl font-bold font-display mt-2">{onTimeToday}<span className="text-xs font-normal text-muted-foreground"> / {totalStaff}</span></p>
+          <p className="text-xs text-muted-foreground mt-1">Checked in punctually</p>
+        </div>
+        <div onClick={() => navigate("/attendance")} className="group cursor-pointer rounded-xl border border-border bg-gradient-to-br from-destructive/5 to-transparent p-4 hover:border-destructive/40 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Late</span>
+          </div>
+          <p className="text-2xl font-bold font-display mt-2 text-destructive">{lateToday}</p>
+          <p className="text-xs text-muted-foreground mt-1">Arrived after schedule</p>
+        </div>
+        <div onClick={() => navigate("/leave")} className="group cursor-pointer rounded-xl border border-border bg-gradient-to-br from-warning/5 to-transparent p-4 hover:border-warning/40 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <FileText className="h-4 w-4 text-warning" />
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-warning/80">On leave</span>
+          </div>
+          <p className="text-2xl font-bold font-display mt-2">{onLeaveToday}</p>
+          <p className="text-xs text-muted-foreground mt-1">Approved absences</p>
+        </div>
+        <div onClick={() => navigate("/staff")} className="group cursor-pointer rounded-xl border border-border bg-gradient-to-br from-muted/30 to-transparent p-4 hover:border-primary/40 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <UserX className="h-4 w-4 text-muted-foreground" />
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Absent</span>
+          </div>
+          <p className="text-2xl font-bold font-display mt-2">{absentToday}</p>
+          <p className="text-xs text-muted-foreground mt-1">Not checked in yet</p>
+        </div>
+      </div>
+
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         {summaryCards.map((card) => (
           <Card
             key={card.label}
@@ -182,13 +255,16 @@ export default function Dashboard() {
             tabIndex={0}
             onClick={() => navigate(card.to)}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(card.to); } }}
-            className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="group relative overflow-hidden border border-border shadow-sm hover:shadow-lg hover:border-primary/40 hover:-translate-y-0.5 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-muted-foreground">{card.label}</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{card.label}</span>
                 <div className="relative">
-                  <card.icon className={cn("h-4 w-4", card.accent)} />
+                  <div className={cn("h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center group-hover:bg-primary/10 transition-colors")}>
+                    <card.icon className={cn("h-4 w-4", card.accent)} />
+                  </div>
                   {hasFor(card.to) && (
                     <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-card animate-pulse" />
                   )}
@@ -196,7 +272,7 @@ export default function Dashboard() {
               </div>
               <div className="flex items-end justify-between gap-2">
                 <p className="text-xl font-bold font-display">{card.value}</p>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0 mb-1" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0 mb-1 group-hover:translate-x-0.5 group-hover:text-primary transition-all" />
               </div>
             </CardContent>
           </Card>
@@ -379,13 +455,22 @@ export default function Dashboard() {
                 <span className="text-sm font-bold text-destructive">{totalLateCases}</span>
               </div>
               {canViewSalary && (
-                <div
-                  onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
-                  className="flex items-center justify-between py-2 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
-                >
-                  <span className="text-sm text-muted-foreground">Total Deductions</span>
-                  <span className="text-sm font-bold text-destructive">{monthDeductions.toLocaleString()} Ks</span>
-                </div>
+                <>
+                  <div
+                    onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
+                    className="flex items-center justify-between py-2 border-b border-border rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                  >
+                    <span className="text-sm text-muted-foreground">Total Deductions</span>
+                    <span className="text-sm font-bold text-destructive">{monthDeductions.toLocaleString()} Ks</span>
+                  </div>
+                  <div
+                    onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
+                    className="flex items-center justify-between py-2 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                  >
+                    <span className="text-sm text-muted-foreground flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Avg / Day</span>
+                    <span className="text-sm font-bold">{avgDailyDeduction.toLocaleString()} Ks</span>
+                  </div>
+                </>
               )}
             </div>
           </CardContent>

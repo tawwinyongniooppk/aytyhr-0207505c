@@ -11,12 +11,13 @@ const dashboardDetailRoutes = ["/staff", "/attendance", "/leave", "/tasks", "/sa
 
 const adminOnlyRoutes = ["/dashboard", "/staff", "/settings", "/calendar"];
 const salaryRoutes = ["/salary"];
-const staffOnlyRoutes = ["/attendance", "/salary", "/my-id", "/my-timetable"];
+const staffOnlyRoutes = ["/attendance", "/my-id", "/my-timetable"];
+const staffOrAssistantRoutes = ["/salary"];
 const itManagerOnlyRoutes = ["/manage-accounts", "/lesson-plans-editor"];
 
 export function AppLayout() {
   const { user, loading, signOut } = useAuth();
-  const { isAdmin, canViewSalary, isItManager, isNeutralClass, loading: profileLoading, error: profileError } = useProfile();
+  const { isAdmin, isAssistant, isStaff, canViewSalary, isItManager, isNeutralClass, loading: profileLoading, error: profileError } = useProfile();
   const location = useLocation();
 
   if (loading || profileLoading) {
@@ -60,14 +61,14 @@ export function AppLayout() {
     return <Navigate to="/attendance" replace />;
   }
 
-  // Redirect admin/assistant away from staff-only routes
+  // Redirect admin (non-assistant) away from staff-only routes
   if (isAdmin && staffOnlyRoutes.includes(location.pathname)) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Redirect assistant away from salary routes
-  if (!canViewSalary && salaryRoutes.includes(location.pathname)) {
-    return <Navigate to="/attendance" replace />;
+  // /salary is available to staff and assistant only
+  if (staffOrAssistantRoutes.includes(location.pathname) && !isAssistant && !isStaff) {
+    return <Navigate to={isAdmin ? "/dashboard" : "/attendance"} replace />;
   }
 
   // Block Neutral-class staff from timetable
