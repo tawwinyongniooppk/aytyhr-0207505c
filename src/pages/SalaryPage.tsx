@@ -175,7 +175,7 @@ export default function SalaryPage() {
   const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
   const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0));
   const totalDeductions = autoDeductions + manualDeductionAmt;
-  const finalSalary = Math.max(0, baseSalary + totalBonus + totalAdditions - totalDeductions);
+  const finalSalary = baseSalary + totalBonus + totalAdditions - totalDeductions;
 
 
   const ledger = useMemo<LedgerEntry[]>(() => {
