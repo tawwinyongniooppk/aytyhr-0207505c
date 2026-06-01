@@ -299,7 +299,7 @@ export default function SalaryPage() {
     }
 
     return items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, manualLeaveDeductions, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions]);
+  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, salary?.manual_deduction, manualLeaveDeductions, manualDeductionsList, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions]);
 
 
   const currentMonth = formatMMTMonthLabel(new Date());
