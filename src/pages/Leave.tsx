@@ -20,12 +20,12 @@ import { ManualDeductionPanel } from "@/components/ManualDeductionPanel";
 import { OvertimeSection } from "@/components/OvertimeSection";
 import { getMMTDateParts } from "@/lib/mmt";
 
-type LeaveType = "leave" | "partial_leave" | "late_excuse";
+type LeaveType = "leave" | "half_leave" | "partial_leave";
 
 const TYPE_LABEL: Record<LeaveType, string> = {
   leave: "Full Leave",
+  half_leave: "Half Leave",
   partial_leave: "Partial Leave",
-  late_excuse: "Late Excuse",
 };
 
 interface LeaveRequest {
@@ -68,29 +68,6 @@ export default function Leave() {
 
   const canManage = isAdmin || isAssistant;
   const canSubmitLeave = isStaff || isAssistant;
-
-  useEffect(() => {
-    if (!selectedRequest) { setUnpaidDesc(""); setUnpaidAmount(""); }
-  }, [selectedRequest]);
-
-  // Count this user's already-approved Full Leaves in the same month as the selected request
-  const overLimitForUnpaid = (() => {
-    if (!selectedRequest || selectedRequest.type !== "leave") return false;
-    const d = getMMTDateParts(`${selectedRequest.date}T00:00:00+06:30`);
-    const y = Number(d.year), m = Number(d.month) - 1;
-    const source = canManage ? allRequests : myRequests;
-    const count = source.filter((r) =>
-      r.user_id === selectedRequest.user_id &&
-      r.type === "leave" &&
-      r.status === "approved" &&
-      r.id !== selectedRequest.id &&
-      (() => { const x = getMMTDateParts(`${r.date}T00:00:00+06:30`); return Number(x.year) === y && Number(x.month) - 1 === m; })()
-    ).length;
-    return count >= 2;
-  })();
-
-  const OVER_LIMIT_MSG =
-    "အခု Full Leave တင်သော သူသည် တလ အတွင်းမှာ (2)ရက် ကျော်ပါတော့မည်\nSystem က တလကို (2)ရက်ထက် ပိုပြီး ခွင့်မပြုထားပါ\nသင့်အနေဖြင့် Approve ပေးချင်ပါက ယခု ခွင့်တောင်းခံသော သူကို လစာ ဖြတ်ပြီးမှ Approve ပေးခွင့်ပြုမည်";
 
   useEffect(() => {
     if (!user) return;
@@ -146,27 +123,20 @@ export default function Leave() {
     setLoading(false);
   };
 
+  // Map server-side guard exceptions to friendly Burmese messages
+  const friendlyLeaveError = (msg: string): string => {
+    if (msg.includes("OFF_DAY")) return "သင်၏ Off Day အပေါ်တွင် Leave Request တင်လို့ မရပါ။";
+    if (msg.includes("DUPLICATE")) return "တရက်တည်းအတွက် တူညီသော Leave ကို နှစ်ကြိမ် ယူ၍ မရပါ။";
+    if (msg.includes("MONTHLY_LIMIT")) return "တလအတွင်း ခွင့်ရက် (၂)ရက်ထက် ပိုပြီး ယူ၍ မရပါ။";
+    return msg;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!date || !reason || !user) return;
     if (type === "partial_leave" && (!startTime || !endTime)) return;
     if (type === "partial_leave" && startTime >= endTime) {
       toast({ title: "Invalid time range", description: "End time must be after start time.", variant: "destructive" });
-      return;
-    }
-
-    // Duplicate guard (uses already-loaded leave logs)
-    const sameDate = myRequests.filter((r) => r.date === date && r.status !== "rejected");
-    const dupMsg = "သင်၏ ခွင့်ချိန် ခွင့်ရက်များကို (2)ကြိမ်မြောက် တူညီစွာ ယူလို့ မရပါ။";
-    if (type === "leave" && sameDate.some((r) => r.type === "leave")) {
-      toast({ title: "Duplicate leave", description: dupMsg, variant: "destructive" });
-      return;
-    }
-    if (type === "partial_leave" && sameDate.some((r) =>
-      r.type === "partial_leave" && r.start_time && r.end_time &&
-      startTime < r.end_time.slice(0,5) && endTime > r.start_time.slice(0,5)
-    )) {
-      toast({ title: "Duplicate time slot", description: dupMsg, variant: "destructive" });
       return;
     }
 
@@ -184,12 +154,12 @@ export default function Leave() {
       const { error } = await supabase.from("leave_requests").insert(payload);
 
       if (error) {
-        toast({ title: "Failed to submit", description: error.message, variant: "destructive" });
+        toast({ title: "Failed to submit", description: friendlyLeaveError(error.message), variant: "destructive" });
       } else {
         toast({ title: "Leave request submitted successfully ✓" });
         notifyAdmins(
           "New leave request",
-          `${profile?.full_name ?? "Staff"} requested ${type === "partial_leave" ? "partial leave" : "leave"} on ${date}`,
+          `${profile?.full_name ?? "Staff"} requested ${TYPE_LABEL[type]} on ${date}`,
           "/leave",
         );
         setDate("");
@@ -207,7 +177,6 @@ export default function Leave() {
   const handleReview = async (
     requestId: string,
     decision: "approved" | "rejected",
-    paymentType?: "paid" | "unpaid",
   ) => {
     if (!user) return;
 
@@ -217,12 +186,8 @@ export default function Leave() {
         status: decision,
         reviewed_by: user.id,
         reviewed_at: new Date().toISOString(),
+        payment_type: decision === "approved" ? "paid" : null,
       };
-      if (decision === "approved") {
-        updates.payment_type = paymentType ?? "paid";
-      } else {
-        updates.payment_type = null;
-      }
       const { error } = await supabase
         .from("leave_requests")
         .update(updates)
@@ -233,49 +198,8 @@ export default function Leave() {
         return;
       }
 
-      // Apply additional manual salary deduction when approving an over-limit Full Leave as Unpaid
-      if (decision === "approved" && paymentType === "unpaid" && overLimitForUnpaid && selectedRequest) {
-        const amount = Number(unpaidAmount);
-        const desc = unpaidDesc.trim();
-        if (!desc || !Number.isFinite(amount) || amount <= 0) {
-          toast({ title: "Manual deduction required", description: "Description and amount are required.", variant: "destructive" });
-          return;
-        }
-        const d = getMMTDateParts(`${selectedRequest.date}T00:00:00+06:30`);
-        const monthStart = `${d.year}-${d.month}-01`;
-        const { data: existing } = await supabase
-          .from("salaries").select("*")
-          .eq("user_id", selectedRequest.user_id).eq("month", monthStart).maybeSingle();
-        if (!existing) {
-          const { data: prof } = await supabase.from("profiles")
-            .select("base_salary").eq("id", selectedRequest.user_id).maybeSingle();
-          const base = (prof as any)?.base_salary ?? 300000;
-          const { error: insErr } = await supabase.from("salaries").insert({
-            user_id: selectedRequest.user_id, month: monthStart, base_salary: base,
-            current_salary: Math.max(0, base - amount), total_deductions: amount,
-            manual_deduction: amount, deduction_reason: desc,
-          });
-          if (insErr) toast({ title: "Salary deduction failed", description: insErr.message, variant: "destructive" });
-        } else {
-          const e: any = existing;
-          const { error: updErr } = await supabase.from("salaries").update({
-            current_salary: Math.max(0, (e.current_salary ?? 0) - amount),
-            total_deductions: (e.total_deductions ?? 0) + amount,
-            manual_deduction: (e.manual_deduction ?? 0) + amount,
-            deduction_reason: e.deduction_reason ? `${e.deduction_reason}; ${desc}` : desc,
-            last_updated: new Date().toISOString(),
-          }).eq("user_id", selectedRequest.user_id).eq("month", monthStart);
-          if (updErr) toast({ title: "Salary deduction failed", description: updErr.message, variant: "destructive" });
-        }
-      }
-
       toast({
-        title:
-          decision === "approved"
-            ? paymentType === "unpaid"
-              ? "Leave approved as Unpaid ✓"
-              : "Leave approved as Paid ✓"
-            : "Leave request rejected",
+        title: decision === "approved" ? "Leave approved ✓" : "Leave request rejected",
       });
       if (selectedRequest) {
         sendPush({
@@ -283,8 +207,8 @@ export default function Leave() {
           title: decision === "approved" ? "Leave approved" : "Leave rejected",
           body:
             decision === "approved"
-              ? `Your leave on ${selectedRequest.date} was approved${paymentType ? ` (${paymentType})` : ""}.`
-              : `Your leave on ${selectedRequest.date} was rejected.`,
+              ? `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was approved.`
+              : `Your ${TYPE_LABEL[selectedRequest.type]} on ${selectedRequest.date} was rejected.`,
           url: "/leave",
         });
       }
@@ -294,6 +218,7 @@ export default function Leave() {
       setReviewingId(null);
     }
   };
+
 
   const statusBadge = (s: string) => {
     const config = {
@@ -515,61 +440,18 @@ export default function Leave() {
                 </div>
               </div>
               {selectedRequest.status === "pending" && (
-                <div className="flex flex-col gap-3 pt-2">
-                  {overLimitForUnpaid && (
-                    <div className="rounded-md border border-warning/40 bg-warning/10 p-3 space-y-3">
-                      <p className="text-xs text-warning whitespace-pre-line leading-relaxed">
-                        {OVER_LIMIT_MSG}
-                      </p>
-                      <div className="space-y-2">
-                        <div>
-                          <Label className="text-xs">Description</Label>
-                          <Input
-                            value={unpaidDesc}
-                            onChange={(e) => setUnpaidDesc(e.target.value)}
-                            placeholder="Reason for salary deduction"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Amount (MMK)</Label>
-                          <Input
-                            type="number" min={1} step={1}
-                            value={unpaidAmount}
-                            onChange={(e) => setUnpaidAmount(e.target.value)}
-                            placeholder="e.g. 10000"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button
-                      onClick={() => handleReview(selectedRequest.id, "approved", "paid")}
-                      disabled={reviewingId === selectedRequest.id}
-                      className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90 active:scale-[0.98] transition-transform"
-                    >
-                      {reviewingId === selectedRequest.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <><CheckCircle className="h-4 w-4 mr-2" /> Approve & Paid</>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={() => handleReview(selectedRequest.id, "approved", "unpaid")}
-                      disabled={
-                        reviewingId === selectedRequest.id ||
-                        (overLimitForUnpaid && (!unpaidDesc.trim() || !(Number(unpaidAmount) > 0)))
-                      }
-                      variant="outline"
-                      className="flex-1 border-accent text-accent hover:bg-accent/10 active:scale-[0.98] transition-transform"
-                    >
-                      {reviewingId === selectedRequest.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <><CheckCircle className="h-4 w-4 mr-2" /> Approve & Unpaid</>
-                      )}
-                    </Button>
-                  </div>
+                <div className="flex flex-col gap-2 pt-2">
+                  <Button
+                    onClick={() => handleReview(selectedRequest.id, "approved")}
+                    disabled={reviewingId === selectedRequest.id}
+                    className="bg-accent text-accent-foreground hover:bg-accent/90 active:scale-[0.98] transition-transform"
+                  >
+                    {reviewingId === selectedRequest.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <><CheckCircle className="h-4 w-4 mr-2" /> Approve</>
+                    )}
+                  </Button>
                   <Button
                     onClick={() => handleReview(selectedRequest.id, "rejected")}
                     disabled={reviewingId === selectedRequest.id}
@@ -583,6 +465,7 @@ export default function Leave() {
                     )}
                   </Button>
                 </div>
+
               )}
             </div>
           )}
