@@ -182,6 +182,7 @@ export default function Attendance() {
   const [salaryNotification, setSalaryNotification] = useState<{ remaining: number; deduction: number } | null>(null);
   const [isHolidayToday, setIsHolidayToday] = useState(false);
   const [hasFullLeaveToday, setHasFullLeaveToday] = useState(false);
+  const [hasMorningHalfLeaveToday, setHasMorningHalfLeaveToday] = useState(false);
   const [nowTick, setNowTick] = useState<number>(Date.now());
   const [location, setLocation] = useState<LocationState>({
     status: "idle",
