@@ -229,7 +229,7 @@ export default function SalariesAndBonuses() {
       const manualAdd = additionTotal(m.id, "manual");
       const auto = sal?.total_deductions ?? 0;
       const manual = sal?.manual_deduction ?? 0;
-      const final = Math.max(0, base + bonus + autoAdd + manualAdd - auto - manual);
+      const final = base + bonus + autoAdd + manualAdd - auto - manual;
       acc.base += base;
       acc.bonus += bonus;
       acc.deductions += auto + manual;
