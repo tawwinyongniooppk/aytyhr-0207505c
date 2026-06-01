@@ -76,6 +76,7 @@ export default function SalaryPage() {
   const [approvedLeaves, setApprovedLeaves] = useState<any[]>([]);
   const [bonusTxs, setBonusTxs] = useState<any[]>([]);
   const [manualAdditions, setManualAdditions] = useState<any[]>([]);
+  const [manualDeductionsList, setManualDeductionsList] = useState<any[]>([]);
   const [rates, setRates] = useState<{ late: number; early: number }>({ late: 200, early: 200 });
 
   useEffect(() => {
