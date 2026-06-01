@@ -859,6 +859,9 @@ function ManageSection({
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <p className="text-xs text-muted-foreground">{req.date}</p>
                       <Badge variant="outline" className="text-xs">{TYPE_LABEL[req.type]}</Badge>
+                      {req.type === "half_leave" && req.half_period && (
+                        <span className="text-xs text-muted-foreground">{halfPeriodLabel(req.half_period)}</span>
+                      )}
                       {req.type === "partial_leave" && req.start_time && req.end_time && (
                         <span className="text-xs text-muted-foreground">{req.start_time.slice(0,5)}–{req.end_time.slice(0,5)}</span>
                       )}
