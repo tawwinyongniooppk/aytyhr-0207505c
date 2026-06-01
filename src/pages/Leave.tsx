@@ -265,6 +265,23 @@ export default function Leave() {
           body: `${halfDeductTitle.trim()} — ${amt.toLocaleString()} Ks deducted`,
           url: "/salary",
         });
+        // Afternoon Half-Leave approval shifts check-out to 12:00 PM — notify all parties.
+        if (
+          selectedRequest.type === "half_leave" &&
+          selectedRequest.half_period === "afternoon"
+        ) {
+          notifyAdmins(
+            "Afternoon Half-Leave approved",
+            `${selectedRequest.profile_name ?? "Staff"} ၏ check-out time သည် ${selectedRequest.date} နေ့အတွက် 12:00 PM သို့ ပြောင်းသွားပါပြီ။`,
+            "/leave",
+          );
+          sendPush({
+            user_ids: [selectedRequest.user_id],
+            title: "Check-out time updated",
+            body: "Afternoon Half-Leave approved. သင်၏ Check-out time သည် 12:00 PM သို့ ပြောင်းသွားပါပြီ။",
+            url: "/attendance",
+          });
+        }
         setSelectedRequest(null);
         setHalfDeductTitle("");
         setHalfDeductAmount("");
