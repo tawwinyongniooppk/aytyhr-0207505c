@@ -44,9 +44,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const ALLOWED_ROLES = ["staff", "assistant", "it_manager"];
+    const ALLOWED_ROLES = ["staff", "assistant", "it_manager", "admin"];
     if (role && !ALLOWED_ROLES.includes(role)) {
-      return new Response(JSON.stringify({ error: "Invalid role. Admin role cannot be assigned via this endpoint." }), {
+      return new Response(JSON.stringify({ error: "Invalid role." }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
