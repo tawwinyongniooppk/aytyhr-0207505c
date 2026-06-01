@@ -625,8 +625,7 @@ export function TemplateEditor({ value, onChange }: Props) {
                           <div style={{ width: "100%", height: el.borderWidth ?? 2, background: el.borderColor ?? "#000", marginTop: (el.height / 2) - ((el.borderWidth ?? 2) / 2) }} />
                         )}
                         {el.type === "icon" && (() => {
-                          const ImportMap: any = require("lucide-react");
-                          const Map: any = { check: ImportMap.Check, cross: ImportMap.X, bullet: ImportMap.Circle, star: ImportMap.Star, arrow: ImportMap.ArrowRight };
+                          const Map: any = { check: Check, cross: XIcon, bullet: CircleIcon, star: Star, arrow: ArrowRight };
                           const Icon = Map[el.icon ?? "check"];
                           return <Icon style={{ width: "100%", height: "100%", color: el.color ?? "#000" }} />;
                         })()}
