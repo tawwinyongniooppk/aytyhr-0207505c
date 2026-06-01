@@ -301,6 +301,7 @@ export type Database = {
           created_at: string
           date: string
           end_time: string | null
+          half_period: string | null
           id: string
           payment_type: string | null
           reason: string
@@ -317,6 +318,7 @@ export type Database = {
           created_at?: string
           date: string
           end_time?: string | null
+          half_period?: string | null
           id?: string
           payment_type?: string | null
           reason?: string
@@ -333,6 +335,7 @@ export type Database = {
           created_at?: string
           date?: string
           end_time?: string | null
+          half_period?: string | null
           id?: string
           payment_type?: string | null
           reason?: string
@@ -557,6 +560,39 @@ export type Database = {
           id?: string
           kind?: string
           month?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      salary_manual_deductions: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          id: string
+          month: string
+          source: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          id?: string
+          month?: string
+          source?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          month?: string
+          source?: string
           title?: string
           user_id?: string
         }
