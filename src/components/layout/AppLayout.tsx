@@ -17,7 +17,7 @@ const itManagerOnlyRoutes = ["/manage-accounts", "/lesson-plans-editor"];
 
 export function AppLayout() {
   const { user, loading, signOut } = useAuth();
-  const { isAdmin, isAssistant, canViewSalary, isItManager, isNeutralClass, loading: profileLoading, error: profileError } = useProfile();
+  const { isAdmin, isAssistant, isStaff, canViewSalary, isItManager, isNeutralClass, loading: profileLoading, error: profileError } = useProfile();
   const location = useLocation();
 
   if (loading || profileLoading) {
