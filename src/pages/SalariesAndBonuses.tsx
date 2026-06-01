@@ -293,7 +293,7 @@ export default function SalariesAndBonuses() {
             const autoAdd = additionTotal(m.id, "auto");
             const manualAdd = additionTotal(m.id, "manual");
             const additions = additionsMap[m.id] || [];
-            const final = Math.max(0, base + bonus + autoAdd + manualAdd - auto - manual);
+            const final = base + bonus + autoAdd + manualAdd - auto - manual;
             return (
               <div key={m.id} className="rounded-lg border border-border p-3 space-y-2">
                 <div className="flex items-center justify-between gap-3">
