@@ -132,7 +132,9 @@ export default function Leave() {
   const friendlyLeaveError = (msg: string): string => {
     if (msg.includes("OFF_DAY")) return "သင်၏ Off Day အပေါ်တွင် Leave Request တင်လို့ မရပါ။";
     if (msg.includes("DUPLICATE")) return "တရက်တည်းအတွက် တူညီသော Leave ကို နှစ်ကြိမ် ယူ၍ မရပါ။";
-    if (msg.includes("MONTHLY_LIMIT")) return "တလအတွင်း ခွင့်ရက် (၂)ရက်ထက် ပိုပြီး ယူ၍ မရပါ။";
+    if (msg.includes("MONTHLY_LIMIT_FULL")) return "တလအတွင်း Full Leave (၂)ကြိမ်ထက် ပိုပြီး ယူ၍ မရပါ။";
+    if (msg.includes("MONTHLY_LIMIT_HALF")) return "တလအတွင်း Half Leave (၄)ကြိမ်ထက် ပိုပြီး ယူ၍ မရပါ။";
+    if (msg.includes("MONTHLY_LIMIT")) return "တလအတွင်း ခွင့်ရက် ကန့်သတ် ကျော်လွန်နေပါသည်။";
     return msg;
   };
 
