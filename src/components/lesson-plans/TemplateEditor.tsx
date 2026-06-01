@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Bold, Italic, Underline, Plus, Trash2, Lock, Unlock, Type, Image as ImageIcon, Square, Star, Layers } from "lucide-react";
+import { Bold, Italic, Underline, Plus, Trash2, Lock, Unlock, Type, Image as ImageIcon, Square, Star, Layers, Check, X as XIcon, Circle as CircleIcon, ArrowRight } from "lucide-react";
 import { TemplateCanvas } from "./TemplateCanvas";
 import { ImageUpload } from "./ImageUpload";
 import type { LessonPlanTemplate, Cell, FreeElement, FreeElementType } from "@/lib/lessonPlanTypes";
