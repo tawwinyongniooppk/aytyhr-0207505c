@@ -88,7 +88,7 @@ export default function SalaryPage() {
     setLoading(true);
     const monthStart = getMonthStart();
 
-    const [salRes, mdRes, attRes, lvRes, profRes, btRes, addRes] = await Promise.all([
+    const [salRes, mdRes, attRes, lvRes, profRes, btRes, addRes, smdRes] = await Promise.all([
       supabase
         .from("salaries")
         .select("base_salary, current_salary, total_deductions, bonus, manual_deduction, deduction_reason")
@@ -126,6 +126,12 @@ export default function SalaryPage() {
         .order("approved_date", { ascending: false }),
       supabase
         .from("salary_manual_additions")
+        .select("*")
+        .eq("user_id", user!.id)
+        .eq("month", monthStart)
+        .order("created_at", { ascending: false }),
+      (supabase as any)
+        .from("salary_manual_deductions")
         .select("*")
         .eq("user_id", user!.id)
         .eq("month", monthStart)
