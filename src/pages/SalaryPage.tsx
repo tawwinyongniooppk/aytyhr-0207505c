@@ -156,6 +156,7 @@ export default function SalaryPage() {
     if (lvRes.data) setApprovedLeaves(lvRes.data as any[]);
     if (btRes.data) setBonusTxs(btRes.data as any[]);
     if (addRes.data) setManualAdditions(addRes.data as any[]);
+    if ((smdRes as any).data) setManualDeductionsList((smdRes as any).data as any[]);
     if (profRes.data) {
       const legacy = Number((profRes.data as any).deduction_rate_per_minute) || 200;
       setRates({
@@ -180,7 +181,8 @@ export default function SalaryPage() {
     .reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
   const totalAdditions = autoAdditions + manualAddTotal;
   const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
-  const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0));
+  const manualDeductionTxTotal = manualDeductionsList.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0)) + manualDeductionTxTotal;
   const totalDeductions = autoDeductions + manualDeductionAmt;
   const finalSalary = baseSalary + totalBonus + totalAdditions - totalDeductions;
 
