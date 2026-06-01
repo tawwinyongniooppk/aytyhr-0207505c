@@ -8,7 +8,6 @@ export function LeaveBalanceCard({ userId }: { userId?: string }) {
   const { user } = useAuth();
   const targetId = userId ?? user?.id;
   const [balance, setBalance] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!targetId) return;
