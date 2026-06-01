@@ -352,6 +352,7 @@ export type Database = {
       lesson_plan_templates: {
         Row: {
           class: string
+          format: string
           id: string
           template_json: Json
           updated_at: string
@@ -359,6 +360,7 @@ export type Database = {
         }
         Insert: {
           class: string
+          format?: string
           id?: string
           template_json?: Json
           updated_at?: string
@@ -366,6 +368,7 @@ export type Database = {
         }
         Update: {
           class?: string
+          format?: string
           id?: string
           template_json?: Json
           updated_at?: string
