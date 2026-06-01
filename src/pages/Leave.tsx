@@ -553,17 +553,23 @@ export default function Leave() {
                   {statusBadge(selectedRequest.status)}
                 </div>
               </div>
-              {selectedRequest.status === "pending" && selectedRequest.type === "half_leave" && (
+              {selectedRequest.status === "pending" &&
+                (selectedRequest.type === "half_leave" || fullLeaveOverCap) && (
                 <div className="space-y-2 pt-2 border-t border-border">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                     Manual Deduction (required to approve)
                   </p>
+                  {fullLeaveOverCap && (
+                    <p className="text-xs text-warning">
+                      လအတွင်း ခွင့်ရက် (၂)ရက် ကျော်လွန်နေပါပြီ — Description နှင့် Amount ထည့်ပါ။
+                    </p>
+                  )}
                   <div>
                     <Label className="text-xs">Description</Label>
                     <Input
                       value={halfDeductTitle}
                       onChange={(e) => setHalfDeductTitle(e.target.value)}
-                      placeholder="e.g. Half-Leave deduction"
+                      placeholder={fullLeaveOverCap ? "e.g. Over-cap leave deduction" : "e.g. Half-Leave deduction"}
                     />
                   </div>
                   <div>
