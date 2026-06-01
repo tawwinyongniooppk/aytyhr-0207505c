@@ -175,7 +175,7 @@ export default function SalaryPage() {
   const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
   const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0));
   const totalDeductions = autoDeductions + manualDeductionAmt;
-  const finalSalary = Math.max(0, baseSalary + totalBonus + totalAdditions - totalDeductions);
+  const finalSalary = baseSalary + totalBonus + totalAdditions - totalDeductions;
 
 
   const ledger = useMemo<LedgerEntry[]>(() => {
@@ -359,7 +359,7 @@ export default function SalaryPage() {
               <Wallet className="h-4 w-4 text-secondary shrink-0" />
               <span className="text-xs text-muted-foreground truncate">Final Salary</span>
             </div>
-            <p className="text-base sm:text-lg font-bold font-display text-secondary break-words">
+            <p className={`text-base sm:text-lg font-bold font-display break-words ${finalSalary < 0 ? "text-destructive" : "text-secondary"}`}>
               {finalSalary.toLocaleString()}
               <span className="text-xs font-normal text-muted-foreground"> Ks</span>
             </p>
@@ -385,7 +385,7 @@ export default function SalaryPage() {
             <span className="text-destructive">{totalDeductions.toLocaleString()}</span>
             <span className="text-[10px] text-muted-foreground">Deductions</span>
             <span className="text-muted-foreground">=</span>
-            <span className="text-secondary font-bold">{finalSalary.toLocaleString()}</span>
+            <span className={`font-bold ${finalSalary < 0 ? "text-destructive" : "text-secondary"}`}>{finalSalary.toLocaleString()}</span>
             <span className="text-[10px] text-muted-foreground">Final Ks</span>
           </div>
         </CardContent>
