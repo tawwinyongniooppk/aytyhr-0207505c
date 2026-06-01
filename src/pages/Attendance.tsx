@@ -230,7 +230,7 @@ export default function Attendance() {
           .gte("end_date", today),
         supabase
           .from("leave_requests")
-          .select("id, type, start_time, end_time, status")
+          .select("id, type, start_time, end_time, status, half_period")
           .eq("user_id", user.id)
           .eq("date", today)
           .eq("status", "approved"),
@@ -239,10 +239,14 @@ export default function Attendance() {
       const myEventIds = new Set(((assignRes.data as any[]) || []).map((r) => r.event_id));
       const holiday = ((evRes.data as any[]) || []).some((e) => e.assigned_to_all || myEventIds.has(e.id));
       setIsHolidayToday(holiday);
-      const fullLeave = ((leaveRes.data as any[]) || []).some(
+      const leaves = (leaveRes.data as any[]) || [];
+      const fullLeave = leaves.some(
         (l) => l.type === "leave" && !l.start_time && !l.end_time,
       );
       setHasFullLeaveToday(fullLeave);
+      setHasMorningHalfLeaveToday(
+        leaves.some((l) => l.type === "half_leave" && l.half_period === "morning"),
+      );
     } catch {
       /* ignore */
     }
