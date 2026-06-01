@@ -20,12 +20,12 @@ import { ManualDeductionPanel } from "@/components/ManualDeductionPanel";
 import { OvertimeSection } from "@/components/OvertimeSection";
 import { getMMTDateParts } from "@/lib/mmt";
 
-type LeaveType = "leave" | "partial_leave" | "late_excuse";
+type LeaveType = "leave" | "half_leave" | "partial_leave";
 
 const TYPE_LABEL: Record<LeaveType, string> = {
   leave: "Full Leave",
+  half_leave: "Half Leave",
   partial_leave: "Partial Leave",
-  late_excuse: "Late Excuse",
 };
 
 interface LeaveRequest {
