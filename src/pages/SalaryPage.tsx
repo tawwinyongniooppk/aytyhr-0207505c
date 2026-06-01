@@ -262,13 +262,28 @@ export default function SalaryPage() {
       });
     }
 
-    if (manualDeductionAmt > 0) {
+    const legacyManual = Math.max(0, Number(salary?.manual_deduction ?? 0));
+    if (legacyManual > 0) {
       items.push({
         id: `manual-${monthStart}`,
         date: monthStart,
         type: "manual_deduction",
         description: salary?.deduction_reason || "Manual salary deduction",
-        amount: -manualDeductionAmt,
+        amount: -legacyManual,
+      });
+    }
+
+    // Per-transaction manual deductions (e.g. Half Leave approvals)
+    for (const d of manualDeductionsList) {
+      items.push({
+        id: `smd-${d.id}`,
+        date: (() => {
+          const { year, month, day } = getMMTDateParts(d.created_at);
+          return `${year}-${month}-${day}`;
+        })(),
+        type: "manual_deduction",
+        description: d.title,
+        amount: -(Number(d.amount) || 0),
       });
     }
 
