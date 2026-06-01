@@ -385,7 +385,7 @@ export default function SalaryPage() {
             <span className="text-destructive">{totalDeductions.toLocaleString()}</span>
             <span className="text-[10px] text-muted-foreground">Deductions</span>
             <span className="text-muted-foreground">=</span>
-            <span className="text-secondary font-bold">{finalSalary.toLocaleString()}</span>
+            <span className={`font-bold ${finalSalary < 0 ? "text-destructive" : "text-secondary"}`}>{finalSalary.toLocaleString()}</span>
             <span className="text-[10px] text-muted-foreground">Final Ks</span>
           </div>
         </CardContent>
