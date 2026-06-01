@@ -66,8 +66,8 @@ export function AppLayout() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // /salary is available to staff and assistant only — block pure admin and it_manager
-  if (staffOrAssistantRoutes.includes(location.pathname) && !isAssistant && !canViewSalary) {
+  // /salary is available to staff and assistant only
+  if (staffOrAssistantRoutes.includes(location.pathname) && !isAssistant && !isStaff) {
     return <Navigate to={isAdmin ? "/dashboard" : "/attendance"} replace />;
   }
 
