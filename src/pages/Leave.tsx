@@ -70,6 +70,23 @@ export default function Leave() {
   const [staffList, setStaffList] = useState<{ id: string; full_name: string }[]>([]);
   const [halfDeductTitle, setHalfDeductTitle] = useState("");
   const [halfDeductAmount, setHalfDeductAmount] = useState("");
+  const [workStart, setWorkStart] = useState("09:00");
+  const [workEnd, setWorkEnd] = useState("16:00");
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("key,value")
+        .in("key", ["start_time", "end_time"]);
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r: any) => (map[r.key] = r.value));
+      if (map.start_time) setWorkStart(map.start_time);
+      if (map.end_time) setWorkEnd(map.end_time);
+    })();
+  }, []);
+
+
 
   const canManage = isAdmin || isAssistant;
   const canSubmitLeave = isStaff || isAssistant;
