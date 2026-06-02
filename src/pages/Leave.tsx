@@ -70,6 +70,23 @@ export default function Leave() {
   const [staffList, setStaffList] = useState<{ id: string; full_name: string }[]>([]);
   const [halfDeductTitle, setHalfDeductTitle] = useState("");
   const [halfDeductAmount, setHalfDeductAmount] = useState("");
+  const [workStart, setWorkStart] = useState("09:00");
+  const [workEnd, setWorkEnd] = useState("16:00");
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("key,value")
+        .in("key", ["start_time", "end_time"]);
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r: any) => (map[r.key] = r.value));
+      if (map.start_time) setWorkStart(map.start_time);
+      if (map.end_time) setWorkEnd(map.end_time);
+    })();
+  }, []);
+
+
 
   const canManage = isAdmin || isAssistant;
   const canSubmitLeave = isStaff || isAssistant;
@@ -132,11 +149,16 @@ export default function Leave() {
   const friendlyLeaveError = (msg: string): string => {
     if (msg.includes("OFF_DAY")) return "သင်၏ Off Day အပေါ်တွင် Leave Request တင်လို့ မရပါ။";
     if (msg.includes("DUPLICATE")) return "တရက်တည်းအတွက် တူညီသော Leave ကို နှစ်ကြိမ် ယူ၍ မရပါ။";
+    if (msg.includes("FULL_LEAVE_EXISTS")) return "ထို နေ့အတွက် Full Leave ရထားသဖြင့် Partial Leave တင်လို့ မရပါ။";
+    if (msg.includes("OVERLAP_PARTIAL")) return "အချိန် တိုက်ဆိုင်နေသော Partial Leave ရှိနေပါသည်။";
+    if (msg.includes("OVERLAP_HALF")) return "Approve ရထားသော Half-Leave အချိန်နှင့် တိုက်ဆိုင်နေပါသည်။";
+    if (msg.includes("INVALID_TIME")) return "Partial Leave အတွက် Start/End အချိန် မှန်ကန်စွာ ထည့်ပါ။";
     if (msg.includes("MONTHLY_LIMIT_FULL")) return "တလအတွင်း Full Leave (၂)ကြိမ်ထက် ပိုပြီး ယူ၍ မရပါ။";
     if (msg.includes("MONTHLY_LIMIT_HALF")) return "တလအတွင်း Half Leave (၄)ကြိမ်ထက် ပိုပြီး ယူ၍ မရပါ။";
     if (msg.includes("MONTHLY_LIMIT")) return "တလအတွင်း ခွင့်ရက် ကန့်သတ် ကျော်လွန်နေပါသည်။";
     return msg;
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,9 +332,53 @@ export default function Leave() {
         return;
       }
 
+      // Partial Leave approval → auto-create a salary transaction (minutes × per-min rate)
+      if (
+        decision === "approved" &&
+        selectedRequest.type === "partial_leave" &&
+        selectedRequest.start_time &&
+        selectedRequest.end_time
+      ) {
+        try {
+          const [sh, sm] = selectedRequest.start_time.slice(0, 5).split(":").map(Number);
+          const [eh, em] = selectedRequest.end_time.slice(0, 5).split(":").map(Number);
+          const minutes = Math.max(0, eh * 60 + em - (sh * 60 + sm));
+          const { data: prof } = await (supabase as any)
+            .from("profiles")
+            .select("partial_leave_deduction_per_minute, deduction_rate_per_minute, full_name")
+            .eq("id", selectedRequest.user_id)
+            .maybeSingle();
+          const rate =
+            Number(prof?.partial_leave_deduction_per_minute) ||
+            Number(prof?.deduction_rate_per_minute) ||
+            200;
+          const amount = minutes * rate;
+          if (amount > 0) {
+            const monthStart = `${selectedRequest.date.slice(0, 7)}-01`;
+            await (supabase as any).from("salary_manual_deductions").insert({
+              user_id: selectedRequest.user_id,
+              month: monthStart,
+              title: `Partial Leave (${selectedRequest.date} ${selectedRequest.start_time.slice(0,5)}–${selectedRequest.end_time.slice(0,5)}, ${minutes} min)`,
+              amount,
+              source: "partial_leave",
+              created_by: user.id,
+            });
+            sendPush({
+              user_ids: [selectedRequest.user_id],
+              title: "Partial Leave approved",
+              body: `${minutes} min × ${rate.toLocaleString()} Ks = ${amount.toLocaleString()} Ks deducted`,
+              url: "/salary",
+            });
+          }
+        } catch (e) {
+          console.error("[partial-leave] deduction insert failed", e);
+        }
+      }
+
       toast({
         title: decision === "approved" ? "Leave approved ✓" : "Leave request rejected",
       });
+
       // Morning Half-Leave approval shifts check-in to 12:00 PM — notify all parties.
       if (
         decision === "approved" &&
@@ -420,6 +486,9 @@ export default function Leave() {
               onSubmit={handleSubmit}
               submitting={submitting}
               existingRequests={myRequests}
+              workStart={workStart}
+              workEnd={workEnd}
+
             />
           </SectionBlock>
 
@@ -497,6 +566,9 @@ export default function Leave() {
                 onSubmit={handleSubmit}
                 submitting={submitting}
                 existingRequests={myRequests}
+                workStart={workStart}
+                workEnd={workEnd}
+
               />
             </SectionBlock>
             <SectionBlock label="3 · My Leave Logs" hint="Status of your past requests.">
@@ -656,6 +728,7 @@ function SubmitForm({
   halfPeriod, setHalfPeriod,
   startTime, setStartTime, endTime, setEndTime,
   onSubmit, submitting, existingRequests,
+  workStart, workEnd,
 }: {
   date: string; setDate: (v: string) => void;
   reason: string; setReason: (v: string) => void;
@@ -666,6 +739,8 @@ function SubmitForm({
   onSubmit: (e: React.FormEvent) => void;
   submitting: boolean;
   existingRequests: LeaveRequest[];
+  workStart: string;
+  workEnd: string;
 }) {
   const dayName = date ? new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "Asia/Yangon" }).format(new Date(`${date}T00:00:00+06:30`)) : "";
   const isPartial = type === "partial_leave";
@@ -684,6 +759,28 @@ function SubmitForm({
   const halfLeaveDuplicate =
     isHalf && activeOnDate.some((r) => r.type === "half_leave" && (r.half_period ?? "") === halfPeriod);
 
+  // Block Partial Leave when an approved Full Leave exists for that day
+  const partialBlockedByFull =
+    isPartial && activeOnDate.some((r) => r.type === "leave" && r.status === "approved");
+
+  // Block Partial Leave when it overlaps an approved Half-Leave window
+  const partialBlockedByHalf =
+    isPartial && startTime && endTime
+      ? activeOnDate.some(
+          (r) =>
+            r.type === "half_leave" &&
+            r.status === "approved" &&
+            ((r.half_period === "morning" && startTime < "12:00") ||
+              (r.half_period === "afternoon" && endTime > "12:00")),
+        )
+      : false;
+
+  // Partial Leave must sit inside the official work window
+  const partialOutOfWindow =
+    isPartial && startTime && endTime
+      ? startTime < workStart || endTime > workEnd
+      : false;
+
   const partialOverlap =
     isPartial && startTime && endTime && startTime < endTime
       ? activeOnDate.some(
@@ -696,10 +793,17 @@ function SubmitForm({
         )
       : false;
 
-  const hasDuplicate = fullLeaveDuplicate || partialOverlap || halfLeaveDuplicate;
+  const hasDuplicate =
+    fullLeaveDuplicate ||
+    partialOverlap ||
+    halfLeaveDuplicate ||
+    partialBlockedByFull ||
+    partialBlockedByHalf ||
+    partialOutOfWindow;
 
   const isValid =
     date && reason && (!isPartial || (startTime && endTime && startTime < endTime)) && !hasDuplicate;
+
 
   return (
     <Card className="border border-border shadow-none">
@@ -764,17 +868,36 @@ function SubmitForm({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Start time</Label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                <Input type="time" min={workStart} max={workEnd} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
               </div>
               <div>
                 <Label>End time</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <Input type="time" min={workStart} max={workEnd} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
               </div>
+              <p className="col-span-2 text-xs text-muted-foreground">
+                Work window: {workStart} – {workEnd}. Partial Leave အချိန် ဤအတွင်းသာ ဖြစ်ရမည်။
+              </p>
               {partialOverlap && (
                 <p className="col-span-2 text-xs text-destructive font-medium">{DUPLICATE_MSG}</p>
               )}
+              {partialBlockedByFull && (
+                <p className="col-span-2 text-xs text-destructive font-medium">
+                  ထို နေ့အတွက် Full Leave Approve ရထားသဖြင့် Partial Leave ယူ၍ မရပါ။
+                </p>
+              )}
+              {partialBlockedByHalf && (
+                <p className="col-span-2 text-xs text-destructive font-medium">
+                  Approve ရထားသော Half-Leave အချိန်နှင့် တိုက်ဆိုင်နေပါသည်။
+                </p>
+              )}
+              {partialOutOfWindow && (
+                <p className="col-span-2 text-xs text-destructive font-medium">
+                  သတ်မှတ်ထားသော Work Window ({workStart} – {workEnd}) အပြင် မထွက်ရပါ။
+                </p>
+              )}
             </div>
           )}
+
           <div>
             <Label>Reason</Label>
             <Textarea
