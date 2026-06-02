@@ -684,6 +684,7 @@ function SubmitForm({
   halfPeriod, setHalfPeriod,
   startTime, setStartTime, endTime, setEndTime,
   onSubmit, submitting, existingRequests,
+  workStart, workEnd,
 }: {
   date: string; setDate: (v: string) => void;
   reason: string; setReason: (v: string) => void;
@@ -694,6 +695,8 @@ function SubmitForm({
   onSubmit: (e: React.FormEvent) => void;
   submitting: boolean;
   existingRequests: LeaveRequest[];
+  workStart: string;
+  workEnd: string;
 }) {
   const dayName = date ? new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "Asia/Yangon" }).format(new Date(`${date}T00:00:00+06:30`)) : "";
   const isPartial = type === "partial_leave";
@@ -712,6 +715,28 @@ function SubmitForm({
   const halfLeaveDuplicate =
     isHalf && activeOnDate.some((r) => r.type === "half_leave" && (r.half_period ?? "") === halfPeriod);
 
+  // Block Partial Leave when an approved Full Leave exists for that day
+  const partialBlockedByFull =
+    isPartial && activeOnDate.some((r) => r.type === "leave" && r.status === "approved");
+
+  // Block Partial Leave when it overlaps an approved Half-Leave window
+  const partialBlockedByHalf =
+    isPartial && startTime && endTime
+      ? activeOnDate.some(
+          (r) =>
+            r.type === "half_leave" &&
+            r.status === "approved" &&
+            ((r.half_period === "morning" && startTime < "12:00") ||
+              (r.half_period === "afternoon" && endTime > "12:00")),
+        )
+      : false;
+
+  // Partial Leave must sit inside the official work window
+  const partialOutOfWindow =
+    isPartial && startTime && endTime
+      ? startTime < workStart || endTime > workEnd
+      : false;
+
   const partialOverlap =
     isPartial && startTime && endTime && startTime < endTime
       ? activeOnDate.some(
@@ -724,10 +749,17 @@ function SubmitForm({
         )
       : false;
 
-  const hasDuplicate = fullLeaveDuplicate || partialOverlap || halfLeaveDuplicate;
+  const hasDuplicate =
+    fullLeaveDuplicate ||
+    partialOverlap ||
+    halfLeaveDuplicate ||
+    partialBlockedByFull ||
+    partialBlockedByHalf ||
+    partialOutOfWindow;
 
   const isValid =
     date && reason && (!isPartial || (startTime && endTime && startTime < endTime)) && !hasDuplicate;
+
 
   return (
     <Card className="border border-border shadow-none">
