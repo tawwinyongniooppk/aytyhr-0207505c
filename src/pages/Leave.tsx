@@ -522,6 +522,9 @@ export default function Leave() {
                 onSubmit={handleSubmit}
                 submitting={submitting}
                 existingRequests={myRequests}
+                workStart={workStart}
+                workEnd={workEnd}
+
               />
             </SectionBlock>
             <SectionBlock label="3 · My Leave Logs" hint="Status of your past requests.">
