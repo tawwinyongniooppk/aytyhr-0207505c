@@ -332,9 +332,53 @@ export default function Leave() {
         return;
       }
 
+      // Partial Leave approval → auto-create a salary transaction (minutes × per-min rate)
+      if (
+        decision === "approved" &&
+        selectedRequest.type === "partial_leave" &&
+        selectedRequest.start_time &&
+        selectedRequest.end_time
+      ) {
+        try {
+          const [sh, sm] = selectedRequest.start_time.slice(0, 5).split(":").map(Number);
+          const [eh, em] = selectedRequest.end_time.slice(0, 5).split(":").map(Number);
+          const minutes = Math.max(0, eh * 60 + em - (sh * 60 + sm));
+          const { data: prof } = await (supabase as any)
+            .from("profiles")
+            .select("partial_leave_deduction_per_minute, deduction_rate_per_minute, full_name")
+            .eq("id", selectedRequest.user_id)
+            .maybeSingle();
+          const rate =
+            Number(prof?.partial_leave_deduction_per_minute) ||
+            Number(prof?.deduction_rate_per_minute) ||
+            200;
+          const amount = minutes * rate;
+          if (amount > 0) {
+            const monthStart = `${selectedRequest.date.slice(0, 7)}-01`;
+            await (supabase as any).from("salary_manual_deductions").insert({
+              user_id: selectedRequest.user_id,
+              month: monthStart,
+              title: `Partial Leave (${selectedRequest.date} ${selectedRequest.start_time.slice(0,5)}–${selectedRequest.end_time.slice(0,5)}, ${minutes} min)`,
+              amount,
+              source: "partial_leave",
+              created_by: user.id,
+            });
+            sendPush({
+              user_ids: [selectedRequest.user_id],
+              title: "Partial Leave approved",
+              body: `${minutes} min × ${rate.toLocaleString()} Ks = ${amount.toLocaleString()} Ks deducted`,
+              url: "/salary",
+            });
+          }
+        } catch (e) {
+          console.error("[partial-leave] deduction insert failed", e);
+        }
+      }
+
       toast({
         title: decision === "approved" ? "Leave approved ✓" : "Leave request rejected",
       });
+
       // Morning Half-Leave approval shifts check-in to 12:00 PM — notify all parties.
       if (
         decision === "approved" &&
