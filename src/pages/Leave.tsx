@@ -149,11 +149,16 @@ export default function Leave() {
   const friendlyLeaveError = (msg: string): string => {
     if (msg.includes("OFF_DAY")) return "သင်၏ Off Day အပေါ်တွင် Leave Request တင်လို့ မရပါ။";
     if (msg.includes("DUPLICATE")) return "တရက်တည်းအတွက် တူညီသော Leave ကို နှစ်ကြိမ် ယူ၍ မရပါ။";
+    if (msg.includes("FULL_LEAVE_EXISTS")) return "ထို နေ့အတွက် Full Leave ရထားသဖြင့် Partial Leave တင်လို့ မရပါ။";
+    if (msg.includes("OVERLAP_PARTIAL")) return "အချိန် တိုက်ဆိုင်နေသော Partial Leave ရှိနေပါသည်။";
+    if (msg.includes("OVERLAP_HALF")) return "Approve ရထားသော Half-Leave အချိန်နှင့် တိုက်ဆိုင်နေပါသည်။";
+    if (msg.includes("INVALID_TIME")) return "Partial Leave အတွက် Start/End အချိန် မှန်ကန်စွာ ထည့်ပါ။";
     if (msg.includes("MONTHLY_LIMIT_FULL")) return "တလအတွင်း Full Leave (၂)ကြိမ်ထက် ပိုပြီး ယူ၍ မရပါ။";
     if (msg.includes("MONTHLY_LIMIT_HALF")) return "တလအတွင်း Half Leave (၄)ကြိမ်ထက် ပိုပြီး ယူ၍ မရပါ။";
     if (msg.includes("MONTHLY_LIMIT")) return "တလအတွင်း ခွင့်ရက် ကန့်သတ် ကျော်လွန်နေပါသည်။";
     return msg;
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
