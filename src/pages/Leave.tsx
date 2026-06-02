@@ -824,17 +824,36 @@ function SubmitForm({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Start time</Label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                <Input type="time" min={workStart} max={workEnd} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
               </div>
               <div>
                 <Label>End time</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <Input type="time" min={workStart} max={workEnd} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
               </div>
+              <p className="col-span-2 text-xs text-muted-foreground">
+                Work window: {workStart} – {workEnd}. Partial Leave အချိန် ဤအတွင်းသာ ဖြစ်ရမည်။
+              </p>
               {partialOverlap && (
                 <p className="col-span-2 text-xs text-destructive font-medium">{DUPLICATE_MSG}</p>
               )}
+              {partialBlockedByFull && (
+                <p className="col-span-2 text-xs text-destructive font-medium">
+                  ထို နေ့အတွက် Full Leave Approve ရထားသဖြင့် Partial Leave ယူ၍ မရပါ။
+                </p>
+              )}
+              {partialBlockedByHalf && (
+                <p className="col-span-2 text-xs text-destructive font-medium">
+                  Approve ရထားသော Half-Leave အချိန်နှင့် တိုက်ဆိုင်နေပါသည်။
+                </p>
+              )}
+              {partialOutOfWindow && (
+                <p className="col-span-2 text-xs text-destructive font-medium">
+                  သတ်မှတ်ထားသော Work Window ({workStart} – {workEnd}) အပြင် မထွက်ရပါ။
+                </p>
+              )}
             </div>
           )}
+
           <div>
             <Label>Reason</Label>
             <Textarea
