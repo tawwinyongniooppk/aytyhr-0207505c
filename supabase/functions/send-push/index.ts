@@ -171,16 +171,31 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             message: {
               token: row.token,
-              // Data-only payload: ensures Firebase service worker
-              // `onBackgroundMessage` runs so we can bump the app badge,
-              // play sound + vibration, and customise the notification.
+              // Send BOTH notification + data:
+              // - `webpush.notification` lets the browser auto-display with
+              //   system sound, vibration and app badge even if the SW
+              //   `onBackgroundMessage` is silent (some Android Chrome
+              //   builds suppress data-only pushes).
+              // - `data` keeps fields available for our SW handler and the
+              //   in-app foreground toast.
               data: { url, title, body: message, ...data },
               webpush: {
                 headers: { Urgency: "high", TTL: "300" },
+                notification: {
+                  title,
+                  body: message,
+                  icon: "/pwa-192x192.png",
+                  badge: "/pwa-192x192.png",
+                  vibrate: [200, 100, 200],
+                  requireInteraction: false,
+                  tag: data.tag ?? "ayty-notif",
+                  renotify: true,
+                },
                 fcm_options: { link: url },
               },
             },
           }),
+
         });
         if (res.ok) {
           sent++;
