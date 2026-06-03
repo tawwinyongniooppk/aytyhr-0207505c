@@ -268,17 +268,22 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
           ) : (
             <div className="space-y-1">
               {sortedTasks.map((task) => (
-                <div key={task.id} className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(task.status, task.due_date)}`}>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium flex items-center gap-2 ${task.status === "approved" ? "line-through text-muted-foreground" : ""}`}>
+                <div
+                  key={task.id}
+                  className={`flex flex-col sm:flex-row sm:items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(task.status, task.due_date)}`}
+                >
+                  <div className="flex-1 min-w-0 w-full">
+                    <p className={`text-sm font-medium flex items-start gap-2 break-words ${task.status === "approved" ? "line-through text-muted-foreground" : ""}`}>
                       {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && (
-                        <span className="h-2 w-2 rounded-full bg-destructive ring-2 ring-destructive/20 animate-pulse shrink-0" title="Not yet accepted" />
+                        <span className="mt-1.5 h-2 w-2 rounded-full bg-destructive ring-2 ring-destructive/20 animate-pulse shrink-0" title="Not yet accepted" />
                       )}
-                      {task.title}
+                      <span className="min-w-0 break-words">{task.title}</span>
                     </p>
-                    {task.description && <p className="text-xs text-muted-foreground mt-1">{task.description}</p>}
+                    {task.description && (
+                      <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words">{task.description}</p>
+                    )}
                     {task.status === "rejected" && (task as any).rejection_reason && (
-                      <p className="text-xs mt-1 text-red-700 dark:text-red-400"><span className="font-semibold">Rejected:</span> {(task as any).rejection_reason}</p>
+                      <p className="text-xs mt-1 text-red-700 dark:text-red-400 break-words"><span className="font-semibold">Rejected:</span> {(task as any).rejection_reason}</p>
                     )}
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                       {task.due_date && <span>⏰ Due: {task.due_date}</span>}
@@ -286,7 +291,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
                       <span>🎯 Assigned to: You</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 sm:shrink-0 flex-wrap w-full sm:w-auto sm:justify-end">
                     {task.status === "in_progress" && <Progress value={50} className="w-16 h-2" />}
                     {getStatusBadge(task.status)}
                     {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && (
@@ -310,6 +315,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
                   </div>
                 </div>
               ))}
+
 
               {sortedCalTasks.map((task) => (
                 <div key={task.id} className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(task.status, task.dueDate)}`}>
