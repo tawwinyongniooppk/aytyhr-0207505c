@@ -359,13 +359,13 @@ export function AdminTaskDashboard({
       const approvedDate = approvedAt.slice(0, 10);
       // Deadline = task.due_date (item.dueDate)
       const deadlineDate = item.dueDate || null;
-      // unit_count: weekly = 1, biweekly (span >= 13 days) = 2
+      // unit_count: weekly = 1, biweekly (1..14 / 2..14 style windows) = 2
       let unitCount = 1;
       if (item.startDate && item.dueDate) {
         const days = Math.round(
           (new Date(item.dueDate + "T00:00:00").getTime() - new Date(item.startDate + "T00:00:00").getTime()) / 86400000
         );
-        if (days >= 13) unitCount = 2;
+        if (days >= 12) unitCount = 2;
       }
       const monthStart = (deadlineDate || approvedDate).slice(0, 7) + "-01";
 

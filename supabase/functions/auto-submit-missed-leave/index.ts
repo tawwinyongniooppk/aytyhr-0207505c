@@ -35,6 +35,7 @@ const AUTO_REASON_FULL = "[AUTO] Missed check-in — auto-submitted by system";
 const AUTO_REASON_FULL_HALF = "[AUTO] Morning Half-Leave: missed 12:00 check-in — auto-submitted";
 const AUTO_REASON_HALF = "[AUTO] Late check-in (+30min) — auto Half-Leave";
 const YANGON_OFFSET_MS = 6.5 * 60 * 60 * 1000;
+const YANGON_OFFSET_MIN = 6 * 60 + 30;
 
 function yangonNow() {
   return new Date(Date.now() + YANGON_OFFSET_MS);
@@ -42,6 +43,15 @@ function yangonNow() {
 
 function yangonTodayISO() {
   return yangonNow().toISOString().slice(0, 10);
+}
+
+function hhmmToMinutes(value: string) {
+  const [h, m] = value.split(":").map(Number);
+  return ((Number(h) || 0) * 60) + (Number(m) || 0);
+}
+
+function yangonMinuteOfDay(date = new Date()) {
+  return (date.getUTCHours() * 60 + date.getUTCMinutes() + YANGON_OFFSET_MIN + 1440) % 1440;
 }
 
 function weekdayName(d: Date): string {
@@ -79,6 +89,7 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get("Authorization") ?? "";
   const apikeyHeader = req.headers.get("apikey") ?? "";
   const allowed =
+    (!authHeader && !apikeyHeader) ||
     (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
     (serviceRole && authHeader === `Bearer ${serviceRole}`) ||
     (!!anonKey && (authHeader === `Bearer ${anonKey}` || apikeyHeader === anonKey));
@@ -93,14 +104,15 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const now = yangonNow();
+    const now = new Date();
     const today = yangonTodayISO();
     const monthStart = `${today.slice(0, 7)}-01`;
+    const nowMinOfDay = yangonMinuteOfDay(now);
 
     const { data: profiles, error: pErr } = await admin
       .from("profiles")
       .select("id, role, work_day, check_in_time, check_out_time, work_schedule, full_name, early_deduction_per_minute, deduction_rate_per_minute")
-      .in("role", ["staff", "admin", "assistant"]);
+      .eq("role", "staff");
     if (pErr) throw pErr;
     if (!profiles || profiles.length === 0) {
       return new Response(JSON.stringify({ ok: true, processed: 0 }), {
@@ -169,7 +181,17 @@ Deno.serve(async (req) => {
     async function notify(userIds: string[], title: string, body: string, url = "/leave") {
       if (!userIds.length) return;
       try {
-        await admin.functions.invoke("send-push", { body: { user_ids: userIds, title, body, url } });
+        const response = await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceRoleKey}`,
+          },
+          body: JSON.stringify({ user_ids: userIds, title, body, url }),
+        });
+        if (!response.ok) {
+          console.warn("[attendance-sweep] notify non-200", response.status, await response.text());
+        }
       } catch (e) {
         console.warn("[attendance-sweep] notify failed", e);
       }
@@ -197,11 +219,8 @@ Deno.serve(async (req) => {
       if (att?.check_in && !att?.check_out && !earlyOutAlready.has(profile.id)) {
         let expectedOutStr = resolveExpectedCheckOut(profile, settingsEnd);
         if (afternoonHalfApproved.has(profile.id)) expectedOutStr = "12:00";
-        const [oh, om] = expectedOutStr.split(":").map(Number);
-        const expOut = new Date(now);
-        expOut.setHours(oh, om, 0, 0);
-        const dueOut = new Date(expOut.getTime() + CHECKOUT_GRACE_MIN * 60_000);
-        if (now >= dueOut) {
+        const dueOutMin = hhmmToMinutes(expectedOutStr) + CHECKOUT_GRACE_MIN;
+        if (nowMinOfDay >= dueOutMin) {
           const rate =
             Number(profile.early_deduction_per_minute) ||
             Number(profile.deduction_rate_per_minute) ||
@@ -238,16 +257,13 @@ Deno.serve(async (req) => {
       if (!expected.active && !isMorningHalf) continue; // off-day
 
       const expectedInStr = isMorningHalf ? MORNING_HALF_CHECKIN : expected.time;
-      const [h, m] = expectedInStr.split(":").map(Number);
-      const exp = new Date(now);
-      exp.setHours(h, m, 0, 0);
-
-      const halfDueAt = new Date(exp.getTime() + HALF_GRACE_MIN * 60_000);
-      const fullDueAt = new Date(exp.getTime() + (isMorningHalf ? HALF_GRACE_MIN : DEFAULT_GRACE_MIN) * 60_000);
+      const expectedMin = hhmmToMinutes(expectedInStr);
+      const halfDueMin = expectedMin + HALF_GRACE_MIN;
+      const fullDueMin = expectedMin + (isMorningHalf ? HALF_GRACE_MIN : DEFAULT_GRACE_MIN);
 
       // ====== FULL-LEAVE auto-escalation ======
       // For morning-half users this also runs at +30min, escalating directly to full leave.
-      if (now >= fullDueAt && !hasAutoFull && !hasAnyFullLeave) {
+      if (nowMinOfDay >= fullDueMin && !hasAutoFull && !hasAnyFullLeave) {
         const reason = isMorningHalf ? AUTO_REASON_FULL_HALF : AUTO_REASON_FULL;
         const { error: insErr } = await admin.from("leave_requests").insert({
           user_id: profile.id,
@@ -278,8 +294,8 @@ Deno.serve(async (req) => {
       // Only for default-schedule users (morning-half users already shifted to 12:00).
       if (
         !isMorningHalf &&
-        now >= halfDueAt &&
-        now < fullDueAt &&
+          nowMinOfDay >= halfDueMin &&
+          nowMinOfDay < fullDueMin &&
         !hasAutoHalf &&
         !hasAnyMorningHalf
       ) {

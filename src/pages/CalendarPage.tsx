@@ -90,6 +90,13 @@ export default function CalendarPage() {
     return d.toISOString().split("T")[0];
   }
 
+  function getTaskUnitCount(startDate: string, endDate: string) {
+    const days = Math.round(
+      (new Date(endDate + "T00:00:00").getTime() - new Date(startDate + "T00:00:00").getTime()) / 86400000,
+    );
+    return days >= 12 ? 2 : 1;
+  }
+
   // Deadline rules (per spec, based on the task's start month):
   //   weekly:   start + 6 days  (start + 4 in February)
   //   biweekly: start + 13 days (start + 11 in February)
@@ -273,11 +280,8 @@ export default function CalendarPage() {
       for (const a of assList) {
         const ev = evMap.get(a.event_id);
         if (!ev) continue;
-        const days = Math.round(
-          (new Date(ev.end_date + "T00:00:00").getTime() - new Date(ev.start_date + "T00:00:00").getTime()) / 86400000
-        );
-        const isBiweekly = days >= 13;
-        const unit = isBiweekly ? 2 : 1;
+        const unit = getTaskUnitCount(ev.start_date, ev.end_date);
+        const isBiweekly = unit === 2;
 
         // Weighted total = sum of all assigned units (cap check basis).
         const entry = load[a.user_id] || { weekly: 0, biweekly: 0, weighted: 0 };
@@ -411,10 +415,7 @@ export default function CalendarPage() {
       for (const a of assRows) {
         const ev = freshMap.get(a.event_id);
         if (!ev) continue;
-        const days = Math.round(
-          (new Date(ev.end_date + "T00:00:00").getTime() - new Date(ev.start_date + "T00:00:00").getTime()) / 86400000
-        );
-        freshLoad[a.user_id] = (freshLoad[a.user_id] || 0) + (days >= 13 ? 2 : 1);
+        freshLoad[a.user_id] = (freshLoad[a.user_id] || 0) + getTaskUnitCount(ev.start_date, ev.end_date);
       }
     }
 

@@ -20,6 +20,13 @@ function monthStart(dateStr: string) {
   return dateStr.slice(0, 7) + "-01";
 }
 
+function getTaskUnitCount(startDate: string, endDate: string) {
+  const days = Math.round(
+    (new Date(endDate + "T00:00:00").getTime() - new Date(startDate + "T00:00:00").getTime()) / 86400000,
+  );
+  return days >= 12 ? 2 : 1;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -117,10 +124,7 @@ Deno.serve(async (req) => {
         if (upErr) { console.error("[deadline-sweep] approve ass", a.id, upErr); continue; }
         log.auto_approved_assignments++;
 
-        const days = Math.round(
-          (new Date(ev.end_date + "T00:00:00").getTime() - new Date(ev.start_date + "T00:00:00").getTime()) / 86400000
-        );
-        const unit_count = days >= 13 ? 2 : 1;
+        const unit_count = getTaskUnitCount(ev.start_date, ev.end_date);
 
         const ms = monthStart(today);
         const { data: perUnit } = await supabase.rpc("compute_bonus_per_unit", {

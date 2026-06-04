@@ -83,6 +83,7 @@ Deno.serve(async (req) => {
     const message: string = String(body.body ?? "");
     const url: string = String(body.url ?? "/");
     const data: Record<string, string> = body.data ?? {};
+    const notificationTag = String(data.tag ?? `ayty-notif-${Date.now()}`);
 
     if (!userIds.length) {
       return new Response(JSON.stringify({ error: "user_ids required" }), {
@@ -188,7 +189,7 @@ Deno.serve(async (req) => {
                   badge: "/pwa-192x192.png",
                   vibrate: [200, 100, 200],
                   requireInteraction: false,
-                  tag: data.tag ?? "ayty-notif",
+                  tag: notificationTag,
                   renotify: true,
                 },
                 fcm_options: { link: url },
