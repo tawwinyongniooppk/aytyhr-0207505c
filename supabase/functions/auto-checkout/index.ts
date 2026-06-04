@@ -17,6 +17,7 @@ const corsHeaders = {
 const PENALTY_MINUTES = 5;
 const GRACE_AFTER_CHECKOUT_MIN = 30;
 const YANGON_OFFSET_MS = 6.5 * 60 * 60 * 1000;
+const YANGON_OFFSET_MIN = 6 * 60 + 30;
 
 function yangonNow() {
   return new Date(Date.now() + YANGON_OFFSET_MS);
@@ -32,6 +33,15 @@ function getMonthStart(d: Date): string {
 
 function weekdayName(d: Date): string {
   return d.toLocaleDateString("en-US", { weekday: "long" });
+}
+
+function hhmmToMinutes(value: string) {
+  const [h, m] = value.split(":").map(Number);
+  return ((Number(h) || 0) * 60) + (Number(m) || 0);
+}
+
+function yangonMinuteOfDay(date = new Date()) {
+  return (date.getUTCHours() * 60 + date.getUTCMinutes() + YANGON_OFFSET_MIN + 1440) % 1440;
 }
 
 function resolveExpectedCheckOut(profile: any, settingsEnd: string): string {
@@ -69,9 +79,10 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const now = yangonNow();
+    const now = new Date();
     const today = yangonTodayISO();
-    const monthStart = getMonthStart(now);
+    const monthStart = getMonthStart(yangonNow());
+    const nowMinOfDay = yangonMinuteOfDay(now);
 
     // 1. Load today's open attendance rows (checked-in, not checked-out)
     const { data: open, error: openErr } = await admin
@@ -106,12 +117,8 @@ Deno.serve(async (req) => {
       if (!profile) continue;
 
       const expectedStr = resolveExpectedCheckOut(profile, settingsEnd);
-      const [h, m] = expectedStr.split(":").map(Number);
-      const expected = new Date(now);
-      expected.setHours(h, m, 0, 0);
-      const dueAt = new Date(expected.getTime() + GRACE_AFTER_CHECKOUT_MIN * 60_000);
-
-      if (now < dueAt) continue; // not yet eligible
+      const dueMinOfDay = hhmmToMinutes(expectedStr) + GRACE_AFTER_CHECKOUT_MIN;
+      if (nowMinOfDay < dueMinOfDay) continue; // not yet eligible
 
       const legacy = Number(profile.deduction_rate_per_minute) || 200;
       const earlyRate = Number(profile.early_deduction_per_minute) || legacy;
@@ -119,7 +126,7 @@ Deno.serve(async (req) => {
 
       // Auto check-out at dueAt
       await admin.from("attendance").update({
-        check_out_time: dueAt.toISOString(),
+        check_out_time: new Date().toISOString(),
         early_minutes: 0,
         deduction_applied: true,
       }).eq("id", att.id);
@@ -149,7 +156,7 @@ Deno.serve(async (req) => {
         last_updated: new Date().toISOString(),
       }).eq("user_id", att.user_id).eq("month", monthStart);
 
-      results.push({ user_id: att.user_id, penalty, check_out_time: dueAt.toISOString() });
+      results.push({ user_id: att.user_id, penalty, check_out_time: new Date().toISOString() });
     }
 
     return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
