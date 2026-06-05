@@ -234,7 +234,7 @@ export default function Attendance() {
           .select("id, type, start_time, end_time, status, half_period")
           .eq("user_id", user.id)
           .eq("date", today)
-          .eq("status", "approved"),
+          .neq("status", "rejected"),
         supabase.from("calendar_event_assignments").select("event_id").eq("user_id", user.id),
       ]);
       const myEventIds = new Set(((assignRes.data as any[]) || []).map((r) => r.event_id));
@@ -500,13 +500,11 @@ export default function Attendance() {
   const currentYangonMinutes = yangonNowMinutes();
   const noonMinutes = hhmmToMinutes("12:00");
   const morningHalfLocked = hasMorningHalfLeaveToday && !record?.check_in_time && currentYangonMinutes < noonMinutes;
-  const afternoonHalfLocked = hasAfternoonHalfLeaveToday && (!record?.check_in_time || !!record?.check_out_time);
 
   const isOffToday = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
   const canCheckIn = (() => {
     if (isOffToday) return false;
     if (morningHalfLocked) return false;
-    if (hasAfternoonHalfLeaveToday) return false;
     if (record?.check_in_time) return false;
     if (!schoolConfigured) return true;
     if (location.isInside === true) return true;
@@ -1020,7 +1018,7 @@ export default function Attendance() {
                   handleCheckOut();
                 }
               }}
-              disabled={!checkedIn || checkedOut || checkingOut || isOffToday || afternoonHalfLocked}
+              disabled={!checkedIn || checkedOut || checkingOut || isOffToday}
               variant="outline"
               className="active:animate-press"
             >
