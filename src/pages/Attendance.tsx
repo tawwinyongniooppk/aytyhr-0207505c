@@ -497,10 +497,16 @@ export default function Attendance() {
   const geoDenied = location.status === "denied";
   const geoError = location.status === "error";
   const geoLoading = location.status === "loading";
+  const currentYangonMinutes = yangonNowMinutes();
+  const noonMinutes = hhmmToMinutes("12:00");
+  const morningHalfLocked = hasMorningHalfLeaveToday && !record?.check_in_time && currentYangonMinutes < noonMinutes;
+  const afternoonHalfLocked = hasAfternoonHalfLeaveToday && (!record?.check_in_time || !!record?.check_out_time);
 
   const isOffToday = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
   const canCheckIn = (() => {
     if (isOffToday) return false;
+    if (morningHalfLocked) return false;
+    if (hasAfternoonHalfLeaveToday) return false;
     if (record?.check_in_time) return false;
     if (!schoolConfigured) return true;
     if (location.isInside === true) return true;
@@ -1014,7 +1020,7 @@ export default function Attendance() {
                   handleCheckOut();
                 }
               }}
-              disabled={!checkedIn || checkedOut || checkingOut || isOffToday}
+              disabled={!checkedIn || checkedOut || checkingOut || isOffToday || afternoonHalfLocked}
               variant="outline"
               className="active:animate-press"
             >
@@ -1027,13 +1033,27 @@ export default function Attendance() {
               ဒီနေ့က ပိတ်ရက်ဖြစ်လို့ Check in / Check out ပိတ်ထားပါတယ်
             </p>
           )}
+          {morningHalfLocked && (
+            <p className="text-xs text-warning">
+              Morning Half-Leave ဖြစ်နေပါသည်။ Check in expected time ကို MMT 12:00 PM သို့ ပြောင်းထားပြီး ထိုအချိန်မတိုင်မီ Check in / Check out ပိတ်ထားပါသည်။
+            </p>
+          )}
+          {hasAfternoonHalfLeaveToday && !hasFullLeaveToday && (
+            <p className="text-xs text-warning">
+              Afternoon Half-Leave ဖြစ်နေပါသည်။ Check-out expected time သည် MMT 12:00 PM ဖြစ်ပြီး ထို့နောက် Check out မလုပ်နိုင်ပါ။
+            </p>
+          )}
           {!isOffToday && schoolConfigured && !canCheckIn && !checkedIn && !geoLoading && (
             <p className="text-xs text-destructive">
               {geoBlocked
                 ? "Move inside school area to check in"
                 : (geoDenied || geoError) && !isAdmin
                   ? "Location permission is required to check in"
-                  : ""}
+                  : morningHalfLocked
+                    ? "Morning Half-Leave အတွက် 12:00 PM မတိုင်ခင် Check in မလုပ်နိုင်ပါ"
+                    : hasAfternoonHalfLeaveToday
+                      ? "Afternoon Half-Leave ဖြစ်နေသောကြောင့် Check in ပိတ်ထားပါသည်"
+                      : ""}
             </p>
           )}
         </CardContent>
