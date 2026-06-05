@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
@@ -424,7 +424,7 @@ export function AdminTaskDashboard({
 
   function openReject(item: UnifiedItem) {
     setRejectItem(item);
-    setRejectReason("");
+    setRejectReason(item.rejectionReason || "");
   }
 
   async function confirmReject() {
@@ -649,35 +649,36 @@ export function AdminTaskDashboard({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!rejectItem} onOpenChange={(o) => !o && !rejecting && setRejectItem(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reject this task?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The task will be marked as <strong>Rejected</strong> and the related 1/4 unit will remain open until the staff member corrects and resubmits it.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+      <Dialog open={!!rejectItem} onOpenChange={(o) => !o && !rejecting && setRejectItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject this task?</DialogTitle>
+            <DialogDescription>
+              The task will be marked as rejected and the related unit will stay open until the staff member corrects and resubmits it.
+            </DialogDescription>
+          </DialogHeader>
           <div className="space-y-2">
-            <Label>Rejection reason (optional)</Label>
+            <Label htmlFor="task-reject-reason">Rejection reason</Label>
             <Textarea
-              rows={3}
+              id="task-reject-reason"
+              rows={4}
               placeholder="Tell the staff what needs to be fixed..."
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
             />
           </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={rejecting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); confirmReject(); }}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRejectItem(null)} disabled={rejecting}>Cancel</Button>
+            <Button
+              onClick={confirmReject}
               disabled={rejecting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {rejecting && <Loader2 className="h-3 w-3 animate-spin mr-1" />} Reject
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
