@@ -146,13 +146,24 @@ export default function CalendarPage() {
   async function loadMySchedule() {
     if (!user) return;
     try {
+      if (isAssistant) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("work_schedule")
+          .eq("id", user.id)
+          .maybeSingle();
+        setMySchedule((data?.work_schedule as any) ?? null);
+        setOffStaffByWeekday({});
+        return;
+      }
+
       // Admin/Assistant: collect per-weekday off staff names. Any staff marked off => weekday is a holiday for them.
       // Staff: use own schedule.
       if (!isStaff) {
         const { data } = await supabase
           .from("profiles")
           .select("full_name, work_schedule, role")
-          .eq("role", "staff");
+          .in("role", ["staff", "assistant"]);
         const rows = (data || []) as Array<{ full_name: string; work_schedule: any }>;
         const byDay: Record<string, string[]> = {};
         const merged: Record<string, { active: boolean }> = {};
