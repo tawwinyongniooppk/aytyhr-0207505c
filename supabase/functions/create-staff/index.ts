@@ -107,9 +107,30 @@ Deno.serve(async (req) => {
 
     // Update profile with role/class/sequence (profile auto-created by trigger)
     if (data.user) {
+      // Pull global default start/end times so the new staff's per-day schedule
+      // mirrors the school's configured working hours instead of hard-coded values.
+      const { data: settingsRows } = await adminClient
+        .from("app_settings").select("key, value").in("key", ["start_time", "end_time"]);
+      const sMap: Record<string, string> = {};
+      (settingsRows ?? []).forEach((r: any) => (sMap[r.key] = r.value));
+      const defCheckIn = sMap.start_time || "09:00";
+      const defCheckOut = sMap.end_time || "16:00";
+      // Default work_schedule: Mon–Fri active, Sat & Sun OFF.
+      const defaultSchedule: Record<string, { active: boolean; check_in: string; check_out: string }> = {
+        Monday:    { active: true,  check_in: defCheckIn, check_out: defCheckOut },
+        Tuesday:   { active: true,  check_in: defCheckIn, check_out: defCheckOut },
+        Wednesday: { active: true,  check_in: defCheckIn, check_out: defCheckOut },
+        Thursday:  { active: true,  check_in: defCheckIn, check_out: defCheckOut },
+        Friday:    { active: true,  check_in: defCheckIn, check_out: defCheckOut },
+        Saturday:  { active: false, check_in: defCheckIn, check_out: defCheckOut },
+        Sunday:    { active: false, check_in: defCheckIn, check_out: defCheckOut },
+      };
       const profileUpdate: Record<string, unknown> = {
         role: role || "staff",
         full_name: full_name,
+        work_schedule: defaultSchedule,
+        check_in_time: defCheckIn,
+        check_out_time: defCheckOut,
       };
       if (klass) profileUpdate.class = klass;
       if (seqNum !== undefined) profileUpdate.sequence = seqNum;

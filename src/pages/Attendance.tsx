@@ -499,18 +499,24 @@ export default function Attendance() {
   const geoLoading = location.status === "loading";
   const currentYangonMinutes = yangonNowMinutes();
   const noonMinutes = hhmmToMinutes("12:00");
+  // Morning Half-Leave (pending or approved) → Check-in locked until 12:00 PM MMT.
   const morningHalfLocked = hasMorningHalfLeaveToday && !record?.check_in_time && currentYangonMinutes < noonMinutes;
+  // Afternoon Half-Leave (pending or approved) → after 12:00 PM MMT, BOTH
+  // check-in and check-out are locked (the working window has ended).
+  const afternoonHalfLocked = hasAfternoonHalfLeaveToday && currentYangonMinutes >= noonMinutes;
 
   const isOffToday = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
   const canCheckIn = (() => {
     if (isOffToday) return false;
     if (morningHalfLocked) return false;
+    if (afternoonHalfLocked) return false;
     if (record?.check_in_time) return false;
     if (!schoolConfigured) return true;
     if (location.isInside === true) return true;
     if ((geoDenied || geoError) && isAdmin) return true;
     return false;
   })();
+  const canCheckOut = !!record?.check_in_time && !record?.check_out_time && !isOffToday && !afternoonHalfLocked;
 
   const getLocationStatusLabel = (): string => {
     if (!schoolConfigured) return "";
@@ -582,7 +588,13 @@ export default function Attendance() {
         effectiveStartTime,
       });
 
-      const lateMin = isWorkingDay ? calcLateMinutes(effectiveStartTime, settings.grace_period_minutes) : 0;
+      // Morning Half-Leave shifts the expected check-in to 12:00 PM and the
+      // staff is NOT penalised for the morning portion, so the late-minute
+      // counter must be suppressed entirely (it would otherwise re-introduce
+      // the 200ks/min deduction that the user explicitly does not want).
+      const lateMin = (isWorkingDay && !hasMorningHalfLeaveToday)
+        ? calcLateMinutes(effectiveStartTime, settings.grace_period_minutes)
+        : 0;
       const today = getMMTTodayISO();
       const locationStatus = getLocationStatusLabel();
 
