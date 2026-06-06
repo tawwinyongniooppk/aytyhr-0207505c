@@ -1,14 +1,19 @@
-// Attendance sweep cron — runs every ~5 min (via pg_cron). Three responsibilities:
+// Attendance sweep cron — fires sparsely during the morning/early-afternoon
+// window to catch missed check-ins per user EXACTLY ONCE per grace boundary
+// (idempotent via existing leave_requests / salary_manual_deductions rows).
 //
-//   A) Auto Half-Leave on late check-in:
+// Responsibilities:
+//
+//   A) Auto Morning Half-Leave on late check-in:
 //      If a staff has NOT checked in by `expected_check_in + 30min`, the
-//      system submits a pending `half_leave` (morning) request on their
-//      behalf so Admin can review with Manual Deduction.
+//      system submits a pending `half_leave` (morning) request. The expected
+//      check-in then shifts to 12:00 PM MMT for the rest of the day.
 //
-//   B) Auto Full-Leave on prolonged no-show:
-//      If a staff still hasn't checked in by `expected_check_in + 2hr`
-//      (or by `12:30` when an approved Morning Half-Leave shifted check-in
-//      to 12:00), a `leave` (full) request is auto-submitted.
+//   B) Auto Afternoon Half-Leave for shifted users:
+//      If a staff still has not checked in by 12:30 PM (12:00 + 30min grace)
+//      AND a Morning Half-Leave already exists today, an AFTERNOON
+//      `half_leave` request is auto-submitted (effectively a full day off
+//      via two halves). This replaces the previous "auto full leave" path.
 //
 //   C) Auto early-out deduction:
 //      If a staff checked in but did NOT check out by
@@ -17,7 +22,8 @@
 //      (5 min × early_deduction_per_minute=200) into salary_manual_deductions.
 //
 // All branches are idempotent for the day (single insert per user/date).
-// Admins + Assistant Admins + the affected staff receive FCM push on every action.
+// Admins + Assistant Admins + the affected staff receive FCM push on every
+// action (with renotify tags so each one plays sound + bumps the badge).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
