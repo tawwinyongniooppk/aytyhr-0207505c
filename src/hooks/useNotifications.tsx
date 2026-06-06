@@ -59,35 +59,64 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     let cancelled = false;
     inFlightRef.current = true;
 
+    const syncToken = async (token: string) => {
+      const cacheKey = `${SYNC_KEY}:${userId}`;
+      const alreadySynced =
+        typeof sessionStorage !== "undefined" && sessionStorage.getItem(cacheKey) === token;
+      if (alreadySynced) return true;
+
+      // Primary path: edge function with service role — guaranteed insert even
+      // when the same token was previously bound to another user (shared device).
+      try {
+        const { data, error } = await supabase.functions.invoke("register-fcm-token", {
+          body: { token, user_agent: navigator.userAgent },
+        });
+        if (error) throw error;
+        if ((data as { ok?: boolean })?.ok) {
+          try { sessionStorage.setItem(cacheKey, token); } catch { /* ignore */ }
+          console.log("[fcm] Token registered via edge function");
+          return true;
+        }
+      } catch (e) {
+        console.warn("[fcm] edge register failed, falling back to direct upsert", e);
+      }
+
+      // Fallback: direct upsert (works for first-time tokens under user's own RLS).
+      try {
+        const { error } = await supabase.from("fcm_tokens").upsert(
+          {
+            user_id: userId,
+            token,
+            user_agent: navigator.userAgent,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "token" },
+        );
+        if (error) throw error;
+        try { sessionStorage.setItem(cacheKey, token); } catch { /* ignore */ }
+        console.log("[fcm] Token synced via direct upsert");
+        return true;
+      } catch (e) {
+        console.error("[fcm] token save failed", e);
+        return false;
+      }
+    };
+
     (async () => {
       try {
         const token = await requestFcmToken();
-        if (cancelled || !token) return;
+        if (cancelled) return;
+        if (!token) {
+          console.warn("[fcm] No token returned (permission denied or unsupported)");
+          // Allow retry on next mount/login
+          inFlightRef.current = false;
+          return;
+        }
 
-        const cacheKey = `${SYNC_KEY}:${userId}`;
-        const alreadySynced =
-          typeof sessionStorage !== "undefined" && sessionStorage.getItem(cacheKey) === token;
-
-        if (!alreadySynced) {
-          try {
-            await supabase.from("fcm_tokens").upsert(
-              {
-                user_id: userId,
-                token,
-                user_agent: navigator.userAgent,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: "token" },
-            );
-            try {
-              sessionStorage.setItem(cacheKey, token);
-            } catch {
-              /* ignore */
-            }
-            console.log("[fcm] Token synced");
-          } catch (e) {
-            console.error("[fcm] token upsert failed", e);
-          }
+        const ok = await syncToken(token);
+        if (!ok) {
+          // Allow retry on next mount so a transient failure doesn't permanently block.
+          inFlightRef.current = false;
         }
 
         const messaging = await getMessagingSafe();
@@ -98,7 +127,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           const url = payload.data?.url || "/";
           toast(title, { description: body });
           showForegroundNotification(title, body, url);
-          // Native-style icon badge for foreground messages too.
           try {
             const nav: any = navigator;
             if (nav && typeof nav.setAppBadge === "function") {
@@ -110,6 +138,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             /* ignore */
           }
         });
+      } catch (e) {
+        console.error("[fcm] init flow failed", e);
+        inFlightRef.current = false;
       } finally {
         if (cancelled) inFlightRef.current = false;
       }
