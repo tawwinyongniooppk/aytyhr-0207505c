@@ -861,8 +861,12 @@ export default function CalendarPage() {
                   </CardTitle>
                 </div>
                 {mmDate && (
-                  <p className="text-sm text-muted-foreground" lang="my">{mmDate}</p>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground" lang="my">{mmDate}</p>
+                    <p className="text-xs text-muted-foreground/80" lang="my">{getMyanmarMoonPhase(sd).label}</p>
+                  </div>
                 )}
+
               </div>
             </CardHeader>
             <CardContent>
