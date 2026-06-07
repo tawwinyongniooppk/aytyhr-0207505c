@@ -43,6 +43,21 @@ function weekWindow(day: number, year: number, month: number) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // Cron-only endpoint: require CRON_SECRET, service role, or anon-key (pg_cron internal).
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const apikeyHeader = req.headers.get("apikey") ?? "";
+  const allowed =
+    (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
+    (SERVICE_ROLE && authHeader === `Bearer ${SERVICE_ROLE}`) ||
+    (!!anonKey && (authHeader === `Bearer ${anonKey}` || apikeyHeader === anonKey));
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
   try {
     const t = mmtToday();
     const win = weekWindow(t.d, t.y, t.m);
