@@ -22,6 +22,60 @@ export function toMyanmarDateEn(date: Date): string {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Myanmar moon-phase (လဆန်း / လပြည့် / လဆုတ် / လကွယ်)
+// Astronomical approximation against a known new-moon reference. Accuracy is
+// ±1 day vs the official gazette, which is sufficient for showing the
+// waxing/full/waning/new tag alongside the existing Myanmar-date string.
+// Reference new moon: 2000-01-06 18:14 UTC (synodic month 29.530588853 days).
+// ─────────────────────────────────────────────────────────────────────────────
+const SYNODIC_MONTH_MS = 29.530588853 * 24 * 60 * 60 * 1000;
+const REF_NEW_MOON_MS = Date.UTC(2000, 0, 6, 18, 14);
+
+const MM_DIGITS = ["၀", "၁", "၂", "၃", "၄", "၅", "၆", "၇", "၈", "၉"];
+function toMyanmarNumeral(n: number): string {
+  return String(n).split("").map((c) => MM_DIGITS[Number(c)] ?? c).join("");
+}
+
+export type MyanmarMoonPhase = {
+  /** 1-30 within the synodic cycle */
+  day: number;
+  /** "waxing" | "full" | "waning" | "new" */
+  phase: "waxing" | "full" | "waning" | "new";
+  /** Myanmar label, e.g. "လဆန်း ၇ ရက်", "လပြည့်", "လဆုတ် ၃ ရက်", "လကွယ်" */
+  label: string;
+};
+
+export function getMyanmarMoonPhase(date: Date): MyanmarMoonPhase {
+  // Use noon Yangon time to stabilize day boundary.
+  const yangonNoon = new Date(date);
+  yangonNoon.setUTCHours(5, 30, 0, 0); // 12:00 MMT == 05:30 UTC
+  const ageMs = ((yangonNoon.getTime() - REF_NEW_MOON_MS) % SYNODIC_MONTH_MS + SYNODIC_MONTH_MS) % SYNODIC_MONTH_MS;
+  const ageDays = ageMs / (24 * 60 * 60 * 1000);
+  // Lunar day 1..30 (day 1 = new-moon day, day 15 = full, day 30 = new again)
+  let day = Math.floor(ageDays) + 1;
+  if (day > 30) day = 30;
+
+  let phase: MyanmarMoonPhase["phase"];
+  let label: string;
+  if (day === 15) {
+    phase = "full";
+    label = "လပြည့်";
+  } else if (day === 30 || day === 29) {
+    // Cycle wraps; treat last day before next new moon as လကွယ်.
+    phase = "new";
+    label = "လကွယ်";
+  } else if (day < 15) {
+    phase = "waxing";
+    label = `လဆန်း ${toMyanmarNumeral(day)} ရက်`;
+  } else {
+    phase = "waning";
+    label = `လဆုတ် ${toMyanmarNumeral(day - 15)} ရက်`;
+  }
+  return { day, phase, label };
+}
+
+
 // Fixed-date Myanmar gazette / public holidays (recurring every year).
 // Key: "MM-DD". Lunar / movable holidays (Thingyan, full-moon days, Thadingyut,
 // Tazaungdaing, National Day, etc.) are listed per-year in MOVEABLE_MM_HOLIDAYS
