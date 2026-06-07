@@ -16,7 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { toast } from "@/hooks/use-toast";
 import { sendPush } from "@/lib/push";
-import { toMyanmarDate, getMyanmarHoliday } from "@/lib/mmCalendar";
+import { toMyanmarDate, getMyanmarHoliday, getMyanmarMoonPhase } from "@/lib/mmCalendar";
 
 interface CalEvent {
   id: string;
