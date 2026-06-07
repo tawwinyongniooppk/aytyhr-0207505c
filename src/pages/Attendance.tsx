@@ -200,9 +200,9 @@ export default function Attendance() {
     loadHolidayAndLeave();
   }, [user]);
 
-  // Realtime: whenever a leave_request changes for this user, refresh holiday/leave
-  // state so the UI immediately reflects auto-submitted half-leaves (lock checkin/out
-  // and shift expected times). Falls back to a 60s poll if realtime is unavailable.
+  // Realtime ONLY: whenever a leave_request row is inserted/updated for this user,
+  // refresh holiday/leave state so the UI instantly locks check-in/out and shifts
+  // expected times. No polling — we rely entirely on Supabase postgres_changes.
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -213,10 +213,8 @@ export default function Attendance() {
         () => loadHolidayAndLeave(),
       )
       .subscribe();
-    const poll = setInterval(loadHolidayAndLeave, 60_000);
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(poll);
     };
   }, [user]);
 
