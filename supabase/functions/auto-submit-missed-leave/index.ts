@@ -95,7 +95,6 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get("Authorization") ?? "";
   const apikeyHeader = req.headers.get("apikey") ?? "";
   const allowed =
-    (!authHeader && !apikeyHeader) ||
     (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
     (serviceRole && authHeader === `Bearer ${serviceRole}`) ||
     (!!anonKey && (authHeader === `Bearer ${anonKey}` || apikeyHeader === anonKey));
