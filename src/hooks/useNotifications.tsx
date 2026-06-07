@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef } from "react"; // useRef ထည့်သွင်းထားပါတယ်
+import { createContext, useContext, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useProfile } from "./useProfile";
@@ -42,62 +42,32 @@ const NotificationContext = createContext<Ctx>({
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const { isItManager, loading } = useProfile();
-
-  // Persist across remounts within the tab so we never re-upsert the same token.
-  const SYNC_KEY = "fcm_synced_token";
-  const inFlightRef = useRef(false);
+  const { loading } = useProfile();
 
   const userId = user?.id;
 
   useEffect(() => {
-    if (!userId || loading || isItManager) return;
+    // Register FCM token for EVERY signed-in user (including admin/it_manager).
+    if (!userId || loading) return;
     if (!isPushEnabled()) return;
-    if (inFlightRef.current) return;
 
     let unsub: (() => void) | undefined;
     let cancelled = false;
-    inFlightRef.current = true;
 
     const syncToken = async (token: string) => {
-      const cacheKey = `${SYNC_KEY}:${userId}`;
-      const alreadySynced =
-        typeof sessionStorage !== "undefined" && sessionStorage.getItem(cacheKey) === token;
-      if (alreadySynced) return true;
-
-      // Primary path: edge function with service role — guaranteed insert even
-      // when the same token was previously bound to another user (shared device).
       try {
         const { data, error } = await supabase.functions.invoke("register-fcm-token", {
           body: { token, user_agent: navigator.userAgent },
         });
         if (error) throw error;
         if ((data as { ok?: boolean })?.ok) {
-          try { sessionStorage.setItem(cacheKey, token); } catch { /* ignore */ }
-          console.log("[fcm] Token registered via edge function");
+          console.log("[fcm] Token registered via edge function (service role)");
           return true;
         }
+        console.warn("[fcm] register-fcm-token returned non-ok payload", data);
+        return false;
       } catch (e) {
-        console.warn("[fcm] edge register failed, falling back to direct upsert", e);
-      }
-
-      // Fallback: direct upsert (works for first-time tokens under user's own RLS).
-      try {
-        const { error } = await supabase.from("fcm_tokens").upsert(
-          {
-            user_id: userId,
-            token,
-            user_agent: navigator.userAgent,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "token" },
-        );
-        if (error) throw error;
-        try { sessionStorage.setItem(cacheKey, token); } catch { /* ignore */ }
-        console.log("[fcm] Token synced via direct upsert");
-        return true;
-      } catch (e) {
-        console.error("[fcm] token save failed", e);
+        console.error("[fcm] register-fcm-token invoke failed", e);
         return false;
       }
     };
@@ -108,16 +78,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         if (cancelled) return;
         if (!token) {
           console.warn("[fcm] No token returned (permission denied or unsupported)");
-          // Allow retry on next mount/login
-          inFlightRef.current = false;
           return;
         }
 
-        const ok = await syncToken(token);
-        if (!ok) {
-          // Allow retry on next mount so a transient failure doesn't permanently block.
-          inFlightRef.current = false;
-        }
+        // Always send to the edge function — service role guarantees the row lands.
+        await syncToken(token);
 
         const messaging = await getMessagingSafe();
         if (!messaging || cancelled) return;
@@ -140,9 +105,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         });
       } catch (e) {
         console.error("[fcm] init flow failed", e);
-        inFlightRef.current = false;
-      } finally {
-        if (cancelled) inFlightRef.current = false;
       }
     })();
 
@@ -168,12 +130,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     return () => {
       cancelled = true;
-      inFlightRef.current = false;
       if (unsub) unsub();
       document.removeEventListener("visibilitychange", clearBadge);
       window.removeEventListener("focus", clearBadge);
     };
-  }, [userId, loading, isItManager]);
+  }, [userId, loading]);
 
   return (
     <NotificationContext.Provider value={{ hasFor: () => false, markRead: () => {} }}>
