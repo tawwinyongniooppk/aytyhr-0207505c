@@ -651,7 +651,8 @@ export default function Leave() {
                 </div>
               </div>
               {selectedRequest.status === "pending" &&
-                (selectedRequest.type === "half_leave" || fullLeaveOverCap) && (
+                ((selectedRequest.type === "half_leave" && isAutoSubmitted) || fullLeaveOverCap) && (
+
                 <div className="space-y-2 pt-2 border-t border-border">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                     Manual Deduction (required to approve)
