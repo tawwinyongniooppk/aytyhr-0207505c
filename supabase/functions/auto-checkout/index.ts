@@ -14,7 +14,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PENALTY_MINUTES = 5;
+// Flat 1000 MMK penalty for staff who forgot to check out by (expected + 30 min).
+const FLAT_PENALTY_MMK = 1000;
 const GRACE_AFTER_CHECKOUT_MIN = 30;
 const YANGON_OFFSET_MS = 6.5 * 60 * 60 * 1000;
 const YANGON_OFFSET_MIN = 6 * 60 + 30;
