@@ -227,6 +227,11 @@ export default function Leave() {
   })();
   const fullLeaveOverCap =
     !!selectedRequest && selectedRequest.type === "leave" && monthlyApprovedEquiv >= 2;
+  // Manual deduction is only required when the system AUTO-submitted the half-leave
+  // (reason prefixed with "[AUTO]"). Staff-submitted half-leaves approve directly
+  // and lose -0.5 from balance via the apply_leave_balance_change trigger.
+  const isAutoSubmitted =
+    !!selectedRequest && (selectedRequest.reason ?? "").startsWith("[AUTO]");
 
   const handleReview = async (
     requestId: string,
@@ -236,7 +241,8 @@ export default function Leave() {
 
     const needsManualDeduction =
       decision === "approved" &&
-      (selectedRequest.type === "half_leave" || fullLeaveOverCap);
+      ((selectedRequest.type === "half_leave" && isAutoSubmitted) || fullLeaveOverCap);
+
 
     if (needsManualDeduction) {
       const amt = parseInt(halfDeductAmount, 10);
