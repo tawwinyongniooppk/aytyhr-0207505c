@@ -517,8 +517,11 @@ export default function Attendance() {
   const geoLoading = location.status === "loading";
   const currentYangonMinutes = yangonNowMinutes();
   const noonMinutes = hhmmToMinutes("12:00");
-  // Morning Half-Leave (pending or approved) → Check-in locked until 12:00 PM MMT.
-  const morningHalfLocked = hasMorningHalfLeaveToday && !record?.check_in_time && currentYangonMinutes < noonMinutes;
+  const halfOpenMinutes = hhmmToMinutes("11:30");
+  // Morning Half-Leave (pending or approved) → afternoon shift check-in window
+  // opens at MMT 11:30 AM (staff must check in between 11:30 AM and 12:00 PM).
+  // Before 11:30 AM the box stays locked.
+  const morningHalfLocked = hasMorningHalfLeaveToday && !record?.check_in_time && currentYangonMinutes < halfOpenMinutes;
   // Afternoon Half-Leave (pending or approved) → after 12:00 PM MMT, BOTH
   // check-in and check-out are locked (the working window has ended).
   const afternoonHalfLocked = hasAfternoonHalfLeaveToday && currentYangonMinutes >= noonMinutes;
