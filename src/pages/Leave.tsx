@@ -684,7 +684,8 @@ export default function Leave() {
               )}
               {selectedRequest.status === "pending" && (() => {
                 const financialRequest =
-                  selectedRequest.type === "half_leave" || fullLeaveOverCap;
+                  (selectedRequest.type === "half_leave" && isAutoSubmitted) || fullLeaveOverCap;
+
                 if (isAssistant && financialRequest) {
                   return (
                     <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs text-warning-foreground">
