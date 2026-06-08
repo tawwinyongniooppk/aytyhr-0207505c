@@ -163,6 +163,11 @@ Deno.serve(async (req) => {
         .filter((r: any) => r.source === "auto_early_out" && (r.title ?? "").includes(today))
         .map((r: any) => r.user_id),
     );
+    const lateMorningAlready = new Set<string>(
+      (smdRes.data ?? [])
+        .filter((r: any) => r.source === "auto_late_morning" && (r.title ?? "").includes(today))
+        .map((r: any) => r.user_id),
+    );
 
     // Morning/Afternoon half-leave detection — include PENDING rows so the
     // 12:00 PM check-in shift takes effect immediately after submission
