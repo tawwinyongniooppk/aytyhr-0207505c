@@ -14,7 +14,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PENALTY_MINUTES = 5;
+// Flat 1000 MMK penalty for staff who forgot to check out by (expected + 30 min).
+const FLAT_PENALTY_MMK = 1000;
 const GRACE_AFTER_CHECKOUT_MIN = 30;
 const YANGON_OFFSET_MS = 6.5 * 60 * 60 * 1000;
 const YANGON_OFFSET_MIN = 6 * 60 + 30;
@@ -127,9 +128,7 @@ Deno.serve(async (req) => {
       const dueMinOfDay = hhmmToMinutes(expectedStr) + GRACE_AFTER_CHECKOUT_MIN;
       if (nowMinOfDay < dueMinOfDay) continue; // not yet eligible
 
-      const legacy = Number(profile.deduction_rate_per_minute) || 200;
-      const earlyRate = Number(profile.early_deduction_per_minute) || legacy;
-      const penalty = PENALTY_MINUTES * earlyRate;
+      const penalty = FLAT_PENALTY_MMK;
 
       // Auto check-out at dueAt
       await admin.from("attendance").update({
@@ -153,7 +152,7 @@ Deno.serve(async (req) => {
       const newCurrent = Math.max(0, (salary!.current_salary ?? 0) - penalty);
       const newDeductions = (salary!.total_deductions ?? 0) + penalty;
       const prevReason = (salary!.deduction_reason ?? "").trim();
-      const note = `Auto Deduction: forgot check-out on ${today} (${PENALTY_MINUTES} min × ${earlyRate} = ${penalty} MMK)`;
+      const note = `Auto Deduction: forgot check-out on ${today} (flat ${penalty} MMK)`;
       const newReason = prevReason ? `${prevReason}\n${note}` : note;
 
       await admin.from("salaries").update({
