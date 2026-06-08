@@ -301,11 +301,34 @@ Deno.serve(async (req) => {
         });
         if (!insErr) {
           results.push({ user_id: profile.id, kind: "auto_morning_half", expected: expected.time });
+
+          // Apply 30-min late-window auto deduction (admin-defined ks/min × 30), idempotent.
+          if (!lateMorningAlready.has(profile.id)) {
+            const lateRate =
+              Number(profile.late_deduction_per_minute) ||
+              Number(profile.deduction_rate_per_minute) ||
+              200;
+            const lateAmount = HALF_GRACE_MIN * lateRate;
+            const { error: lateErr } = await admin.from("salary_manual_deductions").insert({
+              user_id: profile.id,
+              month: monthStart,
+              title: `Auto late-in deduction (${today}) — ${HALF_GRACE_MIN}min × ${lateRate}`,
+              amount: lateAmount,
+              source: "auto_late_morning",
+              created_by: profile.id,
+            });
+            if (lateErr) {
+              console.error("[attendance-sweep] late-morning deduction insert failed", profile.id, lateErr);
+            } else {
+              lateMorningAlready.add(profile.id);
+            }
+          }
+
           const who = profile.full_name || "Staff";
           await notify(
             [profile.id, ...adminIds],
             "Auto Morning Half-Leave submitted",
-            `${who} ၏ Check-in (+30min) ကျော်နေသဖြင့် Morning Half-Leave အလိုအလျောက် တင်ပေးထားပါသည်။ Check-in expected time ကို 12:00 PM သို့ ပြောင်းပေးထားပါသည်။`,
+            `${who} ၏ Check-in (+30min) ကျော်နေသဖြင့် Morning Half-Leave အလိုအလျောက် တင်ပေးထားပါသည်။ Check-in expected time ကို 12:00 PM သို့ ပြောင်းပေးထားပါသည်။ ၃၀မိနစ် Late Deduction ပါ ဖြတ်ထားပါသည်။`,
             "/leave",
           );
         } else {
