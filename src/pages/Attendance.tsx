@@ -1066,12 +1066,12 @@ export default function Attendance() {
           )}
           {morningHalfLocked && (
             <p className="text-xs text-warning">
-              Morning Half-Leave ဖြစ်နေပါသည်။ Check in expected time ကို MMT 12:00 PM သို့ ပြောင်းထားပြီး ထိုအချိန်မတိုင်မီ Check in / Check out ပိတ်ထားပါသည်။
+              Morning Half-Leave ဖြစ်နေပါသည်။ Check in expected time ကို MMT 12:00 PM သို့ ပြောင်းထားပြီး Check in box သည် MMT 11:30 AM မှ စ၍ ပွင့်ပါမည်။ MMT 11:30 AM နှင့် 12:00 PM အတွင်း Check in လုပ်ပါ။
             </p>
           )}
           {hasAfternoonHalfLeaveToday && !hasFullLeaveToday && (
             <p className="text-xs text-warning">
-              Afternoon Half-Leave ဖြစ်နေပါသည်။ Check-out expected time သည် MMT 12:00 PM ဖြစ်ပြီး ထို့နောက် Check out မလုပ်နိုင်ပါ။
+              Afternoon Half-Leave ဖြစ်နေပါသည်။ MMT 12:00 PM မှ စ၍ Check in / Check out ပိတ်ထားပါသည်။
             </p>
           )}
           {!isOffToday && schoolConfigured && !canCheckIn && !checkedIn && !geoLoading && (
@@ -1081,7 +1081,7 @@ export default function Attendance() {
                 : (geoDenied || geoError) && !isAdmin
                   ? "Location permission is required to check in"
                   : morningHalfLocked
-                    ? "Morning Half-Leave အတွက် 12:00 PM မတိုင်ခင် Check in မလုပ်နိုင်ပါ"
+                    ? "Morning Half-Leave အတွက် MMT 11:30 AM မတိုင်ခင် Check in မလုပ်နိုင်ပါ"
                     : hasAfternoonHalfLeaveToday
                       ? "Afternoon Half-Leave ဖြစ်နေသောကြောင့် Check in ပိတ်ထားပါသည်"
                       : ""}
