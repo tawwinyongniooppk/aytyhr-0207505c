@@ -128,9 +128,7 @@ Deno.serve(async (req) => {
       const dueMinOfDay = hhmmToMinutes(expectedStr) + GRACE_AFTER_CHECKOUT_MIN;
       if (nowMinOfDay < dueMinOfDay) continue; // not yet eligible
 
-      const legacy = Number(profile.deduction_rate_per_minute) || 200;
-      const earlyRate = Number(profile.early_deduction_per_minute) || legacy;
-      const penalty = PENALTY_MINUTES * earlyRate;
+      const penalty = FLAT_PENALTY_MMK;
 
       // Auto check-out at dueAt
       await admin.from("attendance").update({
@@ -154,7 +152,7 @@ Deno.serve(async (req) => {
       const newCurrent = Math.max(0, (salary!.current_salary ?? 0) - penalty);
       const newDeductions = (salary!.total_deductions ?? 0) + penalty;
       const prevReason = (salary!.deduction_reason ?? "").trim();
-      const note = `Auto Deduction: forgot check-out on ${today} (${PENALTY_MINUTES} min × ${earlyRate} = ${penalty} MMK)`;
+      const note = `Auto Deduction: forgot check-out on ${today} (flat ${penalty} MMK)`;
       const newReason = prevReason ? `${prevReason}\n${note}` : note;
 
       await admin.from("salaries").update({
