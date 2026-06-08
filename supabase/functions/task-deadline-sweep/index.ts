@@ -36,13 +36,20 @@ Deno.serve(async (req) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const authHeader = req.headers.get("Authorization") ?? "";
   const apikeyHeader = req.headers.get("apikey") ?? "";
+  if (!authHeader && !apikeyHeader) {
+    console.warn("[task-deadline-sweep] 401 — missing Authorization/apikey header");
+    return new Response(JSON.stringify({ error: "Unauthorized: missing CRON_SECRET" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
   const allowed =
     (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
     (serviceRole && authHeader === `Bearer ${serviceRole}`) ||
     (!!anonKey && (authHeader === `Bearer ${anonKey}` || apikeyHeader === anonKey));
   if (!allowed) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), {
-      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    console.warn("[task-deadline-sweep] 401 — invalid CRON_SECRET / unauthorized caller");
+    return new Response(JSON.stringify({ error: "Unauthorized: invalid CRON_SECRET" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 

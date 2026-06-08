@@ -23,6 +23,12 @@ Deno.serve(async (req) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const authHeader = req.headers.get("Authorization") ?? "";
   const apikeyHeader = req.headers.get("apikey") ?? "";
+  if (!authHeader && !apikeyHeader) {
+    console.warn("[monthly-reset] 401 — missing Authorization/apikey header");
+    return new Response(JSON.stringify({ error: "Unauthorized: missing CRON_SECRET" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
   const isPrivileged =
     (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
     (serviceRole && authHeader === `Bearer ${serviceRole}`);
@@ -30,13 +36,15 @@ Deno.serve(async (req) => {
     !!anonKey && (authHeader === `Bearer ${anonKey}` || apikeyHeader === anonKey);
   const force = new URL(req.url).searchParams.get("force") === "1";
   if (!isPrivileged && !isInternalCron) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), {
-      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    console.warn("[monthly-reset] 401 — invalid CRON_SECRET / unauthorized caller");
+    return new Response(JSON.stringify({ error: "Unauthorized: invalid CRON_SECRET" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
   if (force && !isPrivileged) {
-    return new Response(JSON.stringify({ error: "force requires CRON_SECRET" }), {
-      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    console.warn("[monthly-reset] 401 — ?force=1 requires CRON_SECRET/service-role");
+    return new Response(JSON.stringify({ error: "Unauthorized: force requires CRON_SECRET" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
