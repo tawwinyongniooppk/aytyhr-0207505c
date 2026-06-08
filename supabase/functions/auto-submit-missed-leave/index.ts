@@ -278,9 +278,12 @@ Deno.serve(async (req) => {
       if (!expected.active && !isMorningHalf) continue; // off-day
 
       // Effective expected check-in: shifts to 12:00 when morning-half is active.
+      // For the morning-half branch the cron fires at exactly MMT 12:00 PM
+      // (no +30 grace), per product spec — staff must check in between
+      // 11:30 AM and 12:00 PM.
       const expectedInStr = isMorningHalf ? MORNING_HALF_CHECKIN : expected.time;
       const expectedMin = hhmmToMinutes(expectedInStr);
-      const dueMin = expectedMin + HALF_GRACE_MIN;
+      const dueMin = isMorningHalf ? expectedMin : expectedMin + HALF_GRACE_MIN;
 
       // ====== BRANCH 1: Default schedule, +30 late → auto Morning Half-Leave ======
       if (
