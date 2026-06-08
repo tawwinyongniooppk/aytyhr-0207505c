@@ -227,6 +227,11 @@ export default function Leave() {
   })();
   const fullLeaveOverCap =
     !!selectedRequest && selectedRequest.type === "leave" && monthlyApprovedEquiv >= 2;
+  // Manual deduction is only required when the system AUTO-submitted the half-leave
+  // (reason prefixed with "[AUTO]"). Staff-submitted half-leaves approve directly
+  // and lose -0.5 from balance via the apply_leave_balance_change trigger.
+  const isAutoSubmitted =
+    !!selectedRequest && (selectedRequest.reason ?? "").startsWith("[AUTO]");
 
   const handleReview = async (
     requestId: string,
@@ -236,7 +241,8 @@ export default function Leave() {
 
     const needsManualDeduction =
       decision === "approved" &&
-      (selectedRequest.type === "half_leave" || fullLeaveOverCap);
+      ((selectedRequest.type === "half_leave" && isAutoSubmitted) || fullLeaveOverCap);
+
 
     if (needsManualDeduction) {
       const amt = parseInt(halfDeductAmount, 10);
@@ -645,7 +651,8 @@ export default function Leave() {
                 </div>
               </div>
               {selectedRequest.status === "pending" &&
-                (selectedRequest.type === "half_leave" || fullLeaveOverCap) && (
+                ((selectedRequest.type === "half_leave" && isAutoSubmitted) || fullLeaveOverCap) && (
+
                 <div className="space-y-2 pt-2 border-t border-border">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                     Manual Deduction (required to approve)
@@ -677,7 +684,8 @@ export default function Leave() {
               )}
               {selectedRequest.status === "pending" && (() => {
                 const financialRequest =
-                  selectedRequest.type === "half_leave" || fullLeaveOverCap;
+                  (selectedRequest.type === "half_leave" && isAutoSubmitted) || fullLeaveOverCap;
+
                 if (isAssistant && financialRequest) {
                   return (
                     <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-xs text-warning-foreground">
