@@ -806,17 +806,19 @@ export default function Attendance() {
         <p className="text-muted-foreground text-sm mt-1">Mark your attendance for today</p>
       </div>
 
-      {/* 6:00 AM Daily Greeting / Reminder */}
+      {/* Morning Greeting / Reminder — only shown after 6 AM MMT and
+          before end-of-day. After the workday boundary it stays hidden
+          until the next MMT midnight (so the page does not flip back to
+          a "fresh morning" look during the evening). */}
       {(() => {
         void nowTick;
         const now = new Date();
         const yangonHour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: "Asia/Yangon" }).format(now));
         const after6 = yangonHour >= 6;
         if (!after6) return null;
+        if (dayEnded) return null;
         if (checkedIn) return null;
         const displayName = fullName || "မင်္ဂလာပါ";
-        // Off-day = explicit holiday assigned, approved full-day leave, OR the
-        // user's own work_schedule marks today as inactive (Admin-controlled).
         const isOffOrLeave = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
         if (isOffOrLeave) {
           return (
