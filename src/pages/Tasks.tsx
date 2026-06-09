@@ -205,7 +205,11 @@ export default function Tasks() {
       if (form.due_date) insertData.due_date = form.due_date;
       const { error } = await supabase.from("tasks").insert(insertData);
       if (error) {
-        toast.error("Failed to assign task");
+        if ((error.message || "").includes("DUPLICATE_TASK")) {
+          toast.error("ဤ Staff အတွက် တူညီသော ရက်စွဲတွင် Task တစ်ခု Assign ပြီးသား ရှိနေပါသည်");
+        } else {
+          toast.error("Failed to assign task");
+        }
         return;
       }
       toast.success("Task assigned successfully");
