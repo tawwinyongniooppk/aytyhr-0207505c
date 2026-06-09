@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
         last_updated: new Date().toISOString(),
       }).eq("user_id", att.user_id).eq("month", monthStart);
 
-      results.push({ user_id: att.user_id, penalty, check_out_time: new Date().toISOString() });
+      results.push({ user_id: att.user_id, penalty, check_out_time: autoCheckOutISO });
     }
 
     return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
