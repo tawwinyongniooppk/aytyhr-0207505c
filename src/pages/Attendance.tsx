@@ -218,11 +218,24 @@ export default function Attendance() {
     };
   }, [user]);
 
-  // Tick every minute so the 6:00 AM gating updates without a refresh
+  // Tick every minute so 6 AM gating + end-of-day boundary update without
+  // a refresh. When the MMT calendar date rolls over (midnight), automatically
+  // reload attendance so the page flips to the new day.
+  const [mmtDate, setMmtDate] = useState<string>(getMMTTodayISO());
   useEffect(() => {
-    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    const id = setInterval(() => {
+      setNowTick(Date.now());
+      const t = getMMTTodayISO();
+      setMmtDate((prev) => (prev !== t ? t : prev));
+    }, 60_000);
     return () => clearInterval(id);
   }, []);
+  useEffect(() => {
+    if (!user) return;
+    loadData();
+    loadHolidayAndLeave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mmtDate, user]);
 
   // Fade out check-in / check-out notices after 10 seconds
   useEffect(() => {
