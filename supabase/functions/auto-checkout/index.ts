@@ -130,9 +130,20 @@ Deno.serve(async (req) => {
 
       const penalty = FLAT_PENALTY_MMK;
 
-      // Auto check-out at dueAt
+      // Auto check-out at (expected check-out + 30 min) in MMT, stored as UTC ISO.
+      const [expH, expM] = expectedStr.split(":").map(Number);
+      const dueMMTms =
+        Date.UTC(
+          Number(yangonNow().getUTCFullYear()),
+          Number(yangonNow().getUTCMonth()),
+          Number(yangonNow().getUTCDate()),
+          Number(expH) || 0,
+          (Number(expM) || 0) + GRACE_AFTER_CHECKOUT_MIN,
+        ) - YANGON_OFFSET_MS;
+      const autoCheckOutISO = new Date(dueMMTms).toISOString();
+
       await admin.from("attendance").update({
-        check_out_time: new Date().toISOString(),
+        check_out_time: autoCheckOutISO,
         early_minutes: 0,
         deduction_applied: true,
       }).eq("id", att.id);
@@ -162,7 +173,7 @@ Deno.serve(async (req) => {
         last_updated: new Date().toISOString(),
       }).eq("user_id", att.user_id).eq("month", monthStart);
 
-      results.push({ user_id: att.user_id, penalty, check_out_time: new Date().toISOString() });
+      results.push({ user_id: att.user_id, penalty, check_out_time: autoCheckOutISO });
     }
 
     return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
