@@ -421,12 +421,17 @@ export default function SalaryPage() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
               <Gift className="h-4 w-4 text-accent shrink-0" />
-              <span className="text-xs text-muted-foreground truncate">Bonus</span>
+              <span className="text-xs text-muted-foreground truncate">Bonus (Earned)</span>
             </div>
             <p className="text-base sm:text-lg font-bold font-display text-accent break-words">
               +{totalBonus.toLocaleString()}{" "}
               <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
+            {perUnitBonus > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-1 break-words">
+                {earnedUnits}/4 Units · {perUnitBonus.toLocaleString()}/unit
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card className="border border-primary/30 shadow-none bg-primary/5 min-w-0">
