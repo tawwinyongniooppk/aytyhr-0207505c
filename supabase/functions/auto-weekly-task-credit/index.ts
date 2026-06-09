@@ -98,15 +98,12 @@ Deno.serve(async (req) => {
 
     // 3) For each staff, check if any task was assigned to them within the window
     //    by admin OR assistant. Both `tasks` and `calendar_event_assignments` count.
-    const [taskRes, evAssRes, evRes] = await Promise.all([
+    const [taskRes, evRes] = await Promise.all([
       admin
         .from("tasks")
         .select("assignee_id, created_at, assigned_by")
         .gte("created_at", `${win.start}T00:00:00`)
         .lt("created_at", `${win.end}T23:59:59`),
-      admin
-        .from("calendar_event_assignments")
-        .select("user_id, event_id"),
       admin
         .from("calendar_events")
         .select("id, start_date, end_date, event_type, created_by")
@@ -117,9 +114,18 @@ Deno.serve(async (req) => {
 
     const assignedSet = new Set<string>();
     for (const t of (taskRes.data as { assignee_id: string }[]) || []) assignedSet.add(t.assignee_id);
-    const evIds = new Set(((evRes.data as { id: string }[]) || []).map((e) => e.id));
-    for (const a of (evAssRes.data as { user_id: string; event_id: string }[]) || []) {
-      if (evIds.has(a.event_id)) assignedSet.add(a.user_id);
+
+    const evIds = ((evRes.data as { id: string }[]) || []).map((e) => e.id);
+    let evAssData: { user_id: string; event_id: string }[] = [];
+    if (evIds.length > 0) {
+      const { data: assRows } = await admin
+        .from("calendar_event_assignments")
+        .select("user_id, event_id")
+        .in("event_id", evIds);
+      evAssData = (assRows as { user_id: string; event_id: string }[]) || [];
+    }
+    for (const a of evAssData) {
+      assignedSet.add(a.user_id);
     }
 
     // 4) Idempotency: skip if we already credited this window
