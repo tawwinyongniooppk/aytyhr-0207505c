@@ -69,37 +69,56 @@ Deno.serve(async (req) => {
       .eq("submission_status", "submitted")
       .eq("due_date", today);
 
-    for (const t of (subTasks || [])) {
-      const { error: upErr } = await supabase
+    if (subTasks && subTasks.length > 0) {
+      const ms = monthStart(today);
+      const taskIds = subTasks.map((t: any) => t.id);
+
+      // Bulk update all submitted tasks → approved
+      const { error: bulkUpErr } = await supabase
         .from("tasks")
         .update({
           submission_status: "approved",
           approved_at: new Date().toISOString(),
           auto_approved: true,
         })
-        .eq("id", t.id);
-      if (upErr) { console.error("[deadline-sweep] approve task", t.id, upErr); continue; }
-      log.auto_approved_tasks++;
+        .in("id", taskIds);
 
-      const ms = monthStart(today);
-      const { data: perUnit } = await supabase.rpc("compute_bonus_per_unit", {
-        p_user_id: t.assignee_id, p_month: ms,
-      });
-      const amount = (perUnit as unknown as number) || 0;
-      if (amount > 0) {
-        const { error: bErr } = await supabase.from("bonus_transactions").insert({
-          user_id: t.assignee_id,
-          task_id: t.id,
-          source: "task",
-          month: ms,
-          amount,
-          unit_count: 1,
-          deadline_date: t.due_date,
-          approved_date: today,
-          auto_approved: true,
-          title: t.title,
+      if (bulkUpErr) {
+        console.error("[deadline-sweep] bulk approve tasks", bulkUpErr);
+      } else {
+        log.auto_approved_tasks = subTasks.length;
+
+        // Compute per-unit bonuses in parallel
+        const perUnitResults = await Promise.all(
+          subTasks.map((t: any) =>
+            supabase.rpc("compute_bonus_per_unit", { p_user_id: t.assignee_id, p_month: ms })
+          )
+        );
+
+        const bonusPayload: any[] = [];
+        subTasks.forEach((t: any, i: number) => {
+          const amount = (perUnitResults[i].data as unknown as number) || 0;
+          if (amount > 0) {
+            bonusPayload.push({
+              user_id: t.assignee_id,
+              task_id: t.id,
+              source: "task",
+              month: ms,
+              amount,
+              unit_count: 1,
+              deadline_date: t.due_date,
+              approved_date: today,
+              auto_approved: true,
+              title: t.title,
+            });
+          }
         });
-        if (!bErr) log.bonus_tx++;
+
+        if (bonusPayload.length > 0) {
+          const { error: bErr } = await supabase.from("bonus_transactions").insert(bonusPayload);
+          if (bErr) console.error("[deadline-sweep] bulk bonus tx (tasks)", bErr);
+          else log.bonus_tx += bonusPayload.length;
+        }
       }
     }
 
@@ -117,44 +136,68 @@ Deno.serve(async (req) => {
         .in("id", eventIds);
       const evMap = new Map((evs || []).map((e: any) => [e.id, e]));
 
-      for (const a of subAssigns) {
+      // Filter to assignments whose event ends today
+      const dueAssigns = subAssigns.filter((a: any) => {
         const ev: any = evMap.get(a.event_id);
-        if (!ev || ev.end_date !== today) continue;
-        const { error: upErr } = await supabase
+        return ev && ev.end_date === today;
+      });
+
+      if (dueAssigns.length > 0) {
+        const ms = monthStart(today);
+        const assIds = dueAssigns.map((a: any) => a.id);
+
+        // Bulk update all due assignments → approved
+        const { error: bulkUpErr } = await supabase
           .from("calendar_event_assignments")
           .update({
             submission_status: "approved",
             approved_at: new Date().toISOString(),
             auto_approved: true,
           })
-          .eq("id", a.id);
-        if (upErr) { console.error("[deadline-sweep] approve ass", a.id, upErr); continue; }
-        log.auto_approved_assignments++;
+          .in("id", assIds);
 
-        const unit_count = getTaskUnitCount(ev.start_date, ev.end_date);
+        if (bulkUpErr) {
+          console.error("[deadline-sweep] bulk approve assignments", bulkUpErr);
+        } else {
+          log.auto_approved_assignments = dueAssigns.length;
 
-        const ms = monthStart(today);
-        const { data: perUnit } = await supabase.rpc("compute_bonus_per_unit", {
-          p_user_id: a.user_id, p_month: ms,
-        });
-        const amount = ((perUnit as unknown as number) || 0) * unit_count;
-        if (amount > 0) {
-          const { error: bErr } = await supabase.from("bonus_transactions").insert({
-            user_id: a.user_id,
-            assignment_id: a.id,
-            source: "calendar",
-            month: ms,
-            amount,
-            unit_count,
-            deadline_date: ev.end_date,
-            approved_date: today,
-            auto_approved: true,
-            title: ev.title,
+          // Compute per-unit bonuses in parallel
+          const perUnitResults = await Promise.all(
+            dueAssigns.map((a: any) =>
+              supabase.rpc("compute_bonus_per_unit", { p_user_id: a.user_id, p_month: ms })
+            )
+          );
+
+          const bonusPayload: any[] = [];
+          dueAssigns.forEach((a: any, i: number) => {
+            const ev: any = evMap.get(a.event_id);
+            const unit_count = getTaskUnitCount(ev.start_date, ev.end_date);
+            const amount = ((perUnitResults[i].data as unknown as number) || 0) * unit_count;
+            if (amount > 0) {
+              bonusPayload.push({
+                user_id: a.user_id,
+                assignment_id: a.id,
+                source: "calendar",
+                month: ms,
+                amount,
+                unit_count,
+                deadline_date: ev.end_date,
+                approved_date: today,
+                auto_approved: true,
+                title: ev.title,
+              });
+            }
           });
-          if (!bErr) log.bonus_tx++;
+
+          if (bonusPayload.length > 0) {
+            const { error: bErr } = await supabase.from("bonus_transactions").insert(bonusPayload);
+            if (bErr) console.error("[deadline-sweep] bulk bonus tx (assignments)", bErr);
+            else log.bonus_tx += bonusPayload.length;
+          }
         }
       }
     }
+
 
     // ---- (C) OVERDUE: tasks with due_date < today and status not (submitted/approved/rejected/overdue)
     const { count: ot } = await supabase
