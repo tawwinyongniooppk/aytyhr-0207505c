@@ -69,7 +69,12 @@ Deno.serve(async (req) => {
     const { error } = await supabase.rpc("monthly_reset_for", { p_month: monthStart });
     if (error) throw error;
 
-    return new Response(JSON.stringify({ ok: true, reset_month: monthStart }), {
+    // Seed next month's salaries so Day-1 Base Salary transactions appear immediately.
+    const nextMonthStart = tomorrow.slice(0, 7) + "-01";
+    const { data: seeded, error: seedErr } = await supabase.rpc("seed_monthly_salaries", { p_month: nextMonthStart });
+    if (seedErr) console.error("[monthly-reset] seed error", seedErr);
+
+    return new Response(JSON.stringify({ ok: true, reset_month: monthStart, seeded_month: nextMonthStart, seeded_count: seeded ?? 0 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
