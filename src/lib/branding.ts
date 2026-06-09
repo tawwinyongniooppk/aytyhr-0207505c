@@ -26,12 +26,24 @@ export async function applyBranding() {
     const logo = (data as any)?.value as string | undefined;
     if (!logo) return;
 
+    // Infer mime type from URL (fall back to png).
+    const lower = logo.split("?")[0].toLowerCase();
+    const mime = lower.endsWith(".svg")
+      ? "image/svg+xml"
+      : lower.endsWith(".webp")
+        ? "image/webp"
+        : lower.endsWith(".jpg") || lower.endsWith(".jpeg")
+          ? "image/jpeg"
+          : "image/png";
+
     // Favicon + iOS home-screen icon
     setIconLink("icon", logo);
     setIconLink("shortcut icon", logo);
     setIconLink("apple-touch-icon", logo);
 
     // Dynamic PWA manifest (Blob URL so browser fetches the branded version).
+    // Use purpose "any" with sizes "any" so the FULL logo renders on every
+    // device (Android/iOS/desktop) without maskable cropping the edges.
     const manifest = {
       name: "AYTY Smart HR",
       short_name: "AYTY HR",
@@ -41,8 +53,9 @@ export async function applyBranding() {
       background_color: "#F8FAFC",
       theme_color: "#1E293B",
       icons: [
-        { src: logo, sizes: "192x192", type: "image/png", purpose: "any maskable" },
-        { src: logo, sizes: "512x512", type: "image/png", purpose: "any maskable" },
+        { src: logo, sizes: "any", type: mime, purpose: "any" },
+        { src: "/pwa-192x192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "any" },
       ],
     };
     const blobUrl = URL.createObjectURL(
@@ -55,6 +68,7 @@ export async function applyBranding() {
       document.head.appendChild(manifestLink);
     }
     manifestLink.href = blobUrl;
+
   } catch {
     /* ignore — keep default branding */
   }
