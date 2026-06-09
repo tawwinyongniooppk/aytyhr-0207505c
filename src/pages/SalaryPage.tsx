@@ -259,7 +259,41 @@ export default function SalaryPage() {
           amount: b.amount,
         });
       }
+    } else if (perUnitBonus > 0) {
+      // No bonus_transactions yet (admin approved manually) — synthesize one ledger
+      // entry per approved unit so the user sees their earned bonus history.
+      let unitIndex = 0;
+      for (const t of approvedTasks) {
+        unitIndex += 1;
+        if (unitIndex > 4) break;
+        const dateStr = (t.approved_at || t.due_date || monthStart).slice(0, 10);
+        items.push({
+          id: `bonus-task-${t.id}`,
+          date: dateStr,
+          type: "bonus",
+          description: `${t.title || "Task"} · Unit ${unitIndex}/4 · Approved ${dateStr}`,
+          amount: perUnitBonus,
+        });
+      }
+      for (const r of approvedAssignments) {
+        const ev = (r as any).calendar_events;
+        const u = unitsFor(ev.start_date, ev.end_date);
+        for (let k = 0; k < u; k++) {
+          unitIndex += 1;
+          if (unitIndex > 4) break;
+          const dateStr = (r.approved_at || ev.end_date || monthStart).slice(0, 10);
+          items.push({
+            id: `bonus-assign-${r.id}-${k}`,
+            date: dateStr,
+            type: "bonus",
+            description: `${ev.title || "Calendar Task"} · Unit ${unitIndex}/4 · Approved ${dateStr}`,
+            amount: perUnitBonus,
+          });
+        }
+        if (unitIndex >= 4) break;
+      }
     }
+
 
     // Salary additions (Admin manual or system-issued OT auto)
     for (const a of manualAdditions) {
