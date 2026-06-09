@@ -91,7 +91,8 @@ export default function SalaryPage() {
     const [salRes, mdRes, attRes, lvRes, profRes, btRes, addRes, smdRes] = await Promise.all([
       supabase
         .from("salaries")
-        .select("base_salary, current_salary, total_deductions, bonus, manual_deduction, deduction_reason")
+        // NOTE: `bonus` (monthly pot) intentionally excluded — earned bonus is summed from bonus_transactions below.
+        .select("base_salary, current_salary, total_deductions, manual_deduction, deduction_reason")
         .eq("user_id", user!.id)
         .eq("month", monthStart)
         .maybeSingle(),
