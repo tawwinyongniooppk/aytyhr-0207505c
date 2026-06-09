@@ -194,11 +194,7 @@ export default function Attendance() {
     errorMessage: null,
   });
 
-  useEffect(() => {
-    if (!user) return;
-    loadData();
-    loadHolidayAndLeave();
-  }, [user]);
+  // (Initial + per-MMT-date load lives in the mmtDate effect below.)
 
   // Realtime ONLY: whenever a leave_request row is inserted/updated for this user,
   // refresh holiday/leave state so the UI instantly locks check-in/out and shifts
