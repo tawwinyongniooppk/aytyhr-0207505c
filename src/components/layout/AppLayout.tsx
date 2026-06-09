@@ -96,6 +96,7 @@ export function AppLayout() {
         <BottomNav />
       </div>
       {dashboardDetailRoutes.includes(location.pathname) && <BackToDashboard />}
+      <AppUpdateManager />
     </div>
   );
 }
