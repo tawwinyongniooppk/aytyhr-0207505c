@@ -208,7 +208,9 @@ Deno.serve(async (req) => {
     const perUnitByUser = new Map<string, number>();
     for (const s of missing) {
       const totalBonus = bonusByUser.get(s.id) ?? 0;
-      const perUnit = Math.floor(totalBonus / 4);
+      // Clean 4-part split: round to nearest integer so 4 × perUnit ≈ totalBonus
+      // without arbitrary floor truncation (e.g. 10000/4 = 2500 exactly, 10001/4 → 2500).
+      const perUnit = totalBonus > 0 ? Math.round(totalBonus / 4) : 0;
       perUnitByUser.set(s.id, perUnit);
       const assignmentId = assByUser.get(s.id);
       if (perUnit > 0 && assignmentId) {
