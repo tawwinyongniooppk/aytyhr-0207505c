@@ -1,63 +1,74 @@
-# Lesson Plan Template Editor — Major Overhaul
+# Carousel Slider Management Module
 
-## Scope
+## Overview
+Add a global persistent Carousel Slider to the app, manageable by IT Manager via a new menu item. Slides are stored in Lovable Cloud and render in the Root Layout across all pages.
 
-Per class (Beginner / Junior / Senior), allow IT Manager to maintain **two templates**: **Format 1** and **Format 2**. Rebuild the editor UX into a true side-by-side workspace with rich design controls, free-floating elements, image uploads (not URLs), and resizable rows/columns.
+## Database (Lovable Cloud)
 
-## Changes
+**`carousel_settings`** (single-row config table)
+- position: 'top' | 'middle' | 'bottom' (default 'top')
+- animation_style: 'continuous' | 'fade' | 'slide-snap' | 'pop' (default 'continuous')
+- animation_speed_seconds: numeric (default 5)
+- enabled: boolean (default true)
 
-### 1. Storage — dual format per class
-- Migration: add `format` column (`'format1' | 'format2'`) to `lesson_plan_templates`, replace unique key on `class` with `(class, format)`.
-- Update `LessonPlansEditor.tsx` and `MyTimetablePage.tsx` to load/save by `(class, format)`. Staff page gets a Format 1 / Format 2 toggle.
+**`carousel_slides`**
+- image_url, sort_order
+- link_enabled (bool), link_url (text, nullable)
+- start_date, end_date (nullable date pickers)
+- active (bool)
 
-### 2. Layout — side-by-side workspace
-- Replace stacked toolbar-above / preview-below layout with a 2-column grid:
-  - Left (≈360–420px, sticky, scrollable): tool panels — Page / Letterhead / Watermark / Palette / Border / Cards (with **Add Card** button) / Free Elements.
-  - Right (flex 1, sticky preview): canvas preview.
-- Use `ResizablePanelGroup` for desktop; stacked on mobile.
+RLS:
+- Everyone authenticated: SELECT
+- IT Manager only: INSERT/UPDATE/DELETE (via `is_it_manager()`)
 
-### 3. Cards — unlimited, resizable rows/columns
-- "Add Card" / "Delete Card" controls in left panel.
-- Per-row height (px) and per-column width (% or px) adjustable via drag handles **except** outer-border rows/columns (first/last row & first/last column locked to auto/equal).
-- Stored as `rowHeights: number[]` and `colWidths: number[]` on each Card.
+GRANTs for both roles. service_role full access.
 
-### 4. Cell-level features
-- New `Cell` fields:
-  - `prefix`: `none | bullet | number | checkbox | radio` rendered before value.
-  - `options?: string[]` — when present, cell becomes a dropdown (select) in staff edit mode with these preset names; IT Manager edits the list in a popover.
-- Existing font controls (size, family, bold/italic/underline, color, bg, align) retained and surfaced per selected cell.
+Storage: reuse `branding` bucket under `carousel/` prefix (already public).
 
-### 5. Free-floating elements (drag & drop on page)
-- New `freeElements: FreeElement[]` array on template.
-- Types: `text`, `image`, `shape` (rect/circle/line), `icon` (check/bullet/etc.).
-- Each has `{ id, type, x, y, width, height, rotation, zIndex, style }`.
-- Rendered absolutely-positioned over the canvas; draggable & resizable via `react-rnd` (add dependency) in editor mode; locked in staff view but printed in PDF.
-- Toolbar: "Add Text", "Add Image", "Add Shape", "Add Icon".
+## IT Manager Page: `/carousel-management`
 
-### 6. Letterhead & Watermark — image upload
-- Replace URL inputs with file upload to existing Supabase Storage (create `lesson-plan-assets` public bucket via migration if missing).
-- Placeholder text: `"Upload image (recommended 1200×300 px, PNG/JPG, < 2MB)"` for letterhead; `"Upload watermark (recommended 800×800 px, transparent PNG, < 2MB)"` for watermark.
-- Watermark gains: `x, y, width, height, rotation, opacity` — draggable/resizable on canvas like free elements. Watermark text supports same transforms.
+Add route, sidebar/bottom-nav item (IT Manager only), and route guard in `AppLayout`.
 
-### 7. Types & defaults
-- Extend `LessonPlanTemplate`, `Card`, `Cell`, `Watermark` types in `src/lib/lessonPlanTypes.ts`.
-- Update `defaultTemplate` to be format-aware (Format 1 = current default; Format 2 = a second variant with different cards).
-- Keep backward compatibility: loader fills missing fields with defaults so old saved templates still render.
+**Settings panel:**
+- Position dropdown (Top / Middle / Bottom)
+- Animation Style dropdown (Continuous Scroll, Fade, Slide Snap, Pop)
+- Animation Speed numeric input (seconds)
+- Master enable switch
 
-### 8. Files touched
-- Migration: add `format` column + unique constraint + storage bucket + policies.
-- `src/lib/lessonPlanTypes.ts`, `src/lib/lessonPlanDefaults.ts`
-- `src/components/lesson-plans/TemplateEditor.tsx` — full rewrite into side-by-side, add panels for free elements, cell options, image upload, resizable rows/cols.
-- `src/components/lesson-plans/TemplateCanvas.tsx` — render `freeElements`, cell prefixes/dropdowns, row heights, column widths, draggable watermark.
-- `src/pages/LessonPlansEditor.tsx` — Format 1 / Format 2 sub-tabs under each class tab.
-- `src/pages/MyTimetablePage.tsx` — Format selector for staff.
-- New: `src/components/lesson-plans/ImageUpload.tsx` (reusable uploader to `lesson-plan-assets`).
-- Add `react-rnd` dependency for drag/resize.
+**Slide manager:**
+- "Add Slide" button → upload image (enforced `aspect-[21/9] object-cover` preview)
+- Per-slide card: 21:9 preview, link toggle + URL input (shown only when ON), Start/End date pickers (shadcn DatePicker), active toggle, remove button
+- Reorder via sort_order (up/down buttons — keeps it simple)
 
-## Out of scope
-- No changes to attendance, leave, salary, auth flows.
-- PDF export keeps current `exportPagesToPdf`; absolute-positioned elements already captured by html2canvas.
+## Global Component: `<GlobalCarousel />`
 
-## Risks
-- Old saved templates: handled by defensive defaulting in loader.
-- `react-rnd` bundle size: acceptable (~30kb gz).
+Mounted in `AppLayout` and positioned (top / middle / bottom) based on settings. Slim banner (no layout push for "middle" — actually middle = between header and main; top/bottom flank the main area). It renders inside the flex column so it does not overlap, but stays compact (h-auto with 21:9 aspect on a max-w container — slim banner means small height; we'll cap height ~80–120px on desktop, ~56–80px on mobile while preserving 21:9 via max-width).
+
+**Behavior:**
+- Filter slides by date window (start_date ≤ today ≤ end_date, nulls = open)
+- Continuous scroll: marquee using CSS `@keyframes` translateX
+- Fade: cross-fade with `transition-opacity`
+- Slide Snap: embla carousel (already in project) with `align: 'start'`, autoplay
+- Pop: scale-in transition between slides
+- Pause on hover (desktop): pause animation/autoplay
+- Touch swipe (mobile): embla handles natively for slide/fade/pop; for continuous, swipe is informational only
+- Click slide → opens `link_url` in new tab when `link_enabled`
+
+**Fetching:** loaded once via React Query with `staleTime: Infinity` (refetch only on manual refresh / mutation invalidation). One realtime-free fetch on app mount.
+
+## Files
+
+- `supabase/migrations/<ts>_carousel.sql` — tables, GRANTs, RLS, policies
+- `src/hooks/useCarousel.ts` — React Query loaders + mutations
+- `src/components/carousel/GlobalCarousel.tsx`
+- `src/components/carousel/CarouselSlideCard.tsx` (admin slide editor)
+- `src/pages/CarouselManagement.tsx`
+- Edit `src/App.tsx` — add lazy route `/carousel-management`
+- Edit `src/components/layout/AppLayout.tsx` — mount `<GlobalCarousel />`, add route to IT Manager allowlist
+- Edit `src/components/layout/DesktopSidebar.tsx` + `BottomNav.tsx` — add IT Manager menu entry
+
+## Technical Notes
+- IT Manager allowlist in `AppLayout` currently restricts to `manage-accounts` and `lesson-plans-editor`; add `/carousel-management`.
+- Bottom nav for IT Manager: add new icon entry.
+- Image upload uses existing `branding` bucket (public) at `carousel/{uuid}.{ext}`.
+- 21:9 enforcement: client-side preview only (we don't crop server-side); the `aspect-[21/9] object-cover` class guarantees consistent display.

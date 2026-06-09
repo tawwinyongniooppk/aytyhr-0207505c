@@ -217,6 +217,72 @@ export type Database = {
         }
         Relationships: []
       }
+      carousel_settings: {
+        Row: {
+          animation_speed_seconds: number
+          animation_style: string
+          enabled: boolean
+          id: boolean
+          position: string
+          updated_at: string
+        }
+        Insert: {
+          animation_speed_seconds?: number
+          animation_style?: string
+          enabled?: boolean
+          id?: boolean
+          position?: string
+          updated_at?: string
+        }
+        Update: {
+          animation_speed_seconds?: number
+          animation_style?: string
+          enabled?: boolean
+          id?: boolean
+          position?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      carousel_slides: {
+        Row: {
+          active: boolean
+          created_at: string
+          end_date: string | null
+          id: string
+          image_url: string
+          link_enabled: boolean
+          link_url: string | null
+          sort_order: number
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          image_url: string
+          link_enabled?: boolean
+          link_url?: string | null
+          sort_order?: number
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          image_url?: string
+          link_enabled?: boolean
+          link_url?: string | null
+          sort_order?: number
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fcm_tokens: {
         Row: {
           created_at: string
