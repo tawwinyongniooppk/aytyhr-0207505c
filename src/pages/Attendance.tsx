@@ -526,9 +526,17 @@ export default function Attendance() {
   // check-in and check-out are locked (the working window has ended).
   const afternoonHalfLocked = hasAfternoonHalfLeaveToday && currentYangonMinutes >= noonMinutes;
 
+  // End-of-day boundary (MMT). After expected check-out + 30 min grace, the
+  // workday is considered finished for the day. Until next midnight MMT the
+  // page stays in "Day Complete" mode — no morning greeting, no open
+  // check-in/out box. State resets automatically at MMT 00:00 next day.
+  const endOfWorkDayMinutes = hhmmToMinutes(expectedCheckOutTime) + 30;
+  const dayEnded = currentYangonMinutes >= endOfWorkDayMinutes;
+
   const isOffToday = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
   const canCheckIn = (() => {
     if (isOffToday) return false;
+    if (dayEnded) return false;
     if (morningHalfLocked) return false;
     if (afternoonHalfLocked) return false;
     if (record?.check_in_time) return false;
