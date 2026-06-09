@@ -165,45 +165,56 @@ Deno.serve(async (req) => {
       .single();
     if (evErr || !ev) throw evErr ?? new Error("event insert failed");
 
-    // 6) For each missing staff: create approved assignment + bonus_transaction (¼ of monthly bonus)
+    // 6) Bulk-create assignments + bonus_transactions for all missing staff
     const nowIso = new Date().toISOString();
     const monthStart = t.monthStart;
-    let credited = 0;
 
+    // 6a) Prefetch monthly bonus for all missing users in a single query
+    const missingIds = missing.map((s) => s.id);
+    const { data: salRows } = await admin
+      .from("salaries")
+      .select("user_id, bonus")
+      .eq("month", monthStart)
+      .in("user_id", missingIds);
+    const bonusByUser = new Map<string, number>();
+    for (const r of (salRows as { user_id: string; bonus: number | null }[]) || []) {
+      bonusByUser.set(r.user_id, Number(r.bonus ?? 0));
+    }
+
+    // 6b) Build assignments payload and bulk insert
+    const assignmentsPayload = missing.map((s) => ({
+      event_id: ev.id,
+      user_id: s.id,
+      submission_status: "approved",
+      submitted_at: nowIso,
+      approved_at: nowIso,
+      approved_by: systemCreator,
+      auto_approved: true,
+    }));
+
+    const { data: insertedAssignments, error: bulkAssErr } = await admin
+      .from("calendar_event_assignments")
+      .insert(assignmentsPayload)
+      .select("id, user_id");
+    if (bulkAssErr) throw bulkAssErr;
+
+    const assByUser = new Map<string, string>();
+    for (const a of (insertedAssignments as { id: string; user_id: string }[]) || []) {
+      assByUser.set(a.user_id, a.id);
+    }
+
+    // 6c) Build bonus_transactions payload (only users with perUnit > 0) and bulk insert
+    const bonusPayload: Record<string, unknown>[] = [];
+    const perUnitByUser = new Map<string, number>();
     for (const s of missing) {
-      // 6a) Approved assignment counts as a +1 unit in "All Done"
-      const { data: ass, error: assErr } = await admin
-        .from("calendar_event_assignments")
-        .insert({
-          event_id: ev.id,
-          user_id: s.id,
-          submission_status: "approved",
-          submitted_at: nowIso,
-          approved_at: nowIso,
-          approved_by: systemCreator,
-          auto_approved: true,
-        })
-        .select("id")
-        .single();
-      if (assErr) {
-        console.error("[auto-weekly-credit] assignment error", s.id, assErr);
-        continue;
-      }
-
-      // 6b) Bonus = 1/4 of monthly bonus for this user
-      const { data: sal } = await admin
-        .from("salaries")
-        .select("bonus")
-        .eq("user_id", s.id)
-        .eq("month", monthStart)
-        .maybeSingle();
-      const totalBonus = Number((sal as { bonus?: number } | null)?.bonus ?? 0);
+      const totalBonus = bonusByUser.get(s.id) ?? 0;
       const perUnit = Math.floor(totalBonus / 4);
-
-      if (perUnit > 0 && ass) {
-        const { error: btErr } = await admin.from("bonus_transactions").insert({
+      perUnitByUser.set(s.id, perUnit);
+      const assignmentId = assByUser.get(s.id);
+      if (perUnit > 0 && assignmentId) {
+        bonusPayload.push({
           user_id: s.id,
-          assignment_id: ass.id,
+          assignment_id: assignmentId,
           source: "calendar",
           month: monthStart,
           amount: perUnit,
@@ -213,30 +224,37 @@ Deno.serve(async (req) => {
           auto_approved: true,
           title: creditTitle,
         });
-        if (btErr) console.error("[auto-weekly-credit] bonus tx error", s.id, btErr);
-      }
-
-      credited++;
-
-      // 6c) Push notification to staff
-      try {
-        await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${SERVICE_ROLE}`,
-          },
-          body: JSON.stringify({
-            user_ids: [s.id],
-            title: "Auto Weekly Credit",
-            body: `${win.label} အတွက် 1 Unit + Bonus (${perUnit.toLocaleString()} MMK) auto-credited.`,
-            url: "/salary",
-          }),
-        });
-      } catch (e) {
-        console.error("[auto-weekly-credit] push error", e);
       }
     }
+
+    if (bonusPayload.length > 0) {
+      const { error: bulkBtErr } = await admin.from("bonus_transactions").insert(bonusPayload);
+      if (bulkBtErr) console.error("[auto-weekly-credit] bulk bonus tx error", bulkBtErr);
+    }
+
+    const credited = insertedAssignments?.length ?? 0;
+
+    // 6d) Push notifications (fire-and-forget, in parallel)
+    await Promise.allSettled(
+      missing
+        .filter((s) => assByUser.has(s.id))
+        .map((s) => {
+          const perUnit = perUnitByUser.get(s.id) ?? 0;
+          return fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${SERVICE_ROLE}`,
+            },
+            body: JSON.stringify({
+              user_ids: [s.id],
+              title: "Auto Weekly Credit",
+              body: `${win.label} အတွက် 1 Unit + Bonus (${perUnit.toLocaleString()} MMK) auto-credited.`,
+              url: "/salary",
+            }),
+          });
+        }),
+    );
 
     return new Response(
       JSON.stringify({ window: win, total_staff: staffList.length, missing: missing.length, credited }),
