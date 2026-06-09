@@ -1010,8 +1010,8 @@ export default function Attendance() {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Current Status</p>
-            <p className={`text-lg font-bold font-display mt-1 ${checkedIn ? "text-accent" : "text-muted-foreground"}`}>
-              {checkedOut ? "Day Complete ✓" : checkedIn ? "Present ✓" : "Not Checked In"}
+            <p className={`text-lg font-bold font-display mt-1 ${checkedOut || dayEnded ? "text-secondary" : checkedIn ? "text-accent" : "text-muted-foreground"}`}>
+              {checkedOut ? "Day Complete ✓" : dayEnded ? "Day Complete ✓" : checkedIn ? "Present ✓" : "Not Checked In"}
             </p>
           </div>
           {/* Today's expected times (above check-in/out buttons) */}
