@@ -194,11 +194,7 @@ export default function Attendance() {
     errorMessage: null,
   });
 
-  useEffect(() => {
-    if (!user) return;
-    loadData();
-    loadHolidayAndLeave();
-  }, [user]);
+  // (Initial + per-MMT-date load lives in the mmtDate effect below.)
 
   // Realtime ONLY: whenever a leave_request row is inserted/updated for this user,
   // refresh holiday/leave state so the UI instantly locks check-in/out and shifts
@@ -218,11 +214,24 @@ export default function Attendance() {
     };
   }, [user]);
 
-  // Tick every minute so the 6:00 AM gating updates without a refresh
+  // Tick every minute so 6 AM gating + end-of-day boundary update without
+  // a refresh. When the MMT calendar date rolls over (midnight), automatically
+  // reload attendance so the page flips to the new day.
+  const [mmtDate, setMmtDate] = useState<string>(getMMTTodayISO());
   useEffect(() => {
-    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    const id = setInterval(() => {
+      setNowTick(Date.now());
+      const t = getMMTTodayISO();
+      setMmtDate((prev) => (prev !== t ? t : prev));
+    }, 60_000);
     return () => clearInterval(id);
   }, []);
+  useEffect(() => {
+    if (!user) return;
+    loadData();
+    loadHolidayAndLeave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mmtDate, user]);
 
   // Fade out check-in / check-out notices after 10 seconds
   useEffect(() => {
@@ -526,9 +535,17 @@ export default function Attendance() {
   // check-in and check-out are locked (the working window has ended).
   const afternoonHalfLocked = hasAfternoonHalfLeaveToday && currentYangonMinutes >= noonMinutes;
 
+  // End-of-day boundary (MMT). After expected check-out + 30 min grace, the
+  // workday is considered finished for the day. Until next midnight MMT the
+  // page stays in "Day Complete" mode — no morning greeting, no open
+  // check-in/out box. State resets automatically at MMT 00:00 next day.
+  const endOfWorkDayMinutes = hhmmToMinutes(expectedCheckOutTime) + 30;
+  const dayEnded = currentYangonMinutes >= endOfWorkDayMinutes;
+
   const isOffToday = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
   const canCheckIn = (() => {
     if (isOffToday) return false;
+    if (dayEnded) return false;
     if (morningHalfLocked) return false;
     if (afternoonHalfLocked) return false;
     if (record?.check_in_time) return false;
@@ -798,17 +815,19 @@ export default function Attendance() {
         <p className="text-muted-foreground text-sm mt-1">Mark your attendance for today</p>
       </div>
 
-      {/* 6:00 AM Daily Greeting / Reminder */}
+      {/* Morning Greeting / Reminder — only shown after 6 AM MMT and
+          before end-of-day. After the workday boundary it stays hidden
+          until the next MMT midnight (so the page does not flip back to
+          a "fresh morning" look during the evening). */}
       {(() => {
         void nowTick;
         const now = new Date();
         const yangonHour = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: "Asia/Yangon" }).format(now));
         const after6 = yangonHour >= 6;
         if (!after6) return null;
+        if (dayEnded) return null;
         if (checkedIn) return null;
         const displayName = fullName || "မင်္ဂလာပါ";
-        // Off-day = explicit holiday assigned, approved full-day leave, OR the
-        // user's own work_schedule marks today as inactive (Admin-controlled).
         const isOffOrLeave = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
         if (isOffOrLeave) {
           return (
@@ -1000,8 +1019,8 @@ export default function Attendance() {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Current Status</p>
-            <p className={`text-lg font-bold font-display mt-1 ${checkedIn ? "text-accent" : "text-muted-foreground"}`}>
-              {checkedOut ? "Day Complete ✓" : checkedIn ? "Present ✓" : "Not Checked In"}
+            <p className={`text-lg font-bold font-display mt-1 ${checkedOut || dayEnded ? "text-secondary" : checkedIn ? "text-accent" : "text-muted-foreground"}`}>
+              {checkedOut ? "Day Complete ✓" : dayEnded ? "Day Complete ✓" : checkedIn ? "Present ✓" : "Not Checked In"}
             </p>
           </div>
           {/* Today's expected times (above check-in/out buttons) */}
@@ -1059,6 +1078,11 @@ export default function Attendance() {
               Check Out
             </Button>
           </div>
+          {dayEnded && !isOffToday && (
+            <p className="text-xs text-muted-foreground">
+              ဒီနေ့အတွက် အလုပ်ချိန် ပြီးဆုံးသွားပါပြီ။ နောက်နေ့ Check in / Check out Box သည် မြန်မာစံတော်ချိန် ည ၁၂ နာရီ ကျော်မှ ပြန်ပွင့်ပါမည်။
+            </p>
+          )}
           {isOffToday && (
             <p className="text-xs text-destructive">
               ဒီနေ့က ပိတ်ရက်ဖြစ်လို့ Check in / Check out ပိတ်ထားပါတယ်
