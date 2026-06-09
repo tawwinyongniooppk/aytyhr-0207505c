@@ -699,6 +699,7 @@ export type Database = {
         Args: { p_month: string; p_user_id: string }
         Returns: number
       }
+      current_user_role: { Args: never; Returns: string }
       dashboard_monthly_attendance: {
         Args: { p_month_end: string; p_month_start: string }
         Returns: {
@@ -741,6 +742,8 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      is_admin_or_assistant: { Args: never; Returns: boolean }
+      is_it_manager: { Args: never; Returns: boolean }
       is_privileged_user: { Args: never; Returns: boolean }
       list_public_profiles: {
         Args: never
