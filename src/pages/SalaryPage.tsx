@@ -478,6 +478,43 @@ export default function SalaryPage() {
         </Card>
       </div>
 
+      {monthlyBonusPot > 0 && (
+        <Card className="border border-accent/30 shadow-none bg-accent/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Gift className="h-4 w-4 text-accent shrink-0" />
+              <p className="text-[11px] uppercase tracking-wide text-accent font-semibold">
+                Monthly Bonus Plan
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              <div className="flex items-baseline gap-1">
+                <span className="font-semibold text-foreground">{monthlyBonusPot.toLocaleString()}</span>
+                <span className="text-[10px] text-muted-foreground">Total Pot (Ks)</span>
+              </div>
+              <span className="text-muted-foreground">÷ 4 =</span>
+              <div className="flex items-baseline gap-1">
+                <span className="font-semibold text-foreground">{perUnitBonus.toLocaleString()}</span>
+                <span className="text-[10px] text-muted-foreground">per Unit</span>
+              </div>
+              <span className="text-muted-foreground">·</span>
+              <div className="flex items-baseline gap-1">
+                <span className="font-semibold text-accent">{earnedUnits}/4</span>
+                <span className="text-[10px] text-muted-foreground">Units Earned</span>
+              </div>
+              <span className="text-muted-foreground">→</span>
+              <div className="flex items-baseline gap-1">
+                <span className="font-semibold text-accent">+{totalBonus.toLocaleString()}</span>
+                <span className="text-[10px] text-muted-foreground">Bonus (Ks)</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">
+              Final Salary သည် Approve လုပ်ပြီးသော Unit အရေအတွက်အလိုက် တိုးလာပါမည်။ Day 1 တွင် Bonus 0 ဖြစ်ပြီး Unit တစ်ခုစီ ပြီးတိုင်း တိုးသွားပါမည်။
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="border border-border shadow-none bg-muted/30">
         <CardContent className="p-4">
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
