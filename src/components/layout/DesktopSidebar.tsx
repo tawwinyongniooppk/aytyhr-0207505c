@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, Clock, CalendarDays, ClipboardList, FileText, Settings, GraduationCap, Wallet, LogOut, UserPlus, Coins, BadgeCheck, BookOpen } from "lucide-react";
+import { LayoutDashboard, Users, Clock, CalendarDays, ClipboardList, FileText, Settings, GraduationCap, Wallet, LogOut, UserPlus, Coins, BadgeCheck, BookOpen, GalleryHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,6 +24,7 @@ const allNavItems = [
   { to: "/my-timetable", icon: BookOpen, label: "My Timetable & Lesson Plans", adminOnly: false, staffOnly: true, requireSalaryAccess: false, itManagerOnly: false, excludeAssistant: false, personalSalary: false, hideForNeutral: true },
   { to: "/manage-accounts", icon: UserPlus, label: "Accounts", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true, excludeAssistant: false, personalSalary: false },
   { to: "/lesson-plans-editor", icon: BookOpen, label: "Lesson Plans Templates", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true, excludeAssistant: false, personalSalary: false },
+  { to: "/carousel-management", icon: GalleryHorizontal, label: "Carousel Slider", adminOnly: false, staffOnly: false, requireSalaryAccess: false, itManagerOnly: true, excludeAssistant: false, personalSalary: false },
 ];
 
 export function DesktopSidebar() {

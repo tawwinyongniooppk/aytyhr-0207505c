@@ -3,6 +3,7 @@ import { BottomNav } from "./BottomNav";
 import { AppHeader } from "./AppHeader";
 import { DesktopSidebar } from "./DesktopSidebar";
 import { BackToDashboard } from "@/components/BackToDashboard";
+import { GlobalCarousel } from "@/components/carousel/GlobalCarousel";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { Loader2 } from "lucide-react";
@@ -13,7 +14,7 @@ const adminOnlyRoutes = ["/dashboard", "/staff", "/settings", "/calendar"];
 const salaryRoutes = ["/salary"];
 const staffOnlyRoutes = ["/attendance", "/my-id", "/my-timetable"];
 const staffOrAssistantRoutes = ["/salary"];
-const itManagerOnlyRoutes = ["/manage-accounts", "/lesson-plans-editor"];
+const itManagerOnlyRoutes = ["/manage-accounts", "/lesson-plans-editor", "/carousel-management"];
 
 export function AppLayout() {
   const { user, loading, signOut } = useAuth();
@@ -82,10 +83,13 @@ export function AppLayout() {
         <DesktopSidebar />
       </div>
       <div className="flex-1 flex flex-col h-screen min-w-0">
+        <GlobalCarousel position="top" />
         <AppHeader />
+        <GlobalCarousel position="middle" />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-24 md:pb-6">
           <Outlet />
         </main>
+        <GlobalCarousel position="bottom" />
       </div>
       <div className="md:hidden">
         <BottomNav />
