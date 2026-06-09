@@ -58,7 +58,7 @@ interface SalaryData {
   base_salary: number;
   current_salary: number;
   total_deductions: number;
-  bonus: number;
+  bonus: number; // monthly bonus POT (admin-configured)
   manual_deduction: number;
   deduction_reason: string;
 }
@@ -77,6 +77,8 @@ export default function SalaryPage() {
   const [bonusTxs, setBonusTxs] = useState<any[]>([]);
   const [manualAdditions, setManualAdditions] = useState<any[]>([]);
   const [manualDeductionsList, setManualDeductionsList] = useState<any[]>([]);
+  const [approvedTasks, setApprovedTasks] = useState<any[]>([]);
+  const [approvedAssignments, setApprovedAssignments] = useState<any[]>([]);
   const [rates, setRates] = useState<{ late: number; early: number }>({ late: 200, early: 200 });
 
   useEffect(() => {
@@ -87,12 +89,19 @@ export default function SalaryPage() {
   const loadData = async () => {
     setLoading(true);
     const monthStart = getMonthStart();
+    const monthEndExclusive = (() => {
+      const [y, m] = monthStart.split("-").map(Number);
+      const ny = m === 12 ? y + 1 : y;
+      const nm = m === 12 ? 1 : m + 1;
+      return `${ny}-${String(nm).padStart(2, "0")}-01`;
+    })();
 
-    const [salRes, mdRes, attRes, lvRes, profRes, btRes, addRes, smdRes] = await Promise.all([
+    const [salRes, mdRes, attRes, lvRes, profRes, btRes, addRes, smdRes, tasksRes, assignRes] = await Promise.all([
       supabase
         .from("salaries")
-        // NOTE: `bonus` (monthly pot) intentionally excluded — earned bonus is summed from bonus_transactions below.
-        .select("base_salary, current_salary, total_deductions, manual_deduction, deduction_reason")
+        // bonus = monthly POT (admin-set). Shown only in the "Monthly Bonus Plan"
+        // info card; earned bonus in Final Salary is derived from approved units.
+        .select("base_salary, current_salary, total_deductions, bonus, manual_deduction, deduction_reason")
         .eq("user_id", user!.id)
         .eq("month", monthStart)
         .maybeSingle(),
@@ -137,11 +146,22 @@ export default function SalaryPage() {
         .eq("user_id", user!.id)
         .eq("month", monthStart)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("tasks")
+        .select("id, title, due_date, approved_at, submission_status, created_at")
+        .eq("assignee_id", user!.id)
+        .eq("submission_status", "approved")
+        .gte("created_at", monthStart)
+        .lt("created_at", monthEndExclusive),
+      supabase
+        .from("calendar_event_assignments")
+        .select("id, event_id, approved_at, submission_status, calendar_events!inner(id, title, start_date, end_date, event_type)")
+        .eq("user_id", user!.id)
+        .eq("submission_status", "approved"),
     ]);
 
     if (salRes.data) setSalary(salRes.data as unknown as SalaryData);
     else if (profRes.data) {
-      // No salary row yet — fall back to profile base so Base/Final displays correctly on day 1.
       const baseFromProfile = Number((profRes.data as any).base_salary) || 0;
       setSalary({
         base_salary: baseFromProfile,
@@ -158,6 +178,14 @@ export default function SalaryPage() {
     if (btRes.data) setBonusTxs(btRes.data as any[]);
     if (addRes.data) setManualAdditions(addRes.data as any[]);
     if ((smdRes as any).data) setManualDeductionsList((smdRes as any).data as any[]);
+    if (tasksRes.data) setApprovedTasks(tasksRes.data as any[]);
+    if (assignRes.data) {
+      const rows = (assignRes.data as any[]).filter((r) => {
+        const ev = r.calendar_events;
+        return ev && ev.event_type === "task" && ev.start_date >= monthStart && ev.start_date < monthEndExclusive;
+      });
+      setApprovedAssignments(rows);
+    }
     if (profRes.data) {
       const legacy = Number((profRes.data as any).deduction_rate_per_minute) || 200;
       setRates({
@@ -170,9 +198,28 @@ export default function SalaryPage() {
   };
 
 
-  // Earned bonus = sum of approved bonus_transactions for the month (NOT the monthly bonus pot).
+  // === Bonus model ===
+  // Monthly pot (admin-set) is split into 4 equal Units. Each approved unit during the
+  // month earns 1/4 of the pot. Final Salary only reflects EARNED bonus, so Day 1 shows
+  // 0 bonus and it grows as units are approved (1u, 2u, 3u, 4u).
   const baseSalary = Math.max(0, Number(salary?.base_salary ?? 0));
-  const earnedBonus = bonusTxs.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+  const monthlyBonusPot = Math.max(0, Number(salary?.bonus ?? 0));
+  const perUnitBonus = monthlyBonusPot > 0 ? Math.round(monthlyBonusPot / 4) : 0;
+
+  // Calendar tasks spanning >= 12 days count as 2 units, otherwise 1 unit (matches edge fn).
+  function unitsFor(start: string, end: string): number {
+    const d = Math.round((new Date(end + "T00:00:00").getTime() - new Date(start + "T00:00:00").getTime()) / 86400000);
+    return d >= 12 ? 2 : 1;
+  }
+  const earnedUnitsRaw =
+    approvedTasks.length +
+    approvedAssignments.reduce((sum, r: any) => sum + unitsFor(r.calendar_events.start_date, r.calendar_events.end_date), 0);
+  const earnedUnits = Math.min(4, earnedUnitsRaw);
+
+  // Prefer dynamic (perUnit × earned units). Fall back to historical bonus_transactions
+  // sum only if no pot is configured for this month.
+  const earnedBonusFromTxs = bonusTxs.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+  const earnedBonus = perUnitBonus > 0 ? perUnitBonus * earnedUnits : earnedBonusFromTxs;
   const totalBonus = earnedBonus;
   const autoAdditions = manualAdditions
     .filter((a) => (a.kind || "manual") === "auto")
