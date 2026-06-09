@@ -58,7 +58,7 @@ interface SalaryData {
   base_salary: number;
   current_salary: number;
   total_deductions: number;
-  bonus: number;
+  bonus: number; // monthly bonus POT (admin-configured)
   manual_deduction: number;
   deduction_reason: string;
 }
@@ -77,6 +77,8 @@ export default function SalaryPage() {
   const [bonusTxs, setBonusTxs] = useState<any[]>([]);
   const [manualAdditions, setManualAdditions] = useState<any[]>([]);
   const [manualDeductionsList, setManualDeductionsList] = useState<any[]>([]);
+  const [approvedTasks, setApprovedTasks] = useState<any[]>([]);
+  const [approvedAssignments, setApprovedAssignments] = useState<any[]>([]);
   const [rates, setRates] = useState<{ late: number; early: number }>({ late: 200, early: 200 });
 
   useEffect(() => {
@@ -87,12 +89,19 @@ export default function SalaryPage() {
   const loadData = async () => {
     setLoading(true);
     const monthStart = getMonthStart();
+    const monthEndExclusive = (() => {
+      const [y, m] = monthStart.split("-").map(Number);
+      const ny = m === 12 ? y + 1 : y;
+      const nm = m === 12 ? 1 : m + 1;
+      return `${ny}-${String(nm).padStart(2, "0")}-01`;
+    })();
 
-    const [salRes, mdRes, attRes, lvRes, profRes, btRes, addRes, smdRes] = await Promise.all([
+    const [salRes, mdRes, attRes, lvRes, profRes, btRes, addRes, smdRes, tasksRes, assignRes] = await Promise.all([
       supabase
         .from("salaries")
-        // NOTE: `bonus` (monthly pot) intentionally excluded — earned bonus is summed from bonus_transactions below.
-        .select("base_salary, current_salary, total_deductions, manual_deduction, deduction_reason")
+        // bonus = monthly POT (admin-set). Shown only in the "Monthly Bonus Plan"
+        // info card; earned bonus in Final Salary is derived from approved units.
+        .select("base_salary, current_salary, total_deductions, bonus, manual_deduction, deduction_reason")
         .eq("user_id", user!.id)
         .eq("month", monthStart)
         .maybeSingle(),
@@ -137,11 +146,22 @@ export default function SalaryPage() {
         .eq("user_id", user!.id)
         .eq("month", monthStart)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("tasks")
+        .select("id, title, due_date, approved_at, submission_status, created_at")
+        .eq("assignee_id", user!.id)
+        .eq("submission_status", "approved")
+        .gte("created_at", monthStart)
+        .lt("created_at", monthEndExclusive),
+      supabase
+        .from("calendar_event_assignments")
+        .select("id, event_id, approved_at, submission_status, calendar_events!inner(id, title, start_date, end_date, event_type)")
+        .eq("user_id", user!.id)
+        .eq("submission_status", "approved"),
     ]);
 
     if (salRes.data) setSalary(salRes.data as unknown as SalaryData);
     else if (profRes.data) {
-      // No salary row yet — fall back to profile base so Base/Final displays correctly on day 1.
       const baseFromProfile = Number((profRes.data as any).base_salary) || 0;
       setSalary({
         base_salary: baseFromProfile,
@@ -158,6 +178,14 @@ export default function SalaryPage() {
     if (btRes.data) setBonusTxs(btRes.data as any[]);
     if (addRes.data) setManualAdditions(addRes.data as any[]);
     if ((smdRes as any).data) setManualDeductionsList((smdRes as any).data as any[]);
+    if (tasksRes.data) setApprovedTasks(tasksRes.data as any[]);
+    if (assignRes.data) {
+      const rows = (assignRes.data as any[]).filter((r) => {
+        const ev = r.calendar_events;
+        return ev && ev.event_type === "task" && ev.start_date >= monthStart && ev.start_date < monthEndExclusive;
+      });
+      setApprovedAssignments(rows);
+    }
     if (profRes.data) {
       const legacy = Number((profRes.data as any).deduction_rate_per_minute) || 200;
       setRates({
@@ -170,9 +198,28 @@ export default function SalaryPage() {
   };
 
 
-  // Earned bonus = sum of approved bonus_transactions for the month (NOT the monthly bonus pot).
+  // === Bonus model ===
+  // Monthly pot (admin-set) is split into 4 equal Units. Each approved unit during the
+  // month earns 1/4 of the pot. Final Salary only reflects EARNED bonus, so Day 1 shows
+  // 0 bonus and it grows as units are approved (1u, 2u, 3u, 4u).
   const baseSalary = Math.max(0, Number(salary?.base_salary ?? 0));
-  const earnedBonus = bonusTxs.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+  const monthlyBonusPot = Math.max(0, Number(salary?.bonus ?? 0));
+  const perUnitBonus = monthlyBonusPot > 0 ? Math.round(monthlyBonusPot / 4) : 0;
+
+  // Calendar tasks spanning >= 12 days count as 2 units, otherwise 1 unit (matches edge fn).
+  function unitsFor(start: string, end: string): number {
+    const d = Math.round((new Date(end + "T00:00:00").getTime() - new Date(start + "T00:00:00").getTime()) / 86400000);
+    return d >= 12 ? 2 : 1;
+  }
+  const earnedUnitsRaw =
+    approvedTasks.length +
+    approvedAssignments.reduce((sum, r: any) => sum + unitsFor(r.calendar_events.start_date, r.calendar_events.end_date), 0);
+  const earnedUnits = Math.min(4, earnedUnitsRaw);
+
+  // Prefer dynamic (perUnit × earned units). Fall back to historical bonus_transactions
+  // sum only if no pot is configured for this month.
+  const earnedBonusFromTxs = bonusTxs.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+  const earnedBonus = perUnitBonus > 0 ? perUnitBonus * earnedUnits : earnedBonusFromTxs;
   const totalBonus = earnedBonus;
   const autoAdditions = manualAdditions
     .filter((a) => (a.kind || "manual") === "auto")
@@ -212,7 +259,41 @@ export default function SalaryPage() {
           amount: b.amount,
         });
       }
+    } else if (perUnitBonus > 0) {
+      // No bonus_transactions yet (admin approved manually) — synthesize one ledger
+      // entry per approved unit so the user sees their earned bonus history.
+      let unitIndex = 0;
+      for (const t of approvedTasks) {
+        unitIndex += 1;
+        if (unitIndex > 4) break;
+        const dateStr = (t.approved_at || t.due_date || monthStart).slice(0, 10);
+        items.push({
+          id: `bonus-task-${t.id}`,
+          date: dateStr,
+          type: "bonus",
+          description: `${t.title || "Task"} · Unit ${unitIndex}/4 · Approved ${dateStr}`,
+          amount: perUnitBonus,
+        });
+      }
+      for (const r of approvedAssignments) {
+        const ev = (r as any).calendar_events;
+        const u = unitsFor(ev.start_date, ev.end_date);
+        for (let k = 0; k < u; k++) {
+          unitIndex += 1;
+          if (unitIndex > 4) break;
+          const dateStr = (r.approved_at || ev.end_date || monthStart).slice(0, 10);
+          items.push({
+            id: `bonus-assign-${r.id}-${k}`,
+            date: dateStr,
+            type: "bonus",
+            description: `${ev.title || "Calendar Task"} · Unit ${unitIndex}/4 · Approved ${dateStr}`,
+            amount: perUnitBonus,
+          });
+        }
+        if (unitIndex >= 4) break;
+      }
     }
+
 
     // Salary additions (Admin manual or system-issued OT auto)
     for (const a of manualAdditions) {
@@ -300,7 +381,7 @@ export default function SalaryPage() {
     }
 
     return items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, salary?.manual_deduction, manualLeaveDeductions, manualDeductionsList, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions]);
+  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, salary?.manual_deduction, manualLeaveDeductions, manualDeductionsList, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions, perUnitBonus, approvedTasks, approvedAssignments]);
 
 
   const currentMonth = formatMMTMonthLabel(new Date());
@@ -340,12 +421,17 @@ export default function SalaryPage() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
               <Gift className="h-4 w-4 text-accent shrink-0" />
-              <span className="text-xs text-muted-foreground truncate">Bonus</span>
+              <span className="text-xs text-muted-foreground truncate">Bonus (Earned)</span>
             </div>
             <p className="text-base sm:text-lg font-bold font-display text-accent break-words">
               +{totalBonus.toLocaleString()}{" "}
               <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
+            {perUnitBonus > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-1 break-words">
+                {earnedUnits}/4 Units · {perUnitBonus.toLocaleString()}/unit
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card className="border border-primary/30 shadow-none bg-primary/5 min-w-0">
@@ -391,6 +477,43 @@ export default function SalaryPage() {
           </CardContent>
         </Card>
       </div>
+
+      {monthlyBonusPot > 0 && (
+        <Card className="border border-accent/30 shadow-none bg-accent/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Gift className="h-4 w-4 text-accent shrink-0" />
+              <p className="text-[11px] uppercase tracking-wide text-accent font-semibold">
+                Monthly Bonus Plan
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              <div className="flex items-baseline gap-1">
+                <span className="font-semibold text-foreground">{monthlyBonusPot.toLocaleString()}</span>
+                <span className="text-[10px] text-muted-foreground">Total Pot (Ks)</span>
+              </div>
+              <span className="text-muted-foreground">÷ 4 =</span>
+              <div className="flex items-baseline gap-1">
+                <span className="font-semibold text-foreground">{perUnitBonus.toLocaleString()}</span>
+                <span className="text-[10px] text-muted-foreground">per Unit</span>
+              </div>
+              <span className="text-muted-foreground">·</span>
+              <div className="flex items-baseline gap-1">
+                <span className="font-semibold text-accent">{earnedUnits}/4</span>
+                <span className="text-[10px] text-muted-foreground">Units Earned</span>
+              </div>
+              <span className="text-muted-foreground">→</span>
+              <div className="flex items-baseline gap-1">
+                <span className="font-semibold text-accent">+{totalBonus.toLocaleString()}</span>
+                <span className="text-[10px] text-muted-foreground">Bonus (Ks)</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">
+              Final Salary သည် Approve လုပ်ပြီးသော Unit အရေအတွက်အလိုက် တိုးလာပါမည်။ Day 1 တွင် Bonus 0 ဖြစ်ပြီး Unit တစ်ခုစီ ပြီးတိုင်း တိုးသွားပါမည်။
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border border-border shadow-none bg-muted/30">
         <CardContent className="p-4">
