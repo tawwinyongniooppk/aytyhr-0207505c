@@ -202,6 +202,31 @@ export function TemplateEditor({ value, onChange }: Props) {
     onChange({ ...value, branding: { ...value.branding, watermark: { ...value.branding.watermark, ...patch } } });
   };
 
+  const updateBranding = (patch: Partial<typeof value.branding>) => {
+    onChange({ ...value, branding: { ...value.branding, ...patch } });
+  };
+  const updateLogoBox = (patch: Partial<NonNullable<typeof value.branding.logoBox>>) => {
+    updateBranding({ logoBox: { ...(value.branding.logoBox ?? { x: 40, y: 30, width: 80, height: 80 }), ...patch } });
+  };
+  const updateHeaderBox = (patch: Partial<NonNullable<typeof value.branding.headerBox>>) => {
+    updateBranding({ headerBox: { ...(value.branding.headerBox ?? { x: 140, y: 40, width: 560, height: 50 }), ...patch } });
+  };
+  const updateFooterBox = (patch: Partial<NonNullable<typeof value.branding.footerBox>>) => {
+    updateBranding({ footerBox: { ...(value.branding.footerBox ?? { x: 40, y: 100, width: 660, height: 24 }), ...patch } });
+  };
+  const toggleCardFree = (cardId: string, free: boolean) => {
+    onChange({
+      ...value,
+      cards: value.cards.map(c => c.id === cardId
+        ? { ...c, free, x: c.x ?? 60, y: c.y ?? 240, width: c.width ?? 600 }
+        : c),
+    });
+  };
+  const updateCardBox = (cardId: string, patch: { x?: number; y?: number; width?: number }) => {
+    onChange({ ...value, cards: value.cards.map(c => c.id === cardId ? { ...c, ...patch } : c) });
+  };
+
+
   // Sync options draft when selecting cell
   const showOptionsBlock = selectedCell != null;
   const onSelectCell = (cardId: string, rowId: string, cellId: string) => {
