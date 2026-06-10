@@ -112,6 +112,10 @@ export function defaultTemplate(className: string, format: TemplateFormat = "for
     branding: {
       logoUrl: "",
       headerText: `${className} Class — Lesson Plan${format === "format2" ? " (Format 2)" : ""}`,
+      freeLetterhead: false,
+      logoBox: { x: 40, y: 30, width: 80, height: 80 },
+      headerBox: { x: 140, y: 40, width: 560, height: 50, fontSize: 22, color: "#0c2340", bold: true, align: "left" },
+      footerBox: { x: 40, y: 100, width: 660, height: 24, fontSize: 11, color: "#2d8a9e", italic: true, align: "left" },
       watermark: { text: "", opacity: 0.08, x: 200, y: 400, width: 400, height: 200, rotation: -30 },
     },
     palette: format === "format1" ? "ocean" : "sage-cream",
