@@ -415,6 +415,11 @@ export default function SalaryPage() {
         <p className="text-muted-foreground text-sm mt-1">{currentMonth}</p>
       </div>
 
+      {isStaff && !isNeutralClass && (
+        <YearlyBonusSection baseSalary={baseSalary} />
+      )}
+
+
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <Card className="border border-border shadow-none min-w-0">
           <CardContent className="p-4">
