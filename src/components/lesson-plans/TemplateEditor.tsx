@@ -384,11 +384,22 @@ export function TemplateEditor({ value, onChange }: Props) {
           </CardContent>
         </Card>
 
-        {/* Card structure controls */}
+        {/* Table structure controls — drag to reorder */}
         {value.cards.map((card, idx) => (
-          <Card key={card.id}>
+          <Card
+            key={card.id}
+            draggable
+            onDragStart={() => setDragCardId(card.id)}
+            onDragOver={e => { e.preventDefault(); }}
+            onDrop={() => { if (dragCardId) reorderCards(dragCardId, card.id); setDragCardId(null); }}
+            onDragEnd={() => setDragCardId(null)}
+            className={dragCardId === card.id ? "opacity-60 ring-2 ring-primary" : ""}
+          >
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Card {idx + 1}</CardTitle>
+              <CardTitle className="text-base flex items-center gap-1.5">
+                <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                Table {idx + 1}
+              </CardTitle>
               <Button size="icon" variant="ghost" onClick={() => removeCard(card.id)} className="h-7 w-7 text-destructive">
                 <Trash2 className="h-3 w-3" />
               </Button>
@@ -399,20 +410,10 @@ export function TemplateEditor({ value, onChange }: Props) {
                 <Label className="text-xs">Columns</Label>
                 <Input type="number" min={1} max={8} value={card.columns} onChange={e => setCardColumns(card.id, Math.max(1, Math.min(8, Number(e.target.value) || 1)))} />
               </div>
-              {/* Inner column widths (skip first/last edge boundaries) */}
-              {card.columns > 2 && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Inner column widths %</Label>
-                  {(card.colWidths ?? Array.from({ length: card.columns }, () => 100 / card.columns)).map((w, i) => (
-                    i > 0 && i < card.columns - 1 ? (
-                      <div key={i} className="flex items-center gap-2">
-                        <span className="text-[10px] w-12">Col {i + 1}</span>
-                        <Slider min={5} max={80} step={1} value={[w]} onValueChange={([v]) => updateColWidth(card.id, i, v)} className="flex-1" />
-                        <span className="text-[10px] w-8 text-right">{Math.round(w)}</span>
-                      </div>
-                    ) : null
-                  ))}
-                </div>
+              {card.columns >= 4 && (
+                <p className="text-[10px] text-muted-foreground">
+                  Tip: Inner column borders ကို preview ပေါ်တွင် Excel ပုံစံ drag လုပ်၍ resize နိုင်ပါသည် (ဘေးအစွန်းကော်လံများ မပြောင်းပါ)။
+                </p>
               )}
               {/* Inner row heights (skip first/last) */}
               {card.rows.length > 2 && (
@@ -441,7 +442,8 @@ export function TemplateEditor({ value, onChange }: Props) {
           </Card>
         ))}
 
-        <Button onClick={addCard} variant="outline" className="w-full"><Plus className="h-3 w-3 mr-1" />Add Card</Button>
+        <Button onClick={addCard} variant="outline" className="w-full"><Plus className="h-3 w-3 mr-1" />Add Table</Button>
+
 
         {/* Free elements */}
         <Card>
