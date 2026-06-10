@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { formatMMTDate, formatMMTMonthLabel, getMMTDateParts, getMMTMonthStartISO } from "@/lib/mmt";
+import { YearlyBonusSection } from "@/components/YearlyBonusSection";
 
 type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction" | "manual_addition" | "auto_addition";
 interface LedgerEntry {
@@ -69,6 +71,7 @@ function getMonthStart(): string {
 
 export default function SalaryPage() {
   const { user } = useAuth();
+  const { isNeutralClass, isStaff } = useProfile();
   const [salary, setSalary] = useState<SalaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [manualLeaveDeductions, setManualLeaveDeductions] = useState<any[]>([]);
@@ -411,6 +414,11 @@ export default function SalaryPage() {
         <h1 className="text-2xl font-bold font-display">My Salary & Bonus</h1>
         <p className="text-muted-foreground text-sm mt-1">{currentMonth}</p>
       </div>
+
+      {isStaff && !isNeutralClass && (
+        <YearlyBonusSection baseSalary={baseSalary} />
+      )}
+
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <Card className="border border-border shadow-none min-w-0">
