@@ -237,9 +237,34 @@ export function TemplateEditor({ value, onChange }: Props) {
               </div>
             </div>
             <div>
-              <Label className="text-xs">Margin (mm)</Label>
+              <Label className="text-xs">Margin all sides (mm)</Label>
               <Input type="number" min={4} max={40} value={value.page.margin}
-                onChange={e => onChange({ ...value, page: { ...value.page, margin: Number(e.target.value) || 0 } })} />
+                onChange={e => {
+                  const v = Number(e.target.value) || 0;
+                  onChange({ ...value, page: { ...value.page, margin: v, marginTop: v, marginRight: v, marginBottom: v, marginLeft: v } });
+                }} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Top (mm)</Label>
+                <Input type="number" min={0} max={60} value={value.page.marginTop ?? value.page.margin}
+                  onChange={e => onChange({ ...value, page: { ...value.page, marginTop: Number(e.target.value) || 0 } })} />
+              </div>
+              <div>
+                <Label className="text-xs">Right (mm)</Label>
+                <Input type="number" min={0} max={60} value={value.page.marginRight ?? value.page.margin}
+                  onChange={e => onChange({ ...value, page: { ...value.page, marginRight: Number(e.target.value) || 0 } })} />
+              </div>
+              <div>
+                <Label className="text-xs">Bottom (mm)</Label>
+                <Input type="number" min={0} max={60} value={value.page.marginBottom ?? value.page.margin}
+                  onChange={e => onChange({ ...value, page: { ...value.page, marginBottom: Number(e.target.value) || 0 } })} />
+              </div>
+              <div>
+                <Label className="text-xs">Left (mm)</Label>
+                <Input type="number" min={0} max={60} value={value.page.marginLeft ?? value.page.margin}
+                  onChange={e => onChange({ ...value, page: { ...value.page, marginLeft: Number(e.target.value) || 0 } })} />
+              </div>
             </div>
           </CardContent>
         </Card>
