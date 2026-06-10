@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
 
       const dueAssigns = subAssigns.filter((a: any) => {
         const ev: any = evMap.get(a.event_id);
-        return ev && ev.end_date === today;
+        return ev && ev.end_date <= today;
       });
 
       if (dueAssigns.length > 0) {
