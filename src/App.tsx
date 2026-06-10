@@ -50,7 +50,10 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
-      staleTime: 30000,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      staleTime: 5 * 60 * 1000, // 5 min — cuts DB load on tab switches
+      gcTime: 30 * 60 * 1000,
     },
   },
 });

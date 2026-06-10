@@ -196,21 +196,29 @@ export default function Attendance() {
 
   // (Initial + per-MMT-date load lives in the mmtDate effect below.)
 
-  // Realtime ONLY: whenever a leave_request row is inserted/updated for this user,
-  // refresh holiday/leave state so the UI instantly locks check-in/out and shifts
-  // expected times. No polling — we rely entirely on Supabase postgres_changes.
+  // Lightweight polling (60s) instead of a realtime channel — keeps DB compute
+  // low on the free tier. Pauses when the tab is hidden, refreshes on focus.
   useEffect(() => {
     if (!user) return;
-    const channel = supabase
-      .channel(`att-leave-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "leave_requests", filter: `user_id=eq.${user.id}` },
-        () => loadHolidayAndLeave(),
-      )
-      .subscribe();
+    let id: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (id != null) return;
+      id = setInterval(() => {
+        if (!document.hidden) loadHolidayAndLeave();
+      }, 60_000);
+    };
+    const stop = () => {
+      if (id != null) { clearInterval(id); id = null; }
+    };
+    const onVis = () => {
+      if (document.hidden) { stop(); }
+      else { loadHolidayAndLeave(); start(); }
+    };
+    start();
+    document.addEventListener("visibilitychange", onVis);
     return () => {
-      supabase.removeChannel(channel);
+      stop();
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, [user]);
 
@@ -220,6 +228,7 @@ export default function Attendance() {
   const [mmtDate, setMmtDate] = useState<string>(getMMTTodayISO());
   useEffect(() => {
     const id = setInterval(() => {
+      if (document.hidden) return;
       setNowTick(Date.now());
       const t = getMMTTodayISO();
       setMmtDate((prev) => (prev !== t ? t : prev));
