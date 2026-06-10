@@ -124,8 +124,8 @@ export function TemplateEditor({ value, onChange }: Props) {
       cards: value.cards.map(c => {
         if (c.id !== cardId) return c;
         const widths = c.colWidths && c.colWidths.length === c.columns ? [...c.colWidths] : Array.from({ length: c.columns }, () => 100 / c.columns);
-        // adjacent column compensates; do not allow edge resizing (first/last via this UI)
-        if (colIdx <= 0 || colIdx >= c.columns - 1) return c;
+        // adjacent column compensates; only the table's outer edges are non-draggable
+        if (colIdx < 0 || colIdx >= c.columns - 1) return c;
         const left = widths[colIdx];
         const right = widths[colIdx + 1];
         const total = left + right;
