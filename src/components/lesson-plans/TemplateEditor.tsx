@@ -614,14 +614,22 @@ export function TemplateEditor({ value, onChange }: Props) {
       {/* Right: sticky preview */}
       <div className="lg:sticky lg:top-4">
         <div className="overflow-auto bg-muted/30 rounded-lg p-4 max-h-[calc(100vh-2rem)]">
-          <p className="text-xs text-muted-foreground mb-2">Click a cell or element to edit. Drag the watermark or free elements directly.</p>
-          <div style={{ transform: "scale(0.78)", transformOrigin: "top left" }}>
+          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+            <p className="text-xs text-muted-foreground">
+              Live preview · {value.page.size} {value.page.orientation === "portrait" ? "Portrait" : "Landscape"} ·
+              Click cell to edit · Drag inner column borders to resize · Drag watermark/free elements directly.
+            </p>
+          </div>
+          <div style={{ transform: `scale(${PREVIEW_SCALE})`, transformOrigin: "top left" }}>
             <TemplateCanvas
               template={value}
               editable
+              scale={PREVIEW_SCALE}
+              showPageBreaks
               selectedCellId={selected?.cellId ?? null}
               onCellClick={onSelectCell}
               onCellChange={onCellChange}
+              onColWidthChange={updateColWidth}
               renderOverlay={(page) => (
                 <>
                   {/* Watermark interactive */}
