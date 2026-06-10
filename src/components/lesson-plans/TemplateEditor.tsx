@@ -202,6 +202,31 @@ export function TemplateEditor({ value, onChange }: Props) {
     onChange({ ...value, branding: { ...value.branding, watermark: { ...value.branding.watermark, ...patch } } });
   };
 
+  const updateBranding = (patch: Partial<typeof value.branding>) => {
+    onChange({ ...value, branding: { ...value.branding, ...patch } });
+  };
+  const updateLogoBox = (patch: Partial<NonNullable<typeof value.branding.logoBox>>) => {
+    updateBranding({ logoBox: { ...(value.branding.logoBox ?? { x: 40, y: 30, width: 80, height: 80 }), ...patch } });
+  };
+  const updateHeaderBox = (patch: Partial<NonNullable<typeof value.branding.headerBox>>) => {
+    updateBranding({ headerBox: { ...(value.branding.headerBox ?? { x: 140, y: 40, width: 560, height: 50 }), ...patch } });
+  };
+  const updateFooterBox = (patch: Partial<NonNullable<typeof value.branding.footerBox>>) => {
+    updateBranding({ footerBox: { ...(value.branding.footerBox ?? { x: 40, y: 100, width: 660, height: 24 }), ...patch } });
+  };
+  const toggleCardFree = (cardId: string, free: boolean) => {
+    onChange({
+      ...value,
+      cards: value.cards.map(c => c.id === cardId
+        ? { ...c, free, x: c.x ?? 60, y: c.y ?? 240, width: c.width ?? 600 }
+        : c),
+    });
+  };
+  const updateCardBox = (cardId: string, patch: { x?: number; y?: number; width?: number }) => {
+    onChange({ ...value, cards: value.cards.map(c => c.id === cardId ? { ...c, ...patch } : c) });
+  };
+
+
   // Sync options draft when selecting cell
   const showOptionsBlock = selectedCell != null;
   const onSelectCell = (cardId: string, rowId: string, cellId: string) => {
@@ -280,20 +305,84 @@ export function TemplateEditor({ value, onChange }: Props) {
             <ImageUpload
               label="Logo image"
               value={value.branding.logoUrl}
-              onChange={url => onChange({ ...value, branding: { ...value.branding, logoUrl: url } })}
+              onChange={url => updateBranding({ logoUrl: url })}
               placeholder="Upload logo"
               recommendation="1200×300 px, PNG/JPG, < 2MB"
             />
             <div>
               <Label className="text-xs">Header text</Label>
-              <Input value={value.branding.headerText ?? ""} onChange={e => onChange({ ...value, branding: { ...value.branding, headerText: e.target.value } })} />
+              <Input value={value.branding.headerText ?? ""} onChange={e => updateBranding({ headerText: e.target.value })} />
             </div>
             <div>
               <Label className="text-xs">Footer text (below letterhead)</Label>
               <Textarea rows={2} value={value.letterheadFooterText} onChange={e => onChange({ ...value, letterheadFooterText: e.target.value })} />
             </div>
+
+            <div className="flex items-center justify-between pt-2 border-t">
+              <Label className="text-xs">Free placement (drag logo / header / footer)</Label>
+              <Switch checked={!!value.branding.freeLetterhead} onCheckedChange={v => updateBranding({ freeLetterhead: v })} />
+            </div>
+
+            {value.branding.freeLetterhead && (
+              <div className="space-y-3 rounded-md border border-dashed p-2">
+                {/* Header text styling */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold">Header text style</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><Label className="text-[10px]">Font family</Label><Input placeholder="e.g. Georgia, serif" value={value.branding.headerBox?.fontFamily ?? ""} onChange={e => updateHeaderBox({ fontFamily: e.target.value || undefined })} /></div>
+                    <div><Label className="text-[10px]">Size (px)</Label><Input type="number" value={value.branding.headerBox?.fontSize ?? 22} onChange={e => updateHeaderBox({ fontSize: Number(e.target.value) || 22 })} /></div>
+                    <div><Label className="text-[10px]">Color</Label><Input type="color" value={value.branding.headerBox?.color ?? "#0c2340"} onChange={e => updateHeaderBox({ color: e.target.value })} /></div>
+                    <div>
+                      <Label className="text-[10px]">Align</Label>
+                      <Select value={value.branding.headerBox?.align ?? "left"} onValueChange={(v: any) => updateHeaderBox({ align: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="left">Left</SelectItem>
+                          <SelectItem value="center">Center</SelectItem>
+                          <SelectItem value="right">Right</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant={value.branding.headerBox?.bold ? "default" : "outline"} onClick={() => updateHeaderBox({ bold: !value.branding.headerBox?.bold })}><Bold className="h-3 w-3" /></Button>
+                    <Button size="sm" variant={value.branding.headerBox?.italic ? "default" : "outline"} onClick={() => updateHeaderBox({ italic: !value.branding.headerBox?.italic })}><Italic className="h-3 w-3" /></Button>
+                    <Button size="sm" variant={value.branding.headerBox?.underline ? "default" : "outline"} onClick={() => updateHeaderBox({ underline: !value.branding.headerBox?.underline })}><Underline className="h-3 w-3" /></Button>
+                  </div>
+                </div>
+
+                {/* Footer text styling */}
+                <div className="space-y-2 pt-2 border-t">
+                  <Label className="text-xs font-semibold">Footer text style</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><Label className="text-[10px]">Font family</Label><Input placeholder="e.g. Inter, sans-serif" value={value.branding.footerBox?.fontFamily ?? ""} onChange={e => updateFooterBox({ fontFamily: e.target.value || undefined })} /></div>
+                    <div><Label className="text-[10px]">Size (px)</Label><Input type="number" value={value.branding.footerBox?.fontSize ?? 11} onChange={e => updateFooterBox({ fontSize: Number(e.target.value) || 11 })} /></div>
+                    <div><Label className="text-[10px]">Color</Label><Input type="color" value={value.branding.footerBox?.color ?? "#2d8a9e"} onChange={e => updateFooterBox({ color: e.target.value })} /></div>
+                    <div>
+                      <Label className="text-[10px]">Align</Label>
+                      <Select value={value.branding.footerBox?.align ?? "left"} onValueChange={(v: any) => updateFooterBox({ align: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="left">Left</SelectItem>
+                          <SelectItem value="center">Center</SelectItem>
+                          <SelectItem value="right">Right</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant={value.branding.footerBox?.bold ? "default" : "outline"} onClick={() => updateFooterBox({ bold: !value.branding.footerBox?.bold })}><Bold className="h-3 w-3" /></Button>
+                    <Button size="sm" variant={value.branding.footerBox?.italic ? "default" : "outline"} onClick={() => updateFooterBox({ italic: !value.branding.footerBox?.italic })}><Italic className="h-3 w-3" /></Button>
+                    <Button size="sm" variant={value.branding.footerBox?.underline ? "default" : "outline"} onClick={() => updateFooterBox({ underline: !value.branding.footerBox?.underline })}><Underline className="h-3 w-3" /></Button>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-muted-foreground">Tip: Logo, Header, Footer — preview ပေါ်တွင် တိုက်ရိုက် drag/resize လုပ်ပါ။ Tables များကို letterhead အောက်တွင် နေရာချနိုင်ပါသည်။</p>
+              </div>
+            )}
           </CardContent>
         </Card>
+
 
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base">Watermark</CardTitle></CardHeader>
@@ -443,6 +532,18 @@ export function TemplateEditor({ value, onChange }: Props) {
                   </Button>
                 )}
               </div>
+              <div className="flex items-center justify-between pt-2 border-t">
+                <Label className="text-xs">Free placement on page</Label>
+                <Switch checked={!!card.free} onCheckedChange={v => toggleCardFree(card.id, v)} />
+              </div>
+              {card.free && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div><Label className="text-[10px]">X</Label><Input type="number" value={card.x ?? 0} onChange={e => updateCardBox(card.id, { x: Number(e.target.value) || 0 })} className="h-7 text-xs" /></div>
+                  <div><Label className="text-[10px]">Y</Label><Input type="number" value={card.y ?? 0} onChange={e => updateCardBox(card.id, { y: Number(e.target.value) || 0 })} className="h-7 text-xs" /></div>
+                  <div><Label className="text-[10px]">Width</Label><Input type="number" value={card.width ?? 600} onChange={e => updateCardBox(card.id, { width: Number(e.target.value) || 600 })} className="h-7 text-xs" /></div>
+                </div>
+              )}
+
             </CardContent>
           </Card>
         ))}
@@ -654,6 +755,59 @@ export function TemplateEditor({ value, onChange }: Props) {
                       <div className="w-full h-full" />
                     </Rnd>
                   )}
+                  {/* Free letterhead pieces interactive */}
+                  {value.branding.freeLetterhead && value.branding.logoUrl && value.branding.logoBox && (
+                    <Rnd
+                      bounds="parent"
+                      size={{ width: value.branding.logoBox.width, height: value.branding.logoBox.height }}
+                      position={{ x: value.branding.logoBox.x, y: value.branding.logoBox.y }}
+                      onDragStop={(_, d) => updateLogoBox({ x: d.x, y: d.y })}
+                      onResizeStop={(_, __, ref, ___, pos) => updateLogoBox({ width: parseInt(ref.style.width), height: parseInt(ref.style.height), x: pos.x, y: pos.y })}
+                      style={{ zIndex: 20, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
+                    >
+                      <div className="w-full h-full" />
+                    </Rnd>
+                  )}
+                  {value.branding.freeLetterhead && value.branding.headerText && value.branding.headerBox && (
+                    <Rnd
+                      bounds="parent"
+                      size={{ width: value.branding.headerBox.width, height: value.branding.headerBox.height }}
+                      position={{ x: value.branding.headerBox.x, y: value.branding.headerBox.y }}
+                      onDragStop={(_, d) => updateHeaderBox({ x: d.x, y: d.y })}
+                      onResizeStop={(_, __, ref, ___, pos) => updateHeaderBox({ width: parseInt(ref.style.width), height: parseInt(ref.style.height), x: pos.x, y: pos.y })}
+                      style={{ zIndex: 20, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
+                    >
+                      <div className="w-full h-full" />
+                    </Rnd>
+                  )}
+                  {value.branding.freeLetterhead && value.letterheadFooterText && value.branding.footerBox && (
+                    <Rnd
+                      bounds="parent"
+                      size={{ width: value.branding.footerBox.width, height: value.branding.footerBox.height }}
+                      position={{ x: value.branding.footerBox.x, y: value.branding.footerBox.y }}
+                      onDragStop={(_, d) => updateFooterBox({ x: d.x, y: d.y })}
+                      onResizeStop={(_, __, ref, ___, pos) => updateFooterBox({ width: parseInt(ref.style.width), height: parseInt(ref.style.height), x: pos.x, y: pos.y })}
+                      style={{ zIndex: 20, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
+                    >
+                      <div className="w-full h-full" />
+                    </Rnd>
+                  )}
+                  {/* Free-positioned tables interactive */}
+                  {value.cards.filter(c => c.free).map(card => (
+                    <Rnd
+                      key={`free-${card.id}`}
+                      bounds="parent"
+                      size={{ width: card.width ?? 600, height: Math.max(40, (card.rows.length * 36) + 40) }}
+                      position={{ x: card.x ?? 0, y: card.y ?? 0 }}
+                      enableResizing={{ left: true, right: true, top: false, bottom: false, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false }}
+                      onDragStop={(_, d) => updateCardBox(card.id, { x: d.x, y: d.y })}
+                      onResizeStop={(_, __, ref, ___, pos) => updateCardBox(card.id, { width: parseInt(ref.style.width), x: pos.x, y: pos.y })}
+                      style={{ zIndex: 15, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
+                    >
+                      <div className="w-full h-full" />
+                    </Rnd>
+                  ))}
+
                   {/* Free elements interactive */}
                   {(value.freeElements ?? []).map(el => (
                     <Rnd

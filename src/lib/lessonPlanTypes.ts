@@ -38,6 +38,11 @@ export interface Card {
   columns: number;
   rows: Row[];
   colWidths?: number[]; // percentage values summing ~100, length == columns
+  /** Free placement on the page. When set, the table is positioned absolutely and is no longer part of the auto stack. */
+  free?: boolean;
+  x?: number;
+  y?: number;
+  width?: number; // px
 }
 
 export type PageSize = "A4" | "Legal";
@@ -54,9 +59,35 @@ export interface Watermark {
   rotation?: number; // deg
 }
 
+export interface TextBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontFamily?: string;
+  fontSize?: number;
+  color?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  align?: "left" | "center" | "right";
+}
+
+export interface LogoBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface Branding {
   logoUrl?: string;
   headerText?: string;
+  /** When true, logo + header + footer are placed at custom positions via the boxes below. */
+  freeLetterhead?: boolean;
+  logoBox?: LogoBox;
+  headerBox?: TextBox;
+  footerBox?: TextBox;
   watermark: Watermark;
 }
 

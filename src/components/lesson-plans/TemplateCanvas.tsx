@@ -300,6 +300,74 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
     );
   };
 
+  const renderTableBlock = (card: typeof template.cards[number]) => {
+    const cols = Math.max(1, card.columns);
+    const colWidths = card.colWidths && card.colWidths.length === cols ? card.colWidths : Array.from({ length: cols }, () => 100 / cols);
+    const dragProps = editable && onCardReorder && !card.free ? {
+      draggable: true,
+      onDragStart: (e: React.DragEvent) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", card.id);
+        onCardDragStart?.(card.id);
+      },
+      onDragEnd: () => onCardDragEnd?.(),
+      onDragOver: (e: React.DragEvent) => { if (dragCardId && dragCardId !== card.id) e.preventDefault(); },
+      onDrop: (e: React.DragEvent) => {
+        if (!dragCardId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onCardReorder(dragCardId, card.id);
+      },
+    } : {};
+    const isDragging = dragCardId === card.id;
+    return (
+      <div
+        key={card.id}
+        {...dragProps}
+        style={{
+          background: card.bgColor,
+          border: card.borderColor ? `1px solid ${card.borderColor}` : (editable && onCardReorder && !card.free ? "1px dashed transparent" : undefined),
+          borderRadius: 8,
+          overflow: "hidden",
+          opacity: isDragging ? 0.5 : 1,
+          cursor: editable && onCardReorder && !card.free ? "move" : undefined,
+          outline: dragCardId && dragCardId !== card.id && !card.free ? "1px dashed hsl(var(--primary) / 0.4)" : undefined,
+          height: "100%",
+        }}
+      >
+        <div style={{ background: palette.primary, color: "#fff", padding: "6px 10px", fontWeight: 600, fontSize: 13 }}>{card.title}</div>
+        <div style={{ position: "relative" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+            <colgroup>
+              {colWidths.map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+            </colgroup>
+            <tbody>
+              {card.rows.map(row => (
+                <tr key={row.id} style={{ height: row.height }}>
+                  {row.cells.map((cell, idx) => renderCell(card.id, row.id, cell, idx, colWidths[idx] ?? 100 / cols, row.height))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {editable && onColWidthChange && cols >= 2 && (
+            <ColumnResizeOverlay
+              cardId={card.id}
+              columns={cols}
+              colWidths={colWidths}
+              onColWidthChange={onColWidthChange}
+              scale={scale}
+            />
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const flowCards = template.cards.filter(c => !c.free);
+  const freeCards = template.cards.filter(c => c.free);
+  const b = template.branding;
+  const useFreeLetterhead = !!b.freeLetterhead;
+
   return (
     <div
       ref={ref}
@@ -335,6 +403,37 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
         </div>
       )}
 
+      {/* Free letterhead pieces (static render — interactive Rnd wrappers come via renderOverlay) */}
+      {useFreeLetterhead && b.logoUrl && b.logoBox && (
+        <img src={b.logoUrl} alt="" crossOrigin="anonymous"
+          style={{ position: "absolute", left: b.logoBox.x, top: b.logoBox.y, width: b.logoBox.width, height: b.logoBox.height, objectFit: "contain", zIndex: 2 }} />
+      )}
+      {useFreeLetterhead && b.headerText && b.headerBox && (
+        <div style={{
+          position: "absolute", left: b.headerBox.x, top: b.headerBox.y, width: b.headerBox.width, height: b.headerBox.height, zIndex: 2,
+          fontFamily: b.headerBox.fontFamily, fontSize: b.headerBox.fontSize ?? 22, color: b.headerBox.color ?? palette.primary,
+          fontWeight: b.headerBox.bold ? 700 : 400, fontStyle: b.headerBox.italic ? "italic" : "normal",
+          textDecoration: b.headerBox.underline ? "underline" : undefined, textAlign: b.headerBox.align ?? "left",
+          whiteSpace: "pre-wrap", wordBreak: "break-word",
+        }}>{b.headerText}</div>
+      )}
+      {useFreeLetterhead && template.letterheadFooterText && b.footerBox && (
+        <div style={{
+          position: "absolute", left: b.footerBox.x, top: b.footerBox.y, width: b.footerBox.width, height: b.footerBox.height, zIndex: 2,
+          fontFamily: b.footerBox.fontFamily, fontSize: b.footerBox.fontSize ?? 11, color: b.footerBox.color ?? palette.accent,
+          fontWeight: b.footerBox.bold ? 700 : 400, fontStyle: b.footerBox.italic ? "italic" : "normal",
+          textDecoration: b.footerBox.underline ? "underline" : undefined, textAlign: b.footerBox.align ?? "left",
+          whiteSpace: "pre-wrap", wordBreak: "break-word",
+        }}>{template.letterheadFooterText}</div>
+      )}
+
+      {/* Free-positioned tables (static render — interactive Rnd wrappers come via renderOverlay) */}
+      {freeCards.map(card => (
+        <div key={card.id} style={{ position: "absolute", left: card.x ?? 0, top: card.y ?? 0, width: card.width ?? 400, zIndex: 3 }}>
+          {renderTableBlock(card)}
+        </div>
+      ))}
+
       <div
         ref={contentRef}
         style={{
@@ -346,14 +445,18 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
           paddingLeft: marginLeft,
         }}
       >
-        <div className="flex items-center gap-3" style={{ borderBottom: `2px solid ${palette.primary}`, paddingBottom: 8 }}>
-          {template.branding.logoUrl && (
-            <img src={template.branding.logoUrl} alt="" style={{ height: 56 }} crossOrigin="anonymous" />
-          )}
-          <div style={{ color: palette.primary, fontWeight: 700, fontSize: 18 }}>{template.branding.headerText}</div>
-        </div>
-        {template.letterheadFooterText && (
-          <div style={{ fontSize: 11, color: palette.accent, marginTop: 4, marginBottom: 12 }}>{template.letterheadFooterText}</div>
+        {!useFreeLetterhead && (
+          <>
+            <div className="flex items-center gap-3" style={{ borderBottom: `2px solid ${palette.primary}`, paddingBottom: 8 }}>
+              {template.branding.logoUrl && (
+                <img src={template.branding.logoUrl} alt="" style={{ height: 56 }} crossOrigin="anonymous" />
+              )}
+              <div style={{ color: palette.primary, fontWeight: 700, fontSize: 18 }}>{template.branding.headerText}</div>
+            </div>
+            {template.letterheadFooterText && (
+              <div style={{ fontSize: 11, color: palette.accent, marginTop: 4, marginBottom: 12 }}>{template.letterheadFooterText}</div>
+            )}
+          </>
         )}
 
         <div
@@ -362,75 +465,15 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
           onDrop={editable && onCardReorder ? (e) => {
             if (!dragCardId) return;
             e.preventDefault();
-            // Dropped on the container background (not on a card) → move to end
             if (e.target === e.currentTarget) onCardReorder(dragCardId, null);
           } : undefined}
         >
-          {template.cards.map(card => {
-            const cols = Math.max(1, card.columns);
-            const colWidths = card.colWidths && card.colWidths.length === cols ? card.colWidths : Array.from({ length: cols }, () => 100 / cols);
-            const dragProps = editable && onCardReorder ? {
-              draggable: true,
-              onDragStart: (e: React.DragEvent) => {
-                e.dataTransfer.effectAllowed = "move";
-                e.dataTransfer.setData("text/plain", card.id);
-                onCardDragStart?.(card.id);
-              },
-              onDragEnd: () => onCardDragEnd?.(),
-              onDragOver: (e: React.DragEvent) => { if (dragCardId && dragCardId !== card.id) e.preventDefault(); },
-              onDrop: (e: React.DragEvent) => {
-                if (!dragCardId) return;
-                e.preventDefault();
-                e.stopPropagation();
-                onCardReorder(dragCardId, card.id);
-              },
-            } : {};
-            const isDragging = dragCardId === card.id;
-            return (
-              <div
-                key={card.id}
-                {...dragProps}
-                style={{
-                  background: card.bgColor,
-                  border: card.borderColor ? `1px solid ${card.borderColor}` : (editable && onCardReorder ? "1px dashed transparent" : undefined),
-                  borderRadius: 8,
-                  overflow: "hidden",
-                  opacity: isDragging ? 0.5 : 1,
-                  cursor: editable && onCardReorder ? "move" : undefined,
-                  outline: dragCardId && dragCardId !== card.id ? "1px dashed hsl(var(--primary) / 0.4)" : undefined,
-                }}
-              >
-                <div style={{ background: palette.primary, color: "#fff", padding: "6px 10px", fontWeight: 600, fontSize: 13 }}>{card.title}</div>
-                <div style={{ position: "relative" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-                    <colgroup>
-                      {colWidths.map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
-                    </colgroup>
-                    <tbody>
-                      {card.rows.map(row => (
-                        <tr key={row.id} style={{ height: row.height }}>
-                          {row.cells.map((cell, idx) => renderCell(card.id, row.id, cell, idx, colWidths[idx] ?? 100 / cols, row.height))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {editable && onColWidthChange && cols >= 2 && (
-                    <ColumnResizeOverlay
-                      cardId={card.id}
-                      columns={cols}
-                      colWidths={colWidths}
-                      onColWidthChange={onColWidthChange}
-                      scale={scale}
-                    />
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {flowCards.map(card => renderTableBlock(card))}
         </div>
 
         {!renderOverlay && (template.freeElements ?? []).map(el => <FreeEl key={el.id} el={el} />)}
       </div>
+
 
       {/* Page-break dashed lines */}
       {showPageBreaks && pageCount > 1 && Array.from({ length: pageCount - 1 }, (_, i) => (
