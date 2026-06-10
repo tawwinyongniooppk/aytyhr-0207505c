@@ -755,6 +755,59 @@ export function TemplateEditor({ value, onChange }: Props) {
                       <div className="w-full h-full" />
                     </Rnd>
                   )}
+                  {/* Free letterhead pieces interactive */}
+                  {value.branding.freeLetterhead && value.branding.logoUrl && value.branding.logoBox && (
+                    <Rnd
+                      bounds="parent"
+                      size={{ width: value.branding.logoBox.width, height: value.branding.logoBox.height }}
+                      position={{ x: value.branding.logoBox.x, y: value.branding.logoBox.y }}
+                      onDragStop={(_, d) => updateLogoBox({ x: d.x, y: d.y })}
+                      onResizeStop={(_, __, ref, ___, pos) => updateLogoBox({ width: parseInt(ref.style.width), height: parseInt(ref.style.height), x: pos.x, y: pos.y })}
+                      style={{ zIndex: 20, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
+                    >
+                      <div className="w-full h-full" />
+                    </Rnd>
+                  )}
+                  {value.branding.freeLetterhead && value.branding.headerText && value.branding.headerBox && (
+                    <Rnd
+                      bounds="parent"
+                      size={{ width: value.branding.headerBox.width, height: value.branding.headerBox.height }}
+                      position={{ x: value.branding.headerBox.x, y: value.branding.headerBox.y }}
+                      onDragStop={(_, d) => updateHeaderBox({ x: d.x, y: d.y })}
+                      onResizeStop={(_, __, ref, ___, pos) => updateHeaderBox({ width: parseInt(ref.style.width), height: parseInt(ref.style.height), x: pos.x, y: pos.y })}
+                      style={{ zIndex: 20, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
+                    >
+                      <div className="w-full h-full" />
+                    </Rnd>
+                  )}
+                  {value.branding.freeLetterhead && value.letterheadFooterText && value.branding.footerBox && (
+                    <Rnd
+                      bounds="parent"
+                      size={{ width: value.branding.footerBox.width, height: value.branding.footerBox.height }}
+                      position={{ x: value.branding.footerBox.x, y: value.branding.footerBox.y }}
+                      onDragStop={(_, d) => updateFooterBox({ x: d.x, y: d.y })}
+                      onResizeStop={(_, __, ref, ___, pos) => updateFooterBox({ width: parseInt(ref.style.width), height: parseInt(ref.style.height), x: pos.x, y: pos.y })}
+                      style={{ zIndex: 20, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
+                    >
+                      <div className="w-full h-full" />
+                    </Rnd>
+                  )}
+                  {/* Free-positioned tables interactive */}
+                  {value.cards.filter(c => c.free).map(card => (
+                    <Rnd
+                      key={`free-${card.id}`}
+                      bounds="parent"
+                      size={{ width: card.width ?? 600, height: Math.max(40, (card.rows.length * 36) + 40) }}
+                      position={{ x: card.x ?? 0, y: card.y ?? 0 }}
+                      enableResizing={{ left: true, right: true, top: false, bottom: false, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false }}
+                      onDragStop={(_, d) => updateCardBox(card.id, { x: d.x, y: d.y })}
+                      onResizeStop={(_, __, ref, ___, pos) => updateCardBox(card.id, { width: parseInt(ref.style.width), x: pos.x, y: pos.y })}
+                      style={{ zIndex: 15, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
+                    >
+                      <div className="w-full h-full" />
+                    </Rnd>
+                  ))}
+
                   {/* Free elements interactive */}
                   {(value.freeElements ?? []).map(el => (
                     <Rnd
