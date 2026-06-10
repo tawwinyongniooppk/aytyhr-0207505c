@@ -415,9 +415,9 @@ export function TemplateEditor({ value, onChange }: Props) {
                 <Label className="text-xs">Columns</Label>
                 <Input type="number" min={1} max={8} value={card.columns} onChange={e => setCardColumns(card.id, Math.max(1, Math.min(8, Number(e.target.value) || 1)))} />
               </div>
-              {card.columns >= 4 && (
+              {card.columns >= 2 && (
                 <p className="text-[10px] text-muted-foreground">
-                  Tip: Inner column borders ကို preview ပေါ်တွင် Excel ပုံစံ drag လုပ်၍ resize နိုင်ပါသည် (ဘေးအစွန်းကော်လံများ မပြောင်းပါ)။
+                  Tip: Preview ပေါ်တွင် inner column borders များကို Excel ပုံစံ drag လုပ်၍ resize နိုင်ပါသည် (ထိပ်ဆုံး/နောက်ဆုံး အစွန်းကော်လံများ မပြောင်းပါ)။
                 </p>
               )}
               {/* Inner row heights (skip first/last) */}
