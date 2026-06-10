@@ -54,6 +54,16 @@ function resolveExpectedCheckOut(profile: any, settingsEnd: string): string {
   return settingsEnd || "16:00";
 }
 
+// Off-day check: when work_schedule has the day explicitly marked inactive,
+// the staff is off and must NOT be auto-penalised.
+function isOffDay(profile: any): boolean {
+  const ws = profile?.work_schedule ?? null;
+  const today = weekdayName(yangonNow());
+  const day = ws?.[today];
+  if (day && day.active === false) return true;
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -123,6 +133,7 @@ Deno.serve(async (req) => {
     for (const att of open as any[]) {
       const profile = profileMap.get(att.user_id);
       if (!profile) continue;
+      if (isOffDay(profile)) continue; // off-day staff are excluded
 
       const expectedStr = resolveExpectedCheckOut(profile, settingsEnd);
       const dueMinOfDay = hhmmToMinutes(expectedStr) + GRACE_AFTER_CHECKOUT_MIN;

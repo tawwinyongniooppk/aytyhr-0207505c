@@ -1,29 +1,22 @@
-// Attendance sweep cron — fires sparsely during the morning/early-afternoon
-// window to catch missed check-ins per user EXACTLY ONCE per grace boundary
-// (idempotent via existing leave_requests / salary_manual_deductions rows).
+// Attendance sweep cron — runs exactly 2× in the morning (MMT 8:30, 9:00)
+// and conditionally at MMT 12:00.
 //
-// Responsibilities:
+//   A) Morning runs (8:30, 9:00 MMT):
+//      For each staff whose expected check-in + 30 min == now, and who has
+//      not checked in, auto-submit a pending Morning Half-Leave request.
+//      The expected check-in then shifts to 12:00 PM MMT for the rest of
+//      the day. Per-minute late deductions during the 30-min grace are
+//      handled by the normal check-in flow (apply-attendance-deduction).
 //
-//   A) Auto Morning Half-Leave on late check-in:
-//      If a staff has NOT checked in by `expected_check_in + 30min`, the
-//      system submits a pending `half_leave` (morning) request. The expected
-//      check-in then shifts to 12:00 PM MMT for the rest of the day.
+//   B) Noon run (12:00 MMT):
+//      ONLY processes staff who already have a Morning Half-Leave today
+//      (auto-submitted OR self-submitted + approved). If they still have
+//      not checked in by 12:00, an Afternoon Half-Leave is auto-submitted.
+//      If no morning-half exists for any user today, the function exits
+//      immediately to keep invocations cheap.
 //
-//   B) Auto Afternoon Half-Leave for shifted users:
-//      If a staff still has not checked in by 12:30 PM (12:00 + 30min grace)
-//      AND a Morning Half-Leave already exists today, an AFTERNOON
-//      `half_leave` request is auto-submitted (effectively a full day off
-//      via two halves). This replaces the previous "auto full leave" path.
-//
-//   C) Auto early-out deduction:
-//      If a staff checked in but did NOT check out by
-//      `expected_check_out + 30min` (afternoon-half-leave shifts expected
-//      check-out to 12:00), the system writes a one-time 1,000 Ks deduction
-//      (5 min × early_deduction_per_minute=200) into salary_manual_deductions.
-//
-// All branches are idempotent for the day (single insert per user/date).
-// Admins + Assistant Admins + the affected staff receive FCM push on every
-// action (with renotify tags so each one plays sound + bumps the badge).
+// Off-day staff and holiday-assigned staff are always skipped.
+// Check-out / forgot-to-check-out is handled by `auto-checkout` at 15:45.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -32,58 +25,38 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const DEFAULT_GRACE_MIN = 120;
 const HALF_GRACE_MIN = 30;
-const MORNING_HALF_CHECKIN = "12:00";
-const CHECKOUT_GRACE_MIN = 30;
-const AUTO_EARLY_OUT_MIN = 5; // 5 minutes × per-minute early-out rate
-const AUTO_REASON_FULL = "[AUTO] Missed check-in — auto-submitted by system";
-const AUTO_REASON_FULL_HALF = "[AUTO] Morning Half-Leave: missed 12:00 check-in — auto-submitted";
+const NOON_MIN = 12 * 60;            // MMT 12:00
+const NOON_WINDOW_END = 12 * 60 + 29; // treat 12:00–12:29 as "noon run"
 const AUTO_REASON_HALF = "[AUTO] Late check-in (+30min) — auto Half-Leave";
+const AUTO_REASON_AFTERNOON = "[AUTO] Morning Half-Leave: missed 12:00 check-in — auto Afternoon Half-Leave";
 const YANGON_OFFSET_MS = 6.5 * 60 * 60 * 1000;
 const YANGON_OFFSET_MIN = 6 * 60 + 30;
 
-function yangonNow() {
-  return new Date(Date.now() + YANGON_OFFSET_MS);
-}
-
-function yangonTodayISO() {
-  return yangonNow().toISOString().slice(0, 10);
-}
-
+function yangonNow() { return new Date(Date.now() + YANGON_OFFSET_MS); }
+function yangonTodayISO() { return yangonNow().toISOString().slice(0, 10); }
 function hhmmToMinutes(value: string) {
   const [h, m] = value.split(":").map(Number);
   return ((Number(h) || 0) * 60) + (Number(m) || 0);
 }
-
 function yangonMinuteOfDay(date = new Date()) {
   return (date.getUTCHours() * 60 + date.getUTCMinutes() + YANGON_OFFSET_MIN + 1440) % 1440;
 }
-
 function weekdayName(d: Date): string {
   return d.toLocaleDateString("en-US", { weekday: "long" });
 }
 
-function resolveExpectedCheckIn(profile: any, settingsStart: string): { time: string; active: boolean } {
+function resolveExpectedCheckIn(
+  profile: any, settingsStart: string,
+): { time: string; active: boolean } {
   const ws = profile?.work_schedule ?? null;
   const today = weekdayName(yangonNow());
   const day = ws?.[today];
-  if (day) {
-    return { time: (day.check_in as string) || settingsStart || "09:00", active: !!day.active };
-  }
+  if (day) return { time: (day.check_in as string) || settingsStart || "09:00", active: !!day.active };
   if (profile?.work_day === today && profile?.check_in_time) {
     return { time: profile.check_in_time as string, active: true };
   }
   return { time: settingsStart || "09:00", active: true };
-}
-
-function resolveExpectedCheckOut(profile: any, settingsEnd: string): string {
-  const ws = profile?.work_schedule ?? null;
-  const today = weekdayName(yangonNow());
-  const day = ws?.[today];
-  if (day?.active && day?.check_out) return day.check_out as string;
-  if (profile?.work_day === today && profile?.check_out_time) return profile.check_out_time as string;
-  return settingsEnd || "16:00";
 }
 
 Deno.serve(async (req) => {
@@ -95,8 +68,7 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get("Authorization") ?? "";
   const apikeyHeader = req.headers.get("apikey") ?? "";
   if (!authHeader && !apikeyHeader) {
-    console.warn("[attendance-sweep] 401 — missing Authorization/apikey header");
-    return new Response(JSON.stringify({ error: "Unauthorized: missing CRON_SECRET" }), {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -105,8 +77,7 @@ Deno.serve(async (req) => {
     (serviceRole && authHeader === `Bearer ${serviceRole}`) ||
     (!!anonKey && (authHeader === `Bearer ${anonKey}` || apikeyHeader === anonKey));
   if (!allowed) {
-    console.warn("[attendance-sweep] 401 — invalid CRON_SECRET / unauthorized caller");
-    return new Response(JSON.stringify({ error: "Unauthorized: invalid CRON_SECRET" }), {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -116,80 +87,79 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const now = new Date();
     const today = yangonTodayISO();
-    const monthStart = `${today.slice(0, 7)}-01`;
-    const nowMinOfDay = yangonMinuteOfDay(now);
+    const nowMinOfDay = yangonMinuteOfDay(new Date());
+    const isNoonRun = nowMinOfDay >= NOON_MIN && nowMinOfDay <= NOON_WINDOW_END;
+
+    // ----- Noon run fast-exit when no morning-half exists today -----
+    if (isNoonRun) {
+      const { count } = await admin.from("leave_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("date", today)
+        .eq("type", "half_leave")
+        .eq("half_period", "morning")
+        .neq("status", "rejected");
+      if (!count) {
+        return new Response(JSON.stringify({ ok: true, skipped: "no_morning_half_today" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     const { data: profiles, error: pErr } = await admin
       .from("profiles")
-      .select("id, role, work_day, check_in_time, check_out_time, work_schedule, full_name, early_deduction_per_minute, deduction_rate_per_minute")
+      .select("id, role, work_day, check_in_time, work_schedule, full_name")
       .eq("role", "staff");
     if (pErr) throw pErr;
-    if (!profiles || profiles.length === 0) {
+    if (!profiles?.length) {
       return new Response(JSON.stringify({ ok: true, processed: 0 }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const { data: settingsRows } = await admin
-      .from("app_settings").select("key, value").in("key", ["start_time", "end_time"]);
-    const settingsMap: Record<string, string> = {};
-    (settingsRows ?? []).forEach((r: any) => (settingsMap[r.key] = r.value));
-    const settingsStart = settingsMap.start_time || "09:00";
-    const settingsEnd = settingsMap.end_time || "16:00";
+      .from("app_settings").select("key, value").eq("key", "start_time");
+    const settingsStart = (settingsRows?.[0]?.value as string) || "09:00";
 
     const userIds = profiles.map((p: any) => p.id);
 
-    const [attRes, leaveRes, holRes, assignRes, smdRes] = await Promise.all([
-      admin.from("attendance").select("user_id, check_in_time, check_out_time").eq("date", today).in("user_id", userIds),
-      admin.from("leave_requests").select("user_id, reason, status, type, half_period")
+    const [attRes, leaveRes, holRes, assignRes] = await Promise.all([
+      admin.from("attendance").select("user_id, check_in_time")
+        .eq("date", today).in("user_id", userIds),
+      admin.from("leave_requests").select("user_id, status, type, half_period")
         .eq("date", today).in("user_id", userIds),
       admin.from("calendar_events").select("id, assigned_to_all")
         .eq("event_type", "holiday").lte("start_date", today).gte("end_date", today),
       admin.from("calendar_event_assignments").select("event_id, user_id").in("user_id", userIds),
-      admin.from("salary_manual_deductions").select("user_id, source, title").eq("month", monthStart),
     ]);
 
-    const attMap = new Map<string, { check_in: string | null; check_out: string | null }>();
-    (attRes.data ?? []).forEach((r: any) =>
-      attMap.set(r.user_id, { check_in: r.check_in_time, check_out: r.check_out_time }),
+    const checkedIn = new Set<string>(
+      (attRes.data ?? []).filter((r: any) => r.check_in_time).map((r: any) => r.user_id),
     );
     const existingLeaves = leaveRes.data ?? [];
     const holidayEvents = holRes.data ?? [];
     const assignments = assignRes.data ?? [];
-    const earlyOutAlready = new Set<string>(
-      (smdRes.data ?? [])
-        .filter((r: any) => r.source === "auto_early_out" && (r.title ?? "").includes(today))
-        .map((r: any) => r.user_id),
-    );
-    const lateMorningAlready = new Set<string>(
-      (smdRes.data ?? [])
-        .filter((r: any) => r.source === "auto_late_morning" && (r.title ?? "").includes(today))
-        .map((r: any) => r.user_id),
-    );
 
-    // Morning/Afternoon half-leave detection — include PENDING rows so the
-    // 12:00 PM check-in shift takes effect immediately after submission
-    // (auto-submitted or manual), without waiting for admin approval.
     const morningHalfActive = new Set<string>(
       existingLeaves
-        .filter((l: any) =>
-          l.type === "half_leave" && l.half_period === "morning" && l.status !== "rejected",
-        )
+        .filter((l: any) => l.type === "half_leave" && l.half_period === "morning" && l.status !== "rejected")
         .map((l: any) => l.user_id),
     );
     const afternoonHalfActive = new Set<string>(
       existingLeaves
-        .filter((l: any) =>
-          l.type === "half_leave" && l.half_period === "afternoon" && l.status !== "rejected",
-        )
+        .filter((l: any) => l.type === "half_leave" && l.half_period === "afternoon" && l.status !== "rejected")
+        .map((l: any) => l.user_id),
+    );
+    const hasAnyFullLeave = new Set<string>(
+      existingLeaves
+        .filter((l: any) => l.type === "leave" && l.status !== "rejected")
         .map((l: any) => l.user_id),
     );
 
     const userHoliday = new Set<string>();
-    const allHoliday = holidayEvents.some((e: any) => e.assigned_to_all);
-    if (allHoliday) userIds.forEach((id) => userHoliday.add(id));
+    if (holidayEvents.some((e: any) => e.assigned_to_all)) {
+      userIds.forEach((id) => userHoliday.add(id));
+    }
     for (const a of assignments as any[]) {
       if (holidayEvents.some((e: any) => e.id === a.event_id)) userHoliday.add(a.user_id);
     }
@@ -198,20 +168,14 @@ Deno.serve(async (req) => {
       .from("profiles").select("id").in("role", ["admin", "assistant"]);
     const adminIds = (adminRows ?? []).map((r: any) => r.id);
 
-    async function notify(userIds: string[], title: string, body: string, url = "/leave") {
-      if (!userIds.length) return;
+    async function notify(ids: string[], title: string, body: string, url = "/leave") {
+      if (!ids.length) return;
       try {
-        const response = await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+        await fetch(`${supabaseUrl}/functions/v1/send-push`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceRoleKey}`,
-          },
-          body: JSON.stringify({ user_ids: userIds, title, body, url }),
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceRoleKey}` },
+          body: JSON.stringify({ user_ids: ids, title, body, url }),
         });
-        if (!response.ok) {
-          console.warn("[attendance-sweep] notify non-200", response.status, await response.text());
-        }
       } catch (e) {
         console.warn("[attendance-sweep] notify failed", e);
       }
@@ -221,118 +185,20 @@ Deno.serve(async (req) => {
 
     for (const profile of profiles as any[]) {
       if (userHoliday.has(profile.id)) continue;
-
-      const att = attMap.get(profile.id);
-      const userLeaves = existingLeaves.filter((l: any) => l.user_id === profile.id);
-      const hasAutoHalf = userLeaves.some(
-        (l: any) => l.type === "half_leave" && (l.reason ?? "").startsWith("[AUTO]"),
-      );
-      const hasAutoFull = userLeaves.some(
-        (l: any) => l.type === "leave" && (l.reason ?? "").startsWith("[AUTO]"),
-      );
-      const hasAnyFullLeave = userLeaves.some((l: any) => l.type === "leave" && l.status !== "rejected");
-      const hasAnyMorningHalf = userLeaves.some(
-        (l: any) => l.type === "half_leave" && l.half_period === "morning" && l.status !== "rejected",
-      );
-
-      // ====== CHECK-OUT auto deduction (+30 min past expected check-out) ======
-      if (att?.check_in && !att?.check_out && !earlyOutAlready.has(profile.id)) {
-        let expectedOutStr = resolveExpectedCheckOut(profile, settingsEnd);
-        if (afternoonHalfActive.has(profile.id)) expectedOutStr = "12:00";
-        const dueOutMin = hhmmToMinutes(expectedOutStr) + CHECKOUT_GRACE_MIN;
-        if (nowMinOfDay >= dueOutMin) {
-          const rate =
-            Number(profile.early_deduction_per_minute) ||
-            Number(profile.deduction_rate_per_minute) ||
-            200;
-          const amount = AUTO_EARLY_OUT_MIN * rate;
-          const { error: smdErr } = await admin.from("salary_manual_deductions").insert({
-            user_id: profile.id,
-            month: monthStart,
-            title: `Auto early-out deduction (${today})`,
-            amount,
-            source: "auto_early_out",
-            created_by: profile.id,
-          });
-          if (!smdErr) {
-            results.push({ user_id: profile.id, kind: "auto_early_out", amount });
-            await notify(
-              [profile.id, ...adminIds],
-              "Auto early-out deduction",
-              `Check-out time (+30min) ကျော်လွန်ပြီး Check-out မလုပ်ခဲ့သဖြင့် ${amount.toLocaleString()} Ks Auto Deduction ဖြတ်ထားပါသည်။`,
-              "/salary",
-            );
-          } else {
-            console.error("[attendance-sweep] smd insert failed", profile.id, smdErr);
-          }
-        }
-      }
-
-      // No further work if already checked in for the day
-      if (att?.check_in) continue;
+      if (checkedIn.has(profile.id)) continue;
+      if (hasAnyFullLeave.has(profile.id)) continue;
 
       const expected = resolveExpectedCheckIn(profile, settingsStart);
       const isMorningHalf = morningHalfActive.has(profile.id);
-      const hasAnyAfternoonHalf = afternoonHalfActive.has(profile.id);
 
-      if (!expected.active && !isMorningHalf) continue; // off-day
+      // Off-day & not on a noon morning-half exception → skip
+      if (!expected.active && !isMorningHalf) continue;
 
-      // Effective expected check-in: shifts to 12:00 when morning-half is active.
-      // For the morning-half branch the cron fires at exactly MMT 12:00 PM
-      // (no +30 grace), per product spec — staff must check in between
-      // 11:30 AM and 12:00 PM.
-      const expectedInStr = isMorningHalf ? MORNING_HALF_CHECKIN : expected.time;
-      const expectedMin = hhmmToMinutes(expectedInStr);
-      const dueMin = isMorningHalf ? expectedMin : expectedMin + HALF_GRACE_MIN;
-
-      // ====== BRANCH 1: Default schedule, +30 late → auto Morning Half-Leave ======
-      if (
-        !isMorningHalf &&
-        nowMinOfDay >= dueMin &&
-        !hasAutoHalf &&
-        !hasAnyMorningHalf &&
-        !hasAnyFullLeave
-      ) {
-        const { error: insErr } = await admin.from("leave_requests").insert({
-          user_id: profile.id,
-          date: today,
-          type: "half_leave",
-          half_period: "morning",
-          status: "pending",
-          payment_type: "unpaid",
-          reason: AUTO_REASON_HALF,
-        });
-        if (!insErr) {
-          results.push({ user_id: profile.id, kind: "auto_morning_half", expected: expected.time });
-
-          // Per product spec: do NOT auto-add the 30-min late deduction here.
-          // Per-minute late deductions during the grace window already apply via
-          // the normal check-in flow; Admin adds the Half-Leave manual deduction
-          // amount at approval time.
-
-          const who = profile.full_name || "Staff";
-          await notify(
-            [profile.id, ...adminIds],
-            "Auto Morning Half-Leave submitted",
-            `${who} ၏ Check-in (+30min) ကျော်နေသဖြင့် Morning Half-Leave အလိုအလျောက် တင်ပေးထားပါသည်။ Check-in expected time ကို 12:00 PM သို့ ပြောင်းပေးထားပါသည်။ Admin Approve လုပ်ချိန်တွင် Manual Deduction Amount ထည့်ပါမည်။`,
-            "/leave",
-          );
-        } else {
-          console.error("[attendance-sweep] morning half-leave insert failed", profile.id, insErr);
-        }
-        continue;
-
-      }
-
-      // ====== BRANCH 2: Morning-half active, missed 12:00 (+30) → auto Afternoon Half-Leave ======
-      // This replaces the previous "auto full leave" escalation per product spec:
-      // each missed window deducts half a day's leave balance individually.
-      if (
-        isMorningHalf &&
-        nowMinOfDay >= dueMin &&
-        !hasAnyAfternoonHalf &&
-        !hasAnyFullLeave
-      ) {
+      // -------------- NOON RUN: Afternoon Half-Leave only --------------
+      if (isNoonRun) {
+        if (!isMorningHalf) continue;
+        if (afternoonHalfActive.has(profile.id)) continue;
+        // At MMT 12:00, missed the noon check-in → auto Afternoon Half-Leave
         const { error: insErr } = await admin.from("leave_requests").insert({
           user_id: profile.id,
           date: today,
@@ -340,26 +206,51 @@ Deno.serve(async (req) => {
           half_period: "afternoon",
           status: "pending",
           payment_type: "unpaid",
-          reason: "[AUTO] Morning Half-Leave: missed 12:00 check-in — auto Afternoon Half-Leave",
+          reason: AUTO_REASON_AFTERNOON,
         });
         if (!insErr) {
-          results.push({ user_id: profile.id, kind: "auto_afternoon_half", expected: "12:00" });
-          const who = profile.full_name || "Staff";
+          results.push({ user_id: profile.id, kind: "auto_afternoon_half" });
           await notify(
             [profile.id, ...adminIds],
             "Auto Afternoon Half-Leave submitted",
-            `${who} ၏ Morning Half-Leave ပြီးနောက် 12:00 PM Check-in မလုပ်ခဲ့သဖြင့် Afternoon Half-Leave အလိုအလျောက် တင်ပေးထားပါသည်။`,
-            "/leave",
+            `${profile.full_name || "Staff"} ၏ Morning Half-Leave ပြီးနောက် 12:00 PM Check-in မလုပ်ခဲ့သဖြင့် Afternoon Half-Leave အလိုအလျောက် တင်ပေးထားပါသည်။`,
           );
         } else {
-          console.error("[attendance-sweep] afternoon half-leave insert failed", profile.id, insErr);
+          console.error("[attendance-sweep] afternoon insert failed", profile.id, insErr);
         }
+        continue;
       }
-      // Suppress unused-symbol warnings for the legacy escalation constants.
-      void hasAutoFull;
-      void AUTO_REASON_FULL;
-      void AUTO_REASON_FULL_HALF;
-      void DEFAULT_GRACE_MIN;
+
+      // -------------- MORNING RUN: Morning Half-Leave only --------------
+      if (isMorningHalf) continue; // already has morning half — nothing to do
+
+      const expectedMin = hhmmToMinutes(expected.time);
+      const dueMin = expectedMin + HALF_GRACE_MIN;
+
+      // Only this user's exact +30 boundary should fire — gate to the current
+      // cron slot (±5 min) so the 8:30 run only handles 8:00 staff and the
+      // 9:00 run only handles 8:30 staff.
+      if (Math.abs(nowMinOfDay - dueMin) > 5) continue;
+
+      const { error: insErr } = await admin.from("leave_requests").insert({
+        user_id: profile.id,
+        date: today,
+        type: "half_leave",
+        half_period: "morning",
+        status: "pending",
+        payment_type: "unpaid",
+        reason: AUTO_REASON_HALF,
+      });
+      if (!insErr) {
+        results.push({ user_id: profile.id, kind: "auto_morning_half", expected: expected.time });
+        await notify(
+          [profile.id, ...adminIds],
+          "Auto Morning Half-Leave submitted",
+          `${profile.full_name || "Staff"} ၏ Check-in (+30min) ကျော်နေသဖြင့် Morning Half-Leave အလိုအလျောက် တင်ပေးထားပါသည်။ Check-in expected time ကို 12:00 PM သို့ ပြောင်းပေးထားပါသည်။`,
+        );
+      } else {
+        console.error("[attendance-sweep] morning insert failed", profile.id, insErr);
+      }
     }
 
     return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
