@@ -635,6 +635,10 @@ export function TemplateEditor({ value, onChange }: Props) {
               onCellClick={onSelectCell}
               onCellChange={onCellChange}
               onColWidthChange={updateColWidth}
+              dragCardId={dragCardId}
+              onCardDragStart={setDragCardId}
+              onCardDragEnd={() => setDragCardId(null)}
+              onCardReorder={reorderCards}
               renderOverlay={(page) => (
                 <>
                   {/* Watermark interactive */}
