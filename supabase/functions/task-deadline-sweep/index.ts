@@ -73,11 +73,13 @@ Deno.serve(async (req) => {
     // Early-approved tasks (admin approved before deadline) are deferred: bonus is
     // only credited tonight, on the staff's own deadline day. Submitted-but-not-yet-
     // approved tasks are auto-approved here AND credited tonight.
+    // Also backfill missed past deadlines (due_date <= today) so any prior
+    // sweep that failed to credit early-approved tasks gets corrected tonight.
     const { data: dueDayTasks } = await supabase
       .from("tasks")
       .select("id, assignee_id, title, due_date, submission_status")
       .in("submission_status", ["submitted", "approved"])
-      .eq("due_date", today);
+      .lte("due_date", today);
 
     if (dueDayTasks && dueDayTasks.length > 0) {
       const ms = monthStart(today);
@@ -153,7 +155,7 @@ Deno.serve(async (req) => {
 
       const dueAssigns = subAssigns.filter((a: any) => {
         const ev: any = evMap.get(a.event_id);
-        return ev && ev.end_date === today;
+        return ev && ev.end_date <= today;
       });
 
       if (dueAssigns.length > 0) {
