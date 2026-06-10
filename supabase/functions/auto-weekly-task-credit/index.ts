@@ -41,6 +41,21 @@ function weekWindow(day: number, year: number, month: number) {
   return null;
 }
 
+function parseOverrideWindow(raw: string | null, year: number, month: number) {
+  if (!raw) return null;
+  const normalized = raw.trim().toLowerCase();
+  const weekMap: Record<string, number> = { week1: 3, week2: 10, week3: 17, week4: 24 };
+  if (normalized in weekMap) {
+    return weekWindow(weekMap[normalized], year, month);
+  }
+
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const [, y, m, d] = match;
+  return weekWindow(Number(d), Number(y), Number(m));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -67,7 +82,8 @@ Deno.serve(async (req) => {
   }
   try {
     const t = mmtToday();
-    const win = weekWindow(t.d, t.y, t.m);
+    const overrideWindow = parseOverrideWindow(req.headers.get("x-force-window"), t.y, t.m);
+    const win = overrideWindow ?? weekWindow(t.d, t.y, t.m);
     if (!win) {
       return new Response(JSON.stringify({ skipped: true, reason: "not a checkpoint day", day: t.d }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
