@@ -177,7 +177,7 @@ function ColumnResizeOverlay({
 }
 
 export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function TemplateCanvas(
-  { template, editable, selectedCellId, onCellClick, onCellChange, onColWidthChange, scale = 1, showPageBreaks, className, renderOverlay },
+  { template, editable, selectedCellId, onCellClick, onCellChange, onColWidthChange, scale = 1, showPageBreaks, className, renderOverlay, dragCardId, onCardDragStart, onCardDragEnd, onCardReorder },
   ref,
 ) {
   const palette = PALETTE_BY_ID(template.palette);
