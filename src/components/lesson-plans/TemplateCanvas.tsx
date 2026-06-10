@@ -1,4 +1,4 @@
-import { useMemo, forwardRef } from "react";
+import { useMemo, forwardRef, useRef, useState, useEffect, useLayoutEffect } from "react";
 import type { LessonPlanTemplate, Cell, FreeElement } from "@/lib/lessonPlanTypes";
 import { PAGE_PX, PALETTE_BY_ID } from "@/lib/lessonPlanDefaults";
 import { cn } from "@/lib/utils";
@@ -12,8 +12,13 @@ interface Props {
   onCellClick?: (cardId: string, rowId: string, cellId: string) => void;
   onCellChange?: (cardId: string, rowId: string, cellId: string, value: string) => void;
   onFreeClick?: (id: string) => void;
+  /** Live drag column resize: colIdx is the LEFT column of the pair. Adjacent column compensates. */
+  onColWidthChange?: (cardId: string, leftColIdx: number, newLeftPct: number) => void;
+  /** Visual scale of the canvas (for converting drag pixel delta back to model space). */
+  scale?: number;
+  /** Show dashed page-break lines if content exceeds one page height. */
+  showPageBreaks?: boolean;
   className?: string;
-  // Edit mode for free elements + watermark (in IT Manager editor we render an overlay separately)
   renderOverlay?: (page: { width: number; height: number }) => React.ReactNode;
 }
 
@@ -84,8 +89,92 @@ function FreeEl({ el }: { el: FreeElement }) {
   return null;
 }
 
+/** Per-card draggable column separator overlay. Edges are non-draggable. */
+function ColumnResizeOverlay({
+  cardId,
+  columns,
+  colWidths,
+  onColWidthChange,
+  scale,
+}: {
+  cardId: string;
+  columns: number;
+  colWidths: number[];
+  onColWidthChange: (cardId: string, leftColIdx: number, newLeftPct: number) => void;
+  scale: number;
+}) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  // Cumulative percentage positions for separators (B = 1..columns-1 between col B-1 and col B)
+  const cum: number[] = [];
+  let acc = 0;
+  for (let i = 0; i < columns; i++) {
+    acc += colWidths[i] ?? 100 / columns;
+    cum.push(acc);
+  }
+
+  const startDrag = (e: React.MouseEvent, boundaryB: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const tableW = overlay.offsetWidth; // matches table width since overlay is inset:0
+    const startX = e.clientX;
+    const left = colWidths[boundaryB - 1];
+    const right = colWidths[boundaryB];
+    const total = left + right;
+
+    const onMove = (ev: MouseEvent) => {
+      const dxPx = (ev.clientX - startX) / (scale || 1);
+      const dxPct = (dxPx / tableW) * 100;
+      const newLeft = Math.max(5, Math.min(total - 5, left + dxPct));
+      onColWidthChange(cardId, boundaryB - 1, newLeft);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  return (
+    <div ref={overlayRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+      {Array.from({ length: columns - 1 }, (_, i) => i + 1).map(B => {
+        // Skip edge boundaries — only inner boundaries (B between cols where neither is first nor last)
+        const isEdge = B - 1 === 0 || B === columns - 1;
+        if (isEdge) return null;
+        const isHover = hoverIdx === B;
+        return (
+          <div
+            key={B}
+            onMouseDown={e => startDrag(e, B)}
+            onMouseEnter={() => setHoverIdx(B)}
+            onMouseLeave={() => setHoverIdx(null)}
+            title="Drag to resize column"
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: `${cum[B - 1]}%`,
+              width: 10,
+              marginLeft: -5,
+              cursor: "col-resize",
+              pointerEvents: "auto",
+              background: isHover ? "rgba(59,130,246,0.25)" : "transparent",
+              borderLeft: isHover ? "2px solid hsl(var(--primary))" : "2px solid transparent",
+              zIndex: 4,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function TemplateCanvas(
-  { template, editable, selectedCellId, onCellClick, onCellChange, className, renderOverlay },
+  { template, editable, selectedCellId, onCellClick, onCellChange, onColWidthChange, scale = 1, showPageBreaks, className, renderOverlay },
   ref,
 ) {
   const palette = PALETTE_BY_ID(template.palette);
@@ -96,8 +185,31 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
       : { width: base.height, height: base.width };
   }, [template.page.size, template.page.orientation]);
 
-  const marginPx = (template.page.margin / 25.4) * 96;
+  const mmToPx = (mm: number) => (mm / 25.4) * 96;
+  const m = template.page;
+  const marginTop = mmToPx(m.marginTop ?? m.margin);
+  const marginRight = mmToPx(m.marginRight ?? m.margin);
+  const marginBottom = mmToPx(m.marginBottom ?? m.margin);
+  const marginLeft = mmToPx(m.marginLeft ?? m.margin);
+
   const wm = template.branding.watermark;
+
+  // Measure content height for page-break lines
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentH, setContentH] = useState(0);
+  useLayoutEffect(() => {
+    if (!showPageBreaks) return;
+    const el = contentRef.current;
+    if (!el) return;
+    const update = () => setContentH(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [showPageBreaks, template]);
+
+  const totalHeight = Math.max(pageDims.height, contentH + marginTop + marginBottom + 40);
+  const pageCount = Math.max(1, Math.ceil(totalHeight / pageDims.height));
 
   const renderCell = (cardId: string, rowId: string, cell: Cell, indexInRow: number, colWidthPct: number, rowHeight?: number) => {
     const fontSize = Math.max(cell.fontSize ?? 12, cell.minFontSize ?? 12);
@@ -189,9 +301,9 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
     <div
       ref={ref}
       className={cn("relative bg-white shadow-sm mx-auto", className)}
-      style={{ width: pageDims.width, minHeight: pageDims.height, color: palette.text, background: "#ffffff" }}
+      style={{ width: pageDims.width, minHeight: totalHeight, color: palette.text, background: "#ffffff" }}
     >
-      {/* Watermark (positioned & transformable) */}
+      {/* Watermark */}
       {(wm.text || wm.imageUrl) && (
         <div
           aria-hidden
@@ -220,7 +332,17 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
         </div>
       )}
 
-      <div style={{ position: "relative", zIndex: 1, padding: marginPx }}>
+      <div
+        ref={contentRef}
+        style={{
+          position: "relative",
+          zIndex: 1,
+          paddingTop: marginTop,
+          paddingRight: marginRight,
+          paddingBottom: marginBottom,
+          paddingLeft: marginLeft,
+        }}
+      >
         <div className="flex items-center gap-3" style={{ borderBottom: `2px solid ${palette.primary}`, paddingBottom: 8 }}>
           {template.branding.logoUrl && (
             <img src={template.branding.logoUrl} alt="" style={{ height: 56 }} crossOrigin="anonymous" />
@@ -238,28 +360,70 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
             return (
               <div key={card.id} style={{ background: card.bgColor, border: card.borderColor ? `1px solid ${card.borderColor}` : undefined, borderRadius: 8, overflow: "hidden" }}>
                 <div style={{ background: palette.primary, color: "#fff", padding: "6px 10px", fontWeight: 600, fontSize: 13 }}>{card.title}</div>
-                <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-                  <colgroup>
-                    {colWidths.map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
-                  </colgroup>
-                  <tbody>
-                    {card.rows.map(row => (
-                      <tr key={row.id} style={{ height: row.height }}>
-                        {row.cells.map((cell, idx) => renderCell(card.id, row.id, cell, idx, colWidths[idx] ?? 100 / cols, row.height))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div style={{ position: "relative" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                    <colgroup>
+                      {colWidths.map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+                    </colgroup>
+                    <tbody>
+                      {card.rows.map(row => (
+                        <tr key={row.id} style={{ height: row.height }}>
+                          {row.cells.map((cell, idx) => renderCell(card.id, row.id, cell, idx, colWidths[idx] ?? 100 / cols, row.height))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {editable && onColWidthChange && cols >= 4 && (
+                    <ColumnResizeOverlay
+                      cardId={card.id}
+                      columns={cols}
+                      colWidths={colWidths}
+                      onColWidthChange={onColWidthChange}
+                      scale={scale}
+                    />
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
 
-        {/* Free elements layer (rendered statically in canvas; editor renders an interactive overlay separately) */}
         {!renderOverlay && (template.freeElements ?? []).map(el => <FreeEl key={el.id} el={el} />)}
       </div>
 
-      {/* Optional interactive overlay from editor */}
+      {/* Page-break dashed lines */}
+      {showPageBreaks && pageCount > 1 && Array.from({ length: pageCount - 1 }, (_, i) => (
+        <div
+          key={`pb-${i}`}
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: pageDims.height * (i + 1),
+            borderTop: "2px dashed hsl(var(--primary) / 0.55)",
+            zIndex: 50,
+            pointerEvents: "none",
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              right: 8,
+              top: -10,
+              background: "hsl(var(--primary))",
+              color: "#fff",
+              fontSize: 10,
+              padding: "1px 6px",
+              borderRadius: 4,
+              fontWeight: 600,
+            }}
+          >
+            Page {i + 2}
+          </span>
+        </div>
+      ))}
+
       {renderOverlay && renderOverlay(pageDims)}
     </div>
   );
