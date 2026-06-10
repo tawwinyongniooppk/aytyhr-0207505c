@@ -303,7 +303,8 @@ export default function CalendarPage() {
         // Mutually-exclusive status bucket — each task's units land in exactly ONE column.
         const status = a.submission_status || "not_started";
         const s = stats[a.user_id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
-        if (status === "approved") {
+        const alreadyCredited = !!(a as any).approved_at && ev.end_date <= todayStr;
+        if (status === "approved" && alreadyCredited) {
           s.allDone += unit;
         } else if (status === "rejected") {
           s.reject += unit;
@@ -312,6 +313,8 @@ export default function CalendarPage() {
         } else if (status === "in_progress") {
           if (ev.end_date < todayStr) s.overdue += unit;
           else s.inProgress += unit;
+        } else if (status === "approved") {
+          s.submitted += unit;
         } else {
           // not_started / new
           if (ev.end_date < todayStr) s.overdue += unit;
