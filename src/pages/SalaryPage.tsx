@@ -4,7 +4,7 @@ import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote, Plus } from "l
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-import { formatMMTDate, formatMMTMonthLabel, getMMTDateParts, getMMTMonthStartISO } from "@/lib/mmt";
+import { formatMMTMonthLabel, getMMTDateParts, getMMTMonthStartISO } from "@/lib/mmt";
 import { YearlyBonusSection } from "@/components/YearlyBonusSection";
 
 type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction" | "manual_addition" | "auto_addition";
@@ -53,6 +53,15 @@ const TYPE_META: Record<LedgerType, { label: string; icon: any; bg: string; fg: 
     fg: "text-destructive",
     badge: "bg-destructive/15 text-destructive",
   },
+};
+
+const LEDGER_TYPE_ORDER: Record<LedgerType, number> = {
+  salary: 0,
+  bonus: 1,
+  auto_addition: 2,
+  manual_addition: 3,
+  auto_deduction: 4,
+  manual_deduction: 5,
 };
 
 
@@ -391,7 +400,15 @@ export default function SalaryPage() {
       });
     }
 
-    return items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    return items.sort((a, b) => {
+      const dateSort = a.date.localeCompare(b.date);
+      if (dateSort !== 0) return dateSort;
+
+      const typeSort = LEDGER_TYPE_ORDER[a.type] - LEDGER_TYPE_ORDER[b.type];
+      if (typeSort !== 0) return typeSort;
+
+      return a.description.localeCompare(b.description);
+    });
   }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, salary?.manual_deduction, manualLeaveDeductions, manualDeductionsList, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions, perUnitBonus, approvedTasks, approvedAssignments]);
 
 
@@ -420,79 +437,70 @@ export default function SalaryPage() {
       )}
 
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <Card className="border border-border shadow-none min-w-0">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
+      <section className="relative z-10 rounded-xl border border-border bg-card p-3 sm:p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="min-w-0 rounded-lg border border-border bg-background px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
               <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="text-xs text-muted-foreground truncate">Base Salary</span>
+              <span className="text-xs font-medium text-muted-foreground">Base Salary</span>
             </div>
-            <p className="text-base sm:text-lg font-bold font-display break-words">
-              {baseSalary.toLocaleString()}{" "}
-              <span className="text-xs font-normal text-muted-foreground">Ks</span>
+            <p className="text-lg font-bold font-display leading-tight break-words">
+              {baseSalary.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
-          </CardContent>
-        </Card>
-        <Card className="border border-accent/30 shadow-none bg-accent/5 min-w-0">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
+          </div>
+
+          <div className="min-w-0 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
               <Gift className="h-4 w-4 text-accent shrink-0" />
-              <span className="text-xs text-muted-foreground truncate">Bonus (Earned)</span>
+              <span className="text-xs font-medium text-muted-foreground">Bonus (Earned)</span>
             </div>
-            <p className="text-base sm:text-lg font-bold font-display text-accent break-words">
-              +{totalBonus.toLocaleString()}{" "}
-              <span className="text-xs font-normal text-muted-foreground">Ks</span>
+            <p className="text-lg font-bold font-display text-accent leading-tight break-words">
+              +{totalBonus.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
             {perUnitBonus > 0 && (
-              <p className="text-[10px] text-muted-foreground mt-1 break-words">
-                {earnedUnits}/4 Units · {perUnitBonus.toLocaleString()}/unit
+              <p className="mt-2 text-[11px] text-muted-foreground break-words">
+                {earnedUnits}/4 Units · {perUnitBonus.toLocaleString()} per unit
               </p>
             )}
-          </CardContent>
-        </Card>
-        <Card className="border border-primary/30 shadow-none bg-primary/5 min-w-0">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
+          </div>
+
+          <div className="min-w-0 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
               <Plus className="h-4 w-4 text-primary shrink-0" />
-              <span className="text-xs text-muted-foreground truncate">Additions</span>
+              <span className="text-xs font-medium text-muted-foreground">Additions</span>
             </div>
-            <p className="text-base sm:text-lg font-bold font-display text-primary break-words">
-              +{totalAdditions.toLocaleString()}{" "}
-              <span className="text-xs font-normal text-muted-foreground">Ks</span>
+            <p className="text-lg font-bold font-display text-primary leading-tight break-words">
+              +{totalAdditions.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
-            <p className="text-[10px] text-muted-foreground mt-1 break-words">
+            <p className="mt-2 text-[11px] text-muted-foreground break-words">
               Auto: {autoAdditions.toLocaleString()} · Manual: {manualAddTotal.toLocaleString()}
             </p>
-          </CardContent>
-        </Card>
-        <Card className="border border-destructive/30 shadow-none bg-destructive/5 min-w-0">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
+          </div>
+
+          <div className="min-w-0 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
               <TrendingDown className="h-4 w-4 text-destructive shrink-0" />
-              <span className="text-xs text-muted-foreground truncate">Deductions</span>
+              <span className="text-xs font-medium text-muted-foreground">Deductions</span>
             </div>
-            <p className="text-base sm:text-lg font-bold font-display text-destructive break-words">
-              -{totalDeductions.toLocaleString()}{" "}
-              <span className="text-xs font-normal text-muted-foreground">Ks</span>
+            <p className="text-lg font-bold font-display text-destructive leading-tight break-words">
+              -{totalDeductions.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
-            <p className="text-[10px] text-muted-foreground mt-1 break-words">
+            <p className="mt-2 text-[11px] text-muted-foreground break-words">
               Auto: {autoDeductions.toLocaleString()} · Manual: {manualDeductionAmt.toLocaleString()}
             </p>
-          </CardContent>
-        </Card>
-        <Card className="border border-secondary/30 shadow-none bg-secondary/5 min-w-0">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
+          </div>
+
+          <div className="min-w-0 rounded-lg border border-secondary/30 bg-secondary/5 px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
               <Wallet className="h-4 w-4 text-secondary shrink-0" />
-              <span className="text-xs text-muted-foreground truncate">Final Salary</span>
+              <span className="text-xs font-medium text-muted-foreground">Final Salary</span>
             </div>
-            <p className={`text-base sm:text-lg font-bold font-display break-words ${finalSalary < 0 ? "text-destructive" : "text-secondary"}`}>
-              {finalSalary.toLocaleString()}
-              <span className="text-xs font-normal text-muted-foreground"> Ks</span>
+            <p className={`text-lg font-bold font-display leading-tight break-words ${finalSalary < 0 ? "text-destructive" : "text-secondary"}`}>
+              {finalSalary.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </div>
+      </section>
 
       {monthlyBonusPot > 0 && (
         <Card className="border border-accent/30 shadow-none bg-accent/5">
@@ -559,50 +567,59 @@ export default function SalaryPage() {
         <CardHeader>
           <CardTitle className="text-base font-display">Transaction History</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           {ledger.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No transactions yet</p>
+            <div className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+              No transactions yet
+            </div>
           ) : (
-            <ul className="divide-y divide-border">
+            <div className="overflow-hidden rounded-lg border border-border/70 bg-background">
+              <div className="grid grid-cols-[72px,minmax(0,1fr),auto] gap-3 border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span>Day</span>
+                <span>Description</span>
+                <span>Amount</span>
+              </div>
+              <ul className="divide-y divide-border">
               {ledger.map((e) => {
                 const meta = TYPE_META[e.type];
-                const Icon = meta.icon;
-                const dateLabel = e.date ? formatMMTDate(`${e.date}T00:00:00+06:30`) : "";
+                const dayNumber = e.date ? Number(e.date.slice(8, 10)) : 0;
                 const isCredit = e.amount > 0;
 
                 return (
-                  <li key={e.id} className="flex items-center gap-3 py-3">
-                    <div className={`shrink-0 h-9 w-9 rounded-full flex items-center justify-center ${meta.bg}`}>
-                      <Icon className={`h-4 w-4 ${meta.fg}`} />
+                  <li key={e.id} className="grid grid-cols-[72px,minmax(0,1fr),auto] items-start gap-3 px-3 py-3">
+                    <div className="pt-0.5 text-sm font-semibold text-foreground">
+                      Day {dayNumber}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${meta.badge}`}
-                        >
-                          {meta.label}
-                        </span>
-                        <span className="text-xs text-foreground/70">{dateLabel}</span>
+                    <div className="min-w-0">
+                      <div className="mb-1 inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted">
+                        {meta.label}
                       </div>
-                      <p className="text-sm font-medium text-foreground truncate mt-0.5">{e.description}</p>
+                      <p className="text-sm font-medium text-foreground break-words">{e.description}</p>
                     </div>
-                    <div className="text-right shrink-0">
-                      {/* FIX 2: အစင်းလိုင်း (—) အစား 0 Ks ဟု ရှင်းလင်းစွာ ပြသခြင်း */}
+                    <div className="pt-0.5 text-right shrink-0">
                       {e.amount === 0 ? (
                         <span className="text-sm font-semibold text-foreground/70">
-                          0 <span className="text-[10px] font-normal">Ks</span>
+                          0 <span className="text-[10px] font-normal">MMK</span>
                         </span>
                       ) : (
                         <span className={`text-sm font-semibold ${isCredit ? "text-accent" : "text-destructive"}`}>
                           {isCredit ? "+" : "-"}
-                          {Math.abs(e.amount).toLocaleString()} <span className="text-[10px] font-normal">Ks</span>
+                          {Math.abs(e.amount).toLocaleString()} <span className="text-[10px] font-normal">MMK</span>
                         </span>
                       )}
                     </div>
                   </li>
                 );
               })}
-            </ul>
+              </ul>
+              <div className="grid grid-cols-[72px,minmax(0,1fr),auto] items-center gap-3 border-t-2 border-border bg-muted/50 px-3 py-4">
+                <div className="text-sm font-semibold text-muted-foreground">Final</div>
+                <div className="text-sm font-semibold text-foreground">Final Salary</div>
+                <div className={`text-right text-base font-bold font-display ${finalSalary < 0 ? "text-destructive" : "text-secondary"}`}>
+                  {finalSalary.toLocaleString()} MMK
+                </div>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
