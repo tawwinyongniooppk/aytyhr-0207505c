@@ -228,6 +228,7 @@ export default function Attendance() {
   const [mmtDate, setMmtDate] = useState<string>(getMMTTodayISO());
   useEffect(() => {
     const id = setInterval(() => {
+      if (document.hidden) return;
       setNowTick(Date.now());
       const t = getMMTTodayISO();
       setMmtDate((prev) => (prev !== t ? t : prev));
