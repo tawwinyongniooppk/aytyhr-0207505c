@@ -356,18 +356,7 @@ export function AdminTaskDashboard({
     setApprovingId(item.id);
     try {
       const approvedAt = new Date().toISOString();
-      const approvedDate = approvedAt.slice(0, 10);
-      // Deadline = task.due_date (item.dueDate)
       const deadlineDate = item.dueDate || null;
-      // unit_count: weekly = 1, biweekly (1..14 / 2..14 style windows) = 2
-      let unitCount = 1;
-      if (item.startDate && item.dueDate) {
-        const days = Math.round(
-          (new Date(item.dueDate + "T00:00:00").getTime() - new Date(item.startDate + "T00:00:00").getTime()) / 86400000
-        );
-        if (days >= 12) unitCount = 2;
-      }
-      const monthStart = (deadlineDate || approvedDate).slice(0, 7) + "-01";
 
       if (item.source === "task") {
         const { error } = await supabase
@@ -381,36 +370,6 @@ export function AdminTaskDashboard({
           .update({ submission_status: "approved", approved_at: approvedAt, approved_by: user.id })
           .eq("id", item.assignmentId);
         if (error) throw error;
-      }
-
-      // Bonus split: monthly bonus / 4 per unit.
-      // IMPORTANT: defer bonus crediting until the staff's own deadline night.
-      // If admin approves early, just mark approved — the deadline-sweep edge
-      // function will insert the bonus_transactions row on deadline day
-      // (MMT 23:55). This prevents staff from being credited before their
-      // own deadline (esp. for biweekly tasks).
-      const deadlineReached = !!deadlineDate && deadlineDate <= nowDate;
-      if (deadlineReached) {
-        const { data: perUnit } = await supabase.rpc("compute_bonus_per_unit", {
-          p_user_id: item.staffId,
-          p_month: monthStart,
-        });
-        const amount = ((perUnit as unknown as number) || 0) * unitCount;
-        if (amount > 0) {
-          await supabase.from("bonus_transactions").insert({
-            user_id: item.staffId,
-            task_id: item.source === "task" ? item.sourceId : null,
-            assignment_id: item.source === "calendar" ? item.assignmentId : null,
-            source: item.source,
-            month: monthStart,
-            amount,
-            unit_count: unitCount,
-            deadline_date: deadlineDate,
-            approved_date: approvedDate,
-            auto_approved: false,
-            title: item.title,
-          });
-        }
       }
 
 
