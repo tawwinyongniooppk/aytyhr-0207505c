@@ -130,10 +130,15 @@ export function defaultTemplate(className: string, format: TemplateFormat = "for
 export function normalizeTemplate(t: any, className: string, format: TemplateFormat): LessonPlanTemplate {
   if (!t || typeof t !== "object" || !Array.isArray(t.cards)) return defaultTemplate(className, format);
   const wm = t.branding?.watermark ?? {};
+  const b = t.branding ?? {};
   return {
     ...t,
     branding: {
-      ...t.branding,
+      ...b,
+      freeLetterhead: !!b.freeLetterhead,
+      logoBox: b.logoBox ?? { x: 40, y: 30, width: 80, height: 80 },
+      headerBox: b.headerBox ?? { x: 140, y: 40, width: 560, height: 50, fontSize: 22, color: "#0c2340", bold: true, align: "left" },
+      footerBox: b.footerBox ?? { x: 40, y: 100, width: 660, height: 24, fontSize: 11, color: "#2d8a9e", italic: true, align: "left" },
       watermark: {
         text: wm.text ?? "",
         imageUrl: wm.imageUrl ?? "",
