@@ -71,6 +71,7 @@ function getMonthStart(): string {
 
 export default function SalaryPage() {
   const { user } = useAuth();
+  const { isNeutralClass, isStaff } = useProfile();
   const [salary, setSalary] = useState<SalaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [manualLeaveDeductions, setManualLeaveDeductions] = useState<any[]>([]);
