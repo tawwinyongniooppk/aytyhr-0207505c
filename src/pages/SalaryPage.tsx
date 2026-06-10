@@ -89,8 +89,6 @@ export default function SalaryPage() {
   const [bonusTxs, setBonusTxs] = useState<any[]>([]);
   const [manualAdditions, setManualAdditions] = useState<any[]>([]);
   const [manualDeductionsList, setManualDeductionsList] = useState<any[]>([]);
-  const [approvedTasks, setApprovedTasks] = useState<any[]>([]);
-  const [approvedAssignments, setApprovedAssignments] = useState<any[]>([]);
   const [rates, setRates] = useState<{ late: number; early: number }>({ late: 200, early: 200 });
 
   useEffect(() => {
@@ -108,7 +106,7 @@ export default function SalaryPage() {
       return `${ny}-${String(nm).padStart(2, "0")}-01`;
     })();
 
-    const [salRes, mdRes, attRes, lvRes, profRes, btRes, addRes, smdRes, tasksRes, assignRes] = await Promise.all([
+    const [salRes, mdRes, attRes, lvRes, profRes, btRes, addRes, smdRes] = await Promise.all([
       supabase
         .from("salaries")
         // bonus = monthly POT (admin-set). Shown only in the "Monthly Bonus Plan"
@@ -158,18 +156,6 @@ export default function SalaryPage() {
         .eq("user_id", user!.id)
         .eq("month", monthStart)
         .order("created_at", { ascending: false }),
-      supabase
-        .from("tasks")
-        .select("id, title, due_date, approved_at, submission_status, created_at")
-        .eq("assignee_id", user!.id)
-        .eq("submission_status", "approved")
-        .gte("created_at", monthStart)
-        .lt("created_at", monthEndExclusive),
-      supabase
-        .from("calendar_event_assignments")
-        .select("id, event_id, approved_at, submission_status, calendar_events!inner(id, title, start_date, end_date, event_type)")
-        .eq("user_id", user!.id)
-        .eq("submission_status", "approved"),
     ]);
 
     if (salRes.data) setSalary(salRes.data as unknown as SalaryData);
@@ -190,14 +176,6 @@ export default function SalaryPage() {
     if (btRes.data) setBonusTxs(btRes.data as any[]);
     if (addRes.data) setManualAdditions(addRes.data as any[]);
     if ((smdRes as any).data) setManualDeductionsList((smdRes as any).data as any[]);
-    if (tasksRes.data) setApprovedTasks(tasksRes.data as any[]);
-    if (assignRes.data) {
-      const rows = (assignRes.data as any[]).filter((r) => {
-        const ev = r.calendar_events;
-        return ev && ev.event_type === "task" && ev.start_date >= monthStart && ev.start_date < monthEndExclusive;
-      });
-      setApprovedAssignments(rows);
-    }
     if (profRes.data) {
       const legacy = Number((profRes.data as any).deduction_rate_per_minute) || 200;
       setRates({
@@ -218,20 +196,13 @@ export default function SalaryPage() {
   const monthlyBonusPot = Math.max(0, Number(salary?.bonus ?? 0));
   const perUnitBonus = monthlyBonusPot > 0 ? Math.round(monthlyBonusPot / 4) : 0;
 
-  // Calendar tasks spanning >= 12 days count as 2 units, otherwise 1 unit (matches edge fn).
-  function unitsFor(start: string, end: string): number {
-    const d = Math.round((new Date(end + "T00:00:00").getTime() - new Date(start + "T00:00:00").getTime()) / 86400000);
-    return d >= 12 ? 2 : 1;
-  }
-  const earnedUnitsRaw =
-    approvedTasks.length +
-    approvedAssignments.reduce((sum, r: any) => sum + unitsFor(r.calendar_events.start_date, r.calendar_events.end_date), 0);
-  const earnedUnits = Math.min(4, earnedUnitsRaw);
+  const earnedUnits = Math.min(
+    4,
+    bonusTxs.reduce((sum, b) => sum + Math.max(0, Number(b.unit_count) || 0), 0),
+  );
 
-  // Prefer dynamic (perUnit × earned units). Fall back to historical bonus_transactions
-  // sum only if no pot is configured for this month.
   const earnedBonusFromTxs = bonusTxs.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
-  const earnedBonus = perUnitBonus > 0 ? perUnitBonus * earnedUnits : earnedBonusFromTxs;
+  const earnedBonus = earnedBonusFromTxs;
   const totalBonus = earnedBonus;
   const autoAdditions = manualAdditions
     .filter((a) => (a.kind || "manual") === "auto")
@@ -270,39 +241,6 @@ export default function SalaryPage() {
           description: `${b.title || "Bonus"} · Deadline ${b.deadline_date || "—"} · Approved ${b.approved_date || "—"}${b.auto_approved ? " (auto)" : ""}`,
           amount: b.amount,
         });
-      }
-    } else if (perUnitBonus > 0) {
-      // No bonus_transactions yet (admin approved manually) — synthesize one ledger
-      // entry per approved unit so the user sees their earned bonus history.
-      let unitIndex = 0;
-      for (const t of approvedTasks) {
-        unitIndex += 1;
-        if (unitIndex > 4) break;
-        const dateStr = (t.approved_at || t.due_date || monthStart).slice(0, 10);
-        items.push({
-          id: `bonus-task-${t.id}`,
-          date: dateStr,
-          type: "bonus",
-          description: `${t.title || "Task"} · Unit ${unitIndex}/4 · Approved ${dateStr}`,
-          amount: perUnitBonus,
-        });
-      }
-      for (const r of approvedAssignments) {
-        const ev = (r as any).calendar_events;
-        const u = unitsFor(ev.start_date, ev.end_date);
-        for (let k = 0; k < u; k++) {
-          unitIndex += 1;
-          if (unitIndex > 4) break;
-          const dateStr = (r.approved_at || ev.end_date || monthStart).slice(0, 10);
-          items.push({
-            id: `bonus-assign-${r.id}-${k}`,
-            date: dateStr,
-            type: "bonus",
-            description: `${ev.title || "Calendar Task"} · Unit ${unitIndex}/4 · Approved ${dateStr}`,
-            amount: perUnitBonus,
-          });
-        }
-        if (unitIndex >= 4) break;
       }
     }
 
@@ -409,7 +347,7 @@ export default function SalaryPage() {
 
       return a.description.localeCompare(b.description);
     });
-  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, salary?.manual_deduction, manualLeaveDeductions, manualDeductionsList, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions, perUnitBonus, approvedTasks, approvedAssignments]);
+  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, salary?.manual_deduction, manualLeaveDeductions, manualDeductionsList, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions]);
 
 
   const currentMonth = formatMMTMonthLabel(new Date());
@@ -533,7 +471,7 @@ export default function SalaryPage() {
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground mt-2">
-              Final Salary သည် Approve လုပ်ပြီးသော Unit အရေအတွက်အလိုက် တိုးလာပါမည်။ Day 1 တွင် Bonus 0 ဖြစ်ပြီး Unit တစ်ခုစီ ပြီးတိုင်း တိုးသွားပါမည်။
+              Final Salary သည် Deadline ည MMT စစ်ဆေးပြီး Credit ဝင်ထားသော Unit အရေအတွက်အလိုက်သာ တိုးလာပါမည်။
             </p>
           </CardContent>
         </Card>
