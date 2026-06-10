@@ -90,7 +90,9 @@ export function AppLayout() {
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-24 md:pb-6">
           <Outlet />
         </main>
-        <GlobalCarousel position="bottom" />
+        <div className="mb-16 md:mb-0">
+          <GlobalCarousel position="bottom" />
+        </div>
       </div>
       <div className="md:hidden">
         <BottomNav />
