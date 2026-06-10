@@ -112,36 +112,44 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3) For each staff, check if any task was assigned to them within the window
-    //    by admin OR assistant. Both `tasks` and `calendar_event_assignments` count.
+    // 3) "Covered" = staff already has an ACTIVE assigned commitment whose own
+    //    deadline reaches/passes this checkpoint's end. That includes biweekly
+    //    tasks created in a previous week-window whose deadline is still future.
+    //    We must NOT auto-credit those staff just because no NEW task fell into
+    //    this specific window — their existing deadline still owns the slot.
     const [taskRes, evRes] = await Promise.all([
       admin
         .from("tasks")
-        .select("assignee_id, created_at, assigned_by")
-        .gte("created_at", `${win.start}T00:00:00`)
-        .lt("created_at", `${win.end}T23:59:59`),
+        .select("assignee_id, due_date, created_at")
+        .or(`due_date.gte.${win.start},and(due_date.is.null,created_at.gte.${win.start}T00:00:00)`),
       admin
         .from("calendar_events")
-        .select("id, start_date, end_date, event_type, created_by")
-        .gte("start_date", win.start)
+        .select("id, start_date, end_date, event_type")
+        .eq("event_type", "task")
         .lte("start_date", win.end)
-        .eq("event_type", "task"),
+        .gte("end_date", win.start),
     ]);
 
-    const assignedSet = new Set<string>();
-    for (const t of (taskRes.data as { assignee_id: string }[]) || []) assignedSet.add(t.assignee_id);
+    const coveredSet = new Set<string>();
 
+    // Tasks: any task with due_date >= win.start covers the staff for this checkpoint
+    // (it is still active or just finished within this window).
+    for (const t of (taskRes.data as { assignee_id: string; due_date: string | null; created_at: string }[]) || []) {
+      const due = t.due_date ?? t.created_at.slice(0, 10);
+      if (due >= win.start) coveredSet.add(t.assignee_id);
+    }
+
+    // Calendar events: include both events ending within this window and events
+    // still ongoing past it (deadline > win.end) — both count as already-assigned.
     const evIds = ((evRes.data as { id: string }[]) || []).map((e) => e.id);
-    let evAssData: { user_id: string; event_id: string }[] = [];
     if (evIds.length > 0) {
       const { data: assRows } = await admin
         .from("calendar_event_assignments")
         .select("user_id, event_id")
         .in("event_id", evIds);
-      evAssData = (assRows as { user_id: string; event_id: string }[]) || [];
-    }
-    for (const a of evAssData) {
-      assignedSet.add(a.user_id);
+      for (const a of (assRows as { user_id: string; event_id: string }[]) || []) {
+        coveredSet.add(a.user_id);
+      }
     }
 
     // 4) Idempotency: skip if we already credited this window
@@ -158,9 +166,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const missing = staffList.filter((s) => !assignedSet.has(s.id));
+    const missing = staffList.filter((s) => !coveredSet.has(s.id));
     if (missing.length === 0) {
-      return new Response(JSON.stringify({ window: win, missing: 0 }), {
+      return new Response(JSON.stringify({ window: win, missing: 0, covered: coveredSet.size }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
