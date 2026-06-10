@@ -133,6 +133,7 @@ Deno.serve(async (req) => {
     for (const att of open as any[]) {
       const profile = profileMap.get(att.user_id);
       if (!profile) continue;
+      if (isOffDay(profile)) continue; // off-day staff are excluded
 
       const expectedStr = resolveExpectedCheckOut(profile, settingsEnd);
       const dueMinOfDay = hhmmToMinutes(expectedStr) + GRACE_AFTER_CHECKOUT_MIN;
