@@ -64,6 +64,10 @@ export interface PageSettings {
   size: PageSize;
   orientation: Orientation;
   margin: number;
+  marginTop?: number;
+  marginRight?: number;
+  marginBottom?: number;
+  marginLeft?: number;
 }
 
 export interface Border {
