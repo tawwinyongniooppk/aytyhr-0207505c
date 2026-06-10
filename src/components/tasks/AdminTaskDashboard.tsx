@@ -383,27 +383,36 @@ export function AdminTaskDashboard({
         if (error) throw error;
       }
 
-      // Bonus split: monthly bonus / 4 per unit
-      const { data: perUnit } = await supabase.rpc("compute_bonus_per_unit", {
-        p_user_id: item.staffId,
-        p_month: monthStart,
-      });
-      const amount = ((perUnit as unknown as number) || 0) * unitCount;
-      if (amount > 0) {
-        await supabase.from("bonus_transactions").insert({
-          user_id: item.staffId,
-          task_id: item.source === "task" ? item.sourceId : null,
-          assignment_id: item.source === "calendar" ? item.assignmentId : null,
-          source: item.source,
-          month: monthStart,
-          amount,
-          unit_count: unitCount,
-          deadline_date: deadlineDate,
-          approved_date: approvedDate,
-          auto_approved: false,
-          title: item.title,
+      // Bonus split: monthly bonus / 4 per unit.
+      // IMPORTANT: defer bonus crediting until the staff's own deadline night.
+      // If admin approves early, just mark approved — the deadline-sweep edge
+      // function will insert the bonus_transactions row on deadline day
+      // (MMT 23:55). This prevents staff from being credited before their
+      // own deadline (esp. for biweekly tasks).
+      const deadlineReached = !!deadlineDate && deadlineDate <= nowDate;
+      if (deadlineReached) {
+        const { data: perUnit } = await supabase.rpc("compute_bonus_per_unit", {
+          p_user_id: item.staffId,
+          p_month: monthStart,
         });
+        const amount = ((perUnit as unknown as number) || 0) * unitCount;
+        if (amount > 0) {
+          await supabase.from("bonus_transactions").insert({
+            user_id: item.staffId,
+            task_id: item.source === "task" ? item.sourceId : null,
+            assignment_id: item.source === "calendar" ? item.assignmentId : null,
+            source: item.source,
+            month: monthStart,
+            amount,
+            unit_count: unitCount,
+            deadline_date: deadlineDate,
+            approved_date: approvedDate,
+            auto_approved: false,
+            title: item.title,
+          });
+        }
       }
+
 
       toast.success("Approved successfully");
       sendPush({

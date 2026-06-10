@@ -69,36 +69,48 @@ Deno.serve(async (req) => {
       auto_window_credits: 0,
     };
 
-    // ---------- (A) AUTO-APPROVE TASKS (deadline = today, status submitted) ----------
-    const { data: subTasks } = await supabase
+    // ---------- (A) DEADLINE TASKS (due_date = today, status submitted OR already approved) ----------
+    // Early-approved tasks (admin approved before deadline) are deferred: bonus is
+    // only credited tonight, on the staff's own deadline day. Submitted-but-not-yet-
+    // approved tasks are auto-approved here AND credited tonight.
+    const { data: dueDayTasks } = await supabase
       .from("tasks")
-      .select("id, assignee_id, title, due_date")
-      .eq("submission_status", "submitted")
+      .select("id, assignee_id, title, due_date, submission_status")
+      .in("submission_status", ["submitted", "approved"])
       .eq("due_date", today);
 
-    if (subTasks && subTasks.length > 0) {
+    if (dueDayTasks && dueDayTasks.length > 0) {
       const ms = monthStart(today);
-      const taskIds = subTasks.map((t: any) => t.id);
+      const toApprove = dueDayTasks.filter((t: any) => t.submission_status === "submitted");
+      if (toApprove.length > 0) {
+        const { error: bulkUpErr } = await supabase
+          .from("tasks")
+          .update({ submission_status: "approved", approved_at: nowIso, auto_approved: true })
+          .in("id", toApprove.map((t: any) => t.id));
+        if (bulkUpErr) console.error("[deadline-sweep] bulk approve tasks", bulkUpErr);
+        else log.auto_approved_tasks = toApprove.length;
+      }
 
-      const { error: bulkUpErr } = await supabase
-        .from("tasks")
-        .update({ submission_status: "approved", approved_at: nowIso, auto_approved: true })
-        .in("id", taskIds);
+      // Skip tasks that already have a bonus_transactions row (idempotency).
+      const taskIds = dueDayTasks.map((t: any) => t.id);
+      const { data: existingBt } = await supabase
+        .from("bonus_transactions")
+        .select("task_id")
+        .in("task_id", taskIds);
+      const alreadyCredited = new Set(
+        (existingBt || []).map((b: any) => b.task_id).filter(Boolean),
+      );
+      const toCredit = dueDayTasks.filter((t: any) => !alreadyCredited.has(t.id));
 
-      if (bulkUpErr) {
-        console.error("[deadline-sweep] bulk approve tasks", bulkUpErr);
-      } else {
-        log.auto_approved_tasks = subTasks.length;
-
-        // compute_bonus_per_unit already divides monthly bonus by 4 → 1 Unit bonus.
+      if (toCredit.length > 0) {
         const perUnitResults = await Promise.all(
-          subTasks.map((t: any) =>
+          toCredit.map((t: any) =>
             supabase.rpc("compute_bonus_per_unit", { p_user_id: t.assignee_id, p_month: ms })
           ),
         );
 
         const bonusPayload: any[] = [];
-        subTasks.forEach((t: any, i: number) => {
+        toCredit.forEach((t: any, i: number) => {
           const perUnit = (perUnitResults[i].data as unknown as number) || 0;
           const amount = perUnit * 1; // tasks = 1 Unit
           if (amount > 0) {
@@ -125,11 +137,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ---------- (B) AUTO-APPROVE CALENDAR ASSIGNMENTS (event.end_date = today, status submitted) ----------
+    // ---------- (B) DEADLINE CALENDAR ASSIGNMENTS (event.end_date = today, status submitted OR approved) ----------
     const { data: subAssigns } = await supabase
       .from("calendar_event_assignments")
       .select("id, user_id, event_id, submission_status")
-      .eq("submission_status", "submitted");
+      .in("submission_status", ["submitted", "approved"]);
 
     if (subAssigns && subAssigns.length > 0) {
       const eventIds = Array.from(new Set(subAssigns.map((a: any) => a.event_id)));
@@ -146,26 +158,36 @@ Deno.serve(async (req) => {
 
       if (dueAssigns.length > 0) {
         const ms = monthStart(today);
+        const toApprove = dueAssigns.filter((a: any) => a.submission_status === "submitted");
+        if (toApprove.length > 0) {
+          const { error: bulkUpErr } = await supabase
+            .from("calendar_event_assignments")
+            .update({ submission_status: "approved", approved_at: nowIso, auto_approved: true })
+            .in("id", toApprove.map((a: any) => a.id));
+          if (bulkUpErr) console.error("[deadline-sweep] bulk approve assignments", bulkUpErr);
+          else log.auto_approved_assignments = toApprove.length;
+        }
+
+        // Skip assignments that already have a bonus_transactions row.
         const assIds = dueAssigns.map((a: any) => a.id);
+        const { data: existingBt } = await supabase
+          .from("bonus_transactions")
+          .select("assignment_id")
+          .in("assignment_id", assIds);
+        const alreadyCredited = new Set(
+          (existingBt || []).map((b: any) => b.assignment_id).filter(Boolean),
+        );
+        const toCredit = dueAssigns.filter((a: any) => !alreadyCredited.has(a.id));
 
-        const { error: bulkUpErr } = await supabase
-          .from("calendar_event_assignments")
-          .update({ submission_status: "approved", approved_at: nowIso, auto_approved: true })
-          .in("id", assIds);
-
-        if (bulkUpErr) {
-          console.error("[deadline-sweep] bulk approve assignments", bulkUpErr);
-        } else {
-          log.auto_approved_assignments = dueAssigns.length;
-
+        if (toCredit.length > 0) {
           const perUnitResults = await Promise.all(
-            dueAssigns.map((a: any) =>
+            toCredit.map((a: any) =>
               supabase.rpc("compute_bonus_per_unit", { p_user_id: a.user_id, p_month: ms })
             ),
           );
 
           const bonusPayload: any[] = [];
-          dueAssigns.forEach((a: any, i: number) => {
+          toCredit.forEach((a: any, i: number) => {
             const ev: any = evMap.get(a.event_id);
             const unit_count = getTaskUnitCount(ev.start_date, ev.end_date);
             const perUnit = (perUnitResults[i].data as unknown as number) || 0;
@@ -194,6 +216,7 @@ Deno.serve(async (req) => {
         }
       }
     }
+
 
     // ---------- (C) OVERDUE TASKS — bulk update + 0-amount bonus rows ----------
     const ms = monthStart(today);
