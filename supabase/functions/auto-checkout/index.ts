@@ -54,6 +54,16 @@ function resolveExpectedCheckOut(profile: any, settingsEnd: string): string {
   return settingsEnd || "16:00";
 }
 
+// Off-day check: when work_schedule has the day explicitly marked inactive,
+// the staff is off and must NOT be auto-penalised.
+function isOffDay(profile: any): boolean {
+  const ws = profile?.work_schedule ?? null;
+  const today = weekdayName(yangonNow());
+  const day = ws?.[today];
+  if (day && day.active === false) return true;
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
