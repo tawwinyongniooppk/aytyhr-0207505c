@@ -20,6 +20,11 @@ interface Props {
   showPageBreaks?: boolean;
   className?: string;
   renderOverlay?: (page: { width: number; height: number }) => React.ReactNode;
+  /** Drag-to-reorder tables on the canvas. */
+  dragCardId?: string | null;
+  onCardDragStart?: (id: string) => void;
+  onCardDragEnd?: () => void;
+  onCardReorder?: (fromId: string, toId: string | null) => void;
 }
 
 function renderPrefix(cell: Cell, indexInRow: number) {
