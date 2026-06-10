@@ -404,11 +404,11 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
       )}
 
       {/* Free letterhead pieces (static render — interactive Rnd wrappers come via renderOverlay) */}
-      {useFreeLetterhead && !renderOverlay && b.logoUrl && b.logoBox && (
+      {useFreeLetterhead && b.logoUrl && b.logoBox && (
         <img src={b.logoUrl} alt="" crossOrigin="anonymous"
           style={{ position: "absolute", left: b.logoBox.x, top: b.logoBox.y, width: b.logoBox.width, height: b.logoBox.height, objectFit: "contain", zIndex: 2 }} />
       )}
-      {useFreeLetterhead && !renderOverlay && b.headerText && b.headerBox && (
+      {useFreeLetterhead && b.headerText && b.headerBox && (
         <div style={{
           position: "absolute", left: b.headerBox.x, top: b.headerBox.y, width: b.headerBox.width, height: b.headerBox.height, zIndex: 2,
           fontFamily: b.headerBox.fontFamily, fontSize: b.headerBox.fontSize ?? 22, color: b.headerBox.color ?? palette.primary,
@@ -417,7 +417,7 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
           whiteSpace: "pre-wrap", wordBreak: "break-word",
         }}>{b.headerText}</div>
       )}
-      {useFreeLetterhead && !renderOverlay && template.letterheadFooterText && b.footerBox && (
+      {useFreeLetterhead && template.letterheadFooterText && b.footerBox && (
         <div style={{
           position: "absolute", left: b.footerBox.x, top: b.footerBox.y, width: b.footerBox.width, height: b.footerBox.height, zIndex: 2,
           fontFamily: b.footerBox.fontFamily, fontSize: b.footerBox.fontSize ?? 11, color: b.footerBox.color ?? palette.accent,
@@ -428,7 +428,7 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
       )}
 
       {/* Free-positioned tables (static render — interactive Rnd wrappers come via renderOverlay) */}
-      {!renderOverlay && freeCards.map(card => (
+      {freeCards.map(card => (
         <div key={card.id} style={{ position: "absolute", left: card.x ?? 0, top: card.y ?? 0, width: card.width ?? 400, zIndex: 3 }}>
           {renderTableBlock(card)}
         </div>
