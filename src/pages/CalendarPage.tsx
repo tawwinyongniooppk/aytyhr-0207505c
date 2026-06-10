@@ -514,8 +514,17 @@ export default function CalendarPage() {
       setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [], frequency: "weekly", assignMode: "everyone" });
       setOpen(false);
       loadEvents();
-    } catch {
-      toast({ title: "Error", description: "Failed to create task", variant: "destructive" });
+      } catch (error: any) {
+      const message = String(error?.message || "");
+      if (message.includes("DUPLICATE_TASK")) {
+        toast({
+          title: "Error",
+          description: "ဤ Staff အတွက် တူညီသော ရက်စွဲ သို့မဟုတ် Deadline နှင့် ထပ်နေသော Task ရှိပြီးသား ဖြစ်ပါသည်",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Error", description: "Failed to create task", variant: "destructive" });
+      }
     } finally {
       setSubmitting(false);
     }
