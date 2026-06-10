@@ -147,9 +147,7 @@ function ColumnResizeOverlay({
   return (
     <div ref={overlayRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
       {Array.from({ length: columns - 1 }, (_, i) => i + 1).map(B => {
-        // Skip edge boundaries — only inner boundaries (B between cols where neither is first nor last)
-        const isEdge = B - 1 === 0 || B === columns - 1;
-        if (isEdge) return null;
+        // Only outer table edges are non-draggable. Every inner column boundary is adjustable.
         const isHover = hoverIdx === B;
         return (
           <div
