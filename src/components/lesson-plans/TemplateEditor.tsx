@@ -149,7 +149,7 @@ export function TemplateEditor({ value, onChange }: Props) {
         ...value.cards,
         {
           id: uid(),
-          title: `Card ${value.cards.length + 1}`,
+          title: `Table ${value.cards.length + 1}`,
           columns: 2,
           colWidths: [50, 50],
           rows: [
