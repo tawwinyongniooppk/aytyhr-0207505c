@@ -356,12 +356,50 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
           <div style={{ fontSize: 11, color: palette.accent, marginTop: 4, marginBottom: 12 }}>{template.letterheadFooterText}</div>
         )}
 
-        <div className="space-y-3 mt-3">
+        <div
+          className="space-y-3 mt-3"
+          onDragOver={editable && onCardReorder ? (e) => { if (dragCardId) e.preventDefault(); } : undefined}
+          onDrop={editable && onCardReorder ? (e) => {
+            if (!dragCardId) return;
+            e.preventDefault();
+            // Dropped on the container background (not on a card) → move to end
+            if (e.target === e.currentTarget) onCardReorder(dragCardId, null);
+          } : undefined}
+        >
           {template.cards.map(card => {
             const cols = Math.max(1, card.columns);
             const colWidths = card.colWidths && card.colWidths.length === cols ? card.colWidths : Array.from({ length: cols }, () => 100 / cols);
+            const dragProps = editable && onCardReorder ? {
+              draggable: true,
+              onDragStart: (e: React.DragEvent) => {
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", card.id);
+                onCardDragStart?.(card.id);
+              },
+              onDragEnd: () => onCardDragEnd?.(),
+              onDragOver: (e: React.DragEvent) => { if (dragCardId && dragCardId !== card.id) e.preventDefault(); },
+              onDrop: (e: React.DragEvent) => {
+                if (!dragCardId) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onCardReorder(dragCardId, card.id);
+              },
+            } : {};
+            const isDragging = dragCardId === card.id;
             return (
-              <div key={card.id} style={{ background: card.bgColor, border: card.borderColor ? `1px solid ${card.borderColor}` : undefined, borderRadius: 8, overflow: "hidden" }}>
+              <div
+                key={card.id}
+                {...dragProps}
+                style={{
+                  background: card.bgColor,
+                  border: card.borderColor ? `1px solid ${card.borderColor}` : (editable && onCardReorder ? "1px dashed transparent" : undefined),
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  opacity: isDragging ? 0.5 : 1,
+                  cursor: editable && onCardReorder ? "move" : undefined,
+                  outline: dragCardId && dragCardId !== card.id ? "1px dashed hsl(var(--primary) / 0.4)" : undefined,
+                }}
+              >
                 <div style={{ background: palette.primary, color: "#fff", padding: "6px 10px", fontWeight: 600, fontSize: 13 }}>{card.title}</div>
                 <div style={{ position: "relative" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
@@ -376,7 +414,7 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
                       ))}
                     </tbody>
                   </table>
-                  {editable && onColWidthChange && cols >= 4 && (
+                  {editable && onColWidthChange && cols >= 2 && (
                     <ColumnResizeOverlay
                       cardId={card.id}
                       columns={cols}
