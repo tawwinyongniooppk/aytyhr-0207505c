@@ -224,11 +224,15 @@ export default function SalaryPage() {
     .reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
   const totalAdditions = autoAdditions + manualAddTotal;
   const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
+  const autoForgetCheckoutTotal = manualDeductionsList
+    .filter((d) => (d.source || "manual") === "auto_early_out")
+    .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
   const manualDeductionTxTotal = manualDeductionsList
     .filter((d) => (d.source || "manual") !== "auto_early_out")
     .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
   const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0)) + manualDeductionTxTotal;
-  const totalDeductions = autoDeductions + manualDeductionAmt;
+  const totalAutoDeductions = autoDeductions + autoForgetCheckoutTotal;
+  const totalDeductions = totalAutoDeductions + manualDeductionAmt;
   const finalSalary = baseSalary + totalBonus + totalAdditions - totalDeductions;
 
 
@@ -453,7 +457,7 @@ export default function SalaryPage() {
               -{totalDeductions.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">Ks</span>
             </p>
             <p className="mt-2 text-[11px] text-muted-foreground break-words">
-              Auto: {autoDeductions.toLocaleString()} · Manual: {manualDeductionAmt.toLocaleString()}
+              Auto: {totalAutoDeductions.toLocaleString()} · Manual: {manualDeductionAmt.toLocaleString()}
             </p>
           </div>
 
