@@ -622,7 +622,7 @@ export function TemplateEditor({ value, onChange }: Props) {
           <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground">
               Live preview · {value.page.size} {value.page.orientation === "portrait" ? "Portrait" : "Landscape"} ·
-              Click cell to edit · Drag inner column borders to resize · Drag watermark/free elements directly.
+              Click cell to edit · Drag any inner column border to resize · Drag a table block to reorder on the page.
             </p>
           </div>
           <div style={{ transform: `scale(${PREVIEW_SCALE})`, transformOrigin: "top left" }}>
