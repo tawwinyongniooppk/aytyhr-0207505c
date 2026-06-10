@@ -329,19 +329,27 @@ export default function SalaryPage() {
       const earlyExcused = excuses.has("leave") || excuses.has("partial_leave");
       const effLate = lateExcused ? 0 : lateMin;
       const effEarly = earlyExcused ? 0 : earlyMin;
-      const amount = effLate * rates.late + effEarly * rates.early;
-      if (amount <= 0) continue;
-      const parts: string[] = [];
-      if (effLate > 0) parts.push(`Late ${effLate} min × ${rates.late}`);
-      if (effEarly > 0) parts.push(`Early ${effEarly} min × ${rates.early}`);
       const dayNum = Number(a.date.slice(8, 10));
-      items.push({
-        id: `auto-${a.date}`,
-        date: a.date,
-        type: "auto_deduction",
-        description: `Day ${dayNum} — ${parts.join(" · ")}`,
-        amount: -amount,
-      });
+      if (effLate > 0) {
+        const lateAmt = effLate * rates.late;
+        items.push({
+          id: `auto-late-${a.date}`,
+          date: a.date,
+          type: "auto_deduction",
+          description: `Day ${dayNum} · Late Entry — ${effLate} min × ${rates.late.toLocaleString()} Ks/min`,
+          amount: -lateAmt,
+        });
+      }
+      if (effEarly > 0) {
+        const earlyAmt = effEarly * rates.early;
+        items.push({
+          id: `auto-early-${a.date}`,
+          date: a.date,
+          type: "auto_deduction",
+          description: `Day ${dayNum} · Early Check-out — ${effEarly} min × ${rates.early.toLocaleString()} Ks/min`,
+          amount: -earlyAmt,
+        });
+      }
     }
 
     const legacyManual = Math.max(0, Number(salary?.manual_deduction ?? 0));
