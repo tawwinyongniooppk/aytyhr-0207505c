@@ -38,6 +38,11 @@ export interface Card {
   columns: number;
   rows: Row[];
   colWidths?: number[]; // percentage values summing ~100, length == columns
+  /** Free placement on the page. When set, the table is positioned absolutely and is no longer part of the auto stack. */
+  free?: boolean;
+  x?: number;
+  y?: number;
+  width?: number; // px
 }
 
 export type PageSize = "A4" | "Legal";
