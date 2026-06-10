@@ -574,10 +574,10 @@ export default function SalaryPage() {
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg border border-border/70 bg-background">
-              <div className="grid grid-cols-[72px,minmax(0,1fr),auto] gap-3 border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="grid grid-cols-[68px,minmax(0,1fr),96px] gap-3 border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid-cols-[72px,minmax(0,1fr),auto]">
                 <span>Day</span>
                 <span>Description</span>
-                <span>Amount</span>
+                <span className="text-right">Amount</span>
               </div>
               <ul className="divide-y divide-border">
               {ledger.map((e) => {
@@ -586,7 +586,7 @@ export default function SalaryPage() {
                 const isCredit = e.amount > 0;
 
                 return (
-                  <li key={e.id} className="grid grid-cols-[72px,minmax(0,1fr),auto] items-start gap-3 px-3 py-3">
+                  <li key={e.id} className="grid grid-cols-[68px,minmax(0,1fr),96px] items-start gap-3 px-3 py-3 sm:grid-cols-[72px,minmax(0,1fr),auto]">
                     <div className="pt-0.5 text-sm font-semibold text-foreground">
                       Day {dayNumber}
                     </div>
@@ -596,7 +596,7 @@ export default function SalaryPage() {
                       </div>
                       <p className="text-sm font-medium text-foreground break-words">{e.description}</p>
                     </div>
-                    <div className="pt-0.5 text-right shrink-0">
+                    <div className="pt-0.5 text-right min-w-0 shrink-0">
                       {e.amount === 0 ? (
                         <span className="text-sm font-semibold text-foreground/70">
                           0 <span className="text-[10px] font-normal">MMK</span>
@@ -612,7 +612,7 @@ export default function SalaryPage() {
                 );
               })}
               </ul>
-              <div className="grid grid-cols-[72px,minmax(0,1fr),auto] items-center gap-3 border-t-2 border-border bg-muted/50 px-3 py-4">
+              <div className="grid grid-cols-[68px,minmax(0,1fr),96px] items-center gap-3 border-t-2 border-border bg-muted/50 px-3 py-4 sm:grid-cols-[72px,minmax(0,1fr),auto]">
                 <div className="text-sm font-semibold text-muted-foreground">Final</div>
                 <div className="text-sm font-semibold text-foreground">Final Salary</div>
                 <div className={`text-right text-base font-bold font-display ${finalSalary < 0 ? "text-destructive" : "text-secondary"}`}>
