@@ -3,9 +3,8 @@
 //   - check_in_time is set
 //   - check_out_time is null
 //   - (now - expected_check_out_time) >= 30 minutes
-// it sets check_out_time to (expected + 30 min), applies a 10-minute
-// "Auto Deduction" penalty using the staff member's per-minute rate,
-// and marks deduction_applied = true.
+// it sets check_out_time to (expected + 30 min), applies a flat
+// 1000 MMK auto deduction, and marks deduction_applied = true.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -153,11 +152,17 @@ Deno.serve(async (req) => {
         ) - YANGON_OFFSET_MS;
       const autoCheckOutISO = new Date(dueMMTms).toISOString();
 
-      await admin.from("attendance").update({
+      const { data: claimedAttendance, error: claimErr } = await admin.from("attendance").update({
         check_out_time: autoCheckOutISO,
         early_minutes: 0,
         deduction_applied: true,
-      }).eq("id", att.id);
+      }).eq("id", att.id)
+        .is("check_out_time", null)
+        .eq("deduction_applied", false)
+        .select("id")
+        .maybeSingle();
+      if (claimErr) throw claimErr;
+      if (!claimedAttendance) continue;
 
       // Ensure salary row
       let { data: salary } = await admin.from("salaries")
@@ -174,7 +179,7 @@ Deno.serve(async (req) => {
       const newCurrent = Math.max(0, (salary!.current_salary ?? 0) - penalty);
       const newDeductions = (salary!.total_deductions ?? 0) + penalty;
       const prevReason = (salary!.deduction_reason ?? "").trim();
-      const note = `Auto Deduction: forgot check-out on ${today} (flat ${penalty} MMK)`;
+      const note = `Auto Deduction: Forget to Check out on ${today} (flat ${penalty} MMK)`;
       const newReason = prevReason ? `${prevReason}\n${note}` : note;
 
       await admin.from("salaries").update({
