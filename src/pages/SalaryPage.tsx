@@ -78,6 +78,18 @@ function getMonthStart(): string {
   return getMMTMonthStartISO();
 }
 
+function getMMTDateISO(value: string | number | Date) {
+  const { year, month, day } = getMMTDateParts(value);
+  return `${year}-${month}-${day}`;
+}
+
+function getForgetCheckoutDate(title?: string | null, fallback?: string | null) {
+  const matchedDate = title?.match(/\((\d{4}-\d{2}-\d{2})\)/)?.[1];
+  if (matchedDate) return matchedDate;
+  if (fallback) return getMMTDateISO(fallback);
+  return getMonthStart();
+}
+
 export default function SalaryPage() {
   const { user } = useAuth();
   const { isNeutralClass, isStaff } = useProfile();
@@ -212,7 +224,9 @@ export default function SalaryPage() {
     .reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
   const totalAdditions = autoAdditions + manualAddTotal;
   const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
-  const manualDeductionTxTotal = manualDeductionsList.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const manualDeductionTxTotal = manualDeductionsList
+    .filter((d) => (d.source || "manual") !== "auto_early_out")
+    .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
   const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0)) + manualDeductionTxTotal;
   const totalDeductions = autoDeductions + manualDeductionAmt;
   const finalSalary = baseSalary + totalBonus + totalAdditions - totalDeductions;
@@ -313,14 +327,29 @@ export default function SalaryPage() {
       });
     }
 
+    const seenForgetCheckoutRows = new Set<string>();
+
     // Per-transaction manual deductions (e.g. Half Leave approvals)
     for (const d of manualDeductionsList) {
+      if ((d.source || "manual") === "auto_early_out") {
+        const deductionDate = getForgetCheckoutDate(d.title, d.created_at);
+        const dedupeKey = `${deductionDate}-${Number(d.amount) || 0}`;
+        if (seenForgetCheckoutRows.has(dedupeKey)) continue;
+        seenForgetCheckoutRows.add(dedupeKey);
+
+        items.push({
+          id: `auto-forget-checkout-${d.id}`,
+          date: deductionDate,
+          type: "auto_deduction",
+          description: `Forget to Check out (${deductionDate})`,
+          amount: -(Number(d.amount) || 0),
+        });
+        continue;
+      }
+
       items.push({
         id: `smd-${d.id}`,
-        date: (() => {
-          const { year, month, day } = getMMTDateParts(d.created_at);
-          return `${year}-${month}-${day}`;
-        })(),
+        date: getMMTDateISO(d.created_at),
         type: "manual_deduction",
         description: d.title,
         amount: -(Number(d.amount) || 0),
