@@ -29,14 +29,19 @@ export function TemplateEditor({ value, onChange }: Props) {
 
   const PREVIEW_SCALE = 0.78;
 
-  const reorderCards = (fromId: string, toId: string) => {
+  const reorderCards = (fromId: string, toId: string | null) => {
     if (fromId === toId) return;
     const from = value.cards.findIndex(c => c.id === fromId);
-    const to = value.cards.findIndex(c => c.id === toId);
-    if (from < 0 || to < 0) return;
+    if (from < 0) return;
     const next = [...value.cards];
     const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
+    if (toId === null) {
+      next.push(moved); // drop on empty canvas → append
+    } else {
+      const to = next.findIndex(c => c.id === toId);
+      if (to < 0) { next.splice(from, 0, moved); return; }
+      next.splice(to, 0, moved);
+    }
     onChange({ ...value, cards: next });
   };
 
@@ -119,8 +124,8 @@ export function TemplateEditor({ value, onChange }: Props) {
       cards: value.cards.map(c => {
         if (c.id !== cardId) return c;
         const widths = c.colWidths && c.colWidths.length === c.columns ? [...c.colWidths] : Array.from({ length: c.columns }, () => 100 / c.columns);
-        // adjacent column compensates; do not allow edge resizing (first/last via this UI)
-        if (colIdx <= 0 || colIdx >= c.columns - 1) return c;
+        // adjacent column compensates; only the table's outer edges are non-draggable
+        if (colIdx < 0 || colIdx >= c.columns - 1) return c;
         const left = widths[colIdx];
         const right = widths[colIdx + 1];
         const total = left + right;
@@ -410,9 +415,9 @@ export function TemplateEditor({ value, onChange }: Props) {
                 <Label className="text-xs">Columns</Label>
                 <Input type="number" min={1} max={8} value={card.columns} onChange={e => setCardColumns(card.id, Math.max(1, Math.min(8, Number(e.target.value) || 1)))} />
               </div>
-              {card.columns >= 4 && (
+              {card.columns >= 2 && (
                 <p className="text-[10px] text-muted-foreground">
-                  Tip: Inner column borders ကို preview ပေါ်တွင် Excel ပုံစံ drag လုပ်၍ resize နိုင်ပါသည် (ဘေးအစွန်းကော်လံများ မပြောင်းပါ)။
+                  Tip: Preview ပေါ်တွင် inner column borders များကို Excel ပုံစံ drag လုပ်၍ resize နိုင်ပါသည် (ထိပ်ဆုံး/နောက်ဆုံး အစွန်းကော်လံများ မပြောင်းပါ)။
                 </p>
               )}
               {/* Inner row heights (skip first/last) */}
@@ -617,7 +622,7 @@ export function TemplateEditor({ value, onChange }: Props) {
           <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground">
               Live preview · {value.page.size} {value.page.orientation === "portrait" ? "Portrait" : "Landscape"} ·
-              Click cell to edit · Drag inner column borders to resize · Drag watermark/free elements directly.
+              Click cell to edit · Drag any inner column border to resize · Drag a table block to reorder on the page.
             </p>
           </div>
           <div style={{ transform: `scale(${PREVIEW_SCALE})`, transformOrigin: "top left" }}>
@@ -630,6 +635,10 @@ export function TemplateEditor({ value, onChange }: Props) {
               onCellClick={onSelectCell}
               onCellChange={onCellChange}
               onColWidthChange={updateColWidth}
+              dragCardId={dragCardId}
+              onCardDragStart={setDragCardId}
+              onCardDragEnd={() => setDragCardId(null)}
+              onCardReorder={reorderCards}
               renderOverlay={(page) => (
                 <>
                   {/* Watermark interactive */}
