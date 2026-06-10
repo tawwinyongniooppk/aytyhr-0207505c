@@ -29,14 +29,19 @@ export function TemplateEditor({ value, onChange }: Props) {
 
   const PREVIEW_SCALE = 0.78;
 
-  const reorderCards = (fromId: string, toId: string) => {
+  const reorderCards = (fromId: string, toId: string | null) => {
     if (fromId === toId) return;
     const from = value.cards.findIndex(c => c.id === fromId);
-    const to = value.cards.findIndex(c => c.id === toId);
-    if (from < 0 || to < 0) return;
+    if (from < 0) return;
     const next = [...value.cards];
     const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
+    if (toId === null) {
+      next.push(moved); // drop on empty canvas → append
+    } else {
+      const to = next.findIndex(c => c.id === toId);
+      if (to < 0) { next.splice(from, 0, moved); return; }
+      next.splice(to, 0, moved);
+    }
     onChange({ ...value, cards: next });
   };
 
