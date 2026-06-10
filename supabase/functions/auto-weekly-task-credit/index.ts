@@ -255,7 +255,52 @@ Deno.serve(async (req) => {
 
     if (bonusPayload.length > 0) {
       const { error: bulkBtErr } = await admin.from("bonus_transactions").insert(bonusPayload);
-      if (bulkBtErr) console.error("[auto-weekly-credit] bulk bonus tx error", bulkBtErr);
+      if (bulkBtErr) {
+        console.error("[auto-weekly-credit] bulk bonus tx error, retrying per-row", bulkBtErr);
+        // Per-row retry so one bad row doesn't drop everyone's credit silently.
+        for (const row of bonusPayload) {
+          const { error: rowErr } = await admin.from("bonus_transactions").insert(row);
+          if (rowErr) {
+            console.error("[auto-weekly-credit] per-row bonus insert FAILED for user", row.user_id, rowErr);
+          }
+        }
+      }
+    }
+
+    // Safety net: re-scan all auto-credited assignments for THIS event and
+    // backfill any missing bonus_transactions (e.g. from a prior failed run).
+    {
+      const { data: allAss } = await admin
+        .from("calendar_event_assignments")
+        .select("id, user_id")
+        .eq("event_id", ev.id);
+      const assIds = ((allAss as { id: string; user_id: string }[]) || []).map((a) => a.id);
+      if (assIds.length > 0) {
+        const { data: existingBt } = await admin
+          .from("bonus_transactions")
+          .select("assignment_id")
+          .in("assignment_id", assIds);
+        const have = new Set(((existingBt as { assignment_id: string }[]) || []).map((b) => b.assignment_id));
+        const missingRows = (allAss as { id: string; user_id: string }[]).filter((a) => !have.has(a.id));
+        for (const a of missingRows) {
+          const totalBonus = bonusByUser.get(a.user_id) ?? 0;
+          const perUnit = totalBonus > 0 ? Math.round(totalBonus / 4) : 0;
+          if (perUnit <= 0) continue;
+          const { error: fixErr } = await admin.from("bonus_transactions").insert({
+            user_id: a.user_id,
+            assignment_id: a.id,
+            source: "calendar",
+            month: monthStart,
+            amount: perUnit,
+            unit_count: 1,
+            deadline_date: win.end,
+            approved_date: t.iso,
+            auto_approved: true,
+            title: creditTitle,
+          });
+          if (fixErr) console.error("[auto-weekly-credit] backfill bonus insert FAILED", a.user_id, fixErr);
+        }
+      }
     }
 
     const credited = insertedAssignments?.length ?? 0;
