@@ -25,6 +25,20 @@ export function TemplateEditor({ value, onChange }: Props) {
   const [selected, setSelected] = useState<{ cardId: string; rowId: string; cellId: string } | null>(null);
   const [selectedFreeId, setSelectedFreeId] = useState<string | null>(null);
   const [optionsDraft, setOptionsDraft] = useState<string>("");
+  const [dragCardId, setDragCardId] = useState<string | null>(null);
+
+  const PREVIEW_SCALE = 0.78;
+
+  const reorderCards = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    const from = value.cards.findIndex(c => c.id === fromId);
+    const to = value.cards.findIndex(c => c.id === toId);
+    if (from < 0 || to < 0) return;
+    const next = [...value.cards];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onChange({ ...value, cards: next });
+  };
 
   const selectedCell = useMemo(() => {
     if (!selected) return null;
