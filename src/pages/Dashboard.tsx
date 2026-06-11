@@ -47,7 +47,7 @@ interface TopDeduction {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { canViewSalary } = useProfile();
+  const { canViewSalary, isStaff } = useProfile();
   const { hasFor } = useNotifications();
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -90,15 +90,19 @@ export default function Dashboard() {
     setLoading(false);
   }
 
+  // Only count Staff role for dashboard stats — IT Manager / Admin / Assistant excluded
+  const staffProfiles = profiles.filter((p) => p.role === "staff");
+  const staffIds = new Set(staffProfiles.map((p) => p.id));
   const profileMap = Object.fromEntries(profiles.map((p) => [p.id, p]));
-  const totalStaff = profiles.length;
-  const presentToday = todayAttendance.filter((a) => a.check_in_time).length;
-  const lateToday = todayAttendance.filter((a) => a.late_minutes > 0).length;
+  const totalStaff = staffProfiles.length;
+  const staffAttendance = todayAttendance.filter((a) => staffIds.has(a.user_id));
+  const presentToday = staffAttendance.filter((a) => a.check_in_time).length;
+  const lateToday = staffAttendance.filter((a) => a.late_minutes > 0).length;
 
-  const todayLeaves = leaveRequests.filter((l) => l.date === today && l.status === "approved" && l.type === "leave");
+  const todayLeaves = leaveRequests.filter((l) => l.date === today && l.status === "approved" && l.type === "leave" && staffIds.has(l.user_id));
   const onLeaveToday = todayLeaves.length;
 
-  const todayDeductions = todayAttendance.reduce(
+  const todayDeductions = staffAttendance.reduce(
     (sum, a) => sum + (a.late_minutes + a.early_minutes) * deductionRate,
     0
   );
@@ -107,16 +111,17 @@ export default function Dashboard() {
   const approvedToday = leaveRequests.filter((l) => l.date === today && l.status === "approved");
   const rejectedToday = leaveRequests.filter((l) => l.date === today && l.status === "rejected");
 
-  // Monthly stats — aggregated server-side
-  const monthDeductions = monthStats.reduce(
+  // Monthly stats — aggregated server-side (Staff role only)
+  const staffMonthStats = monthStats.filter((s) => staffIds.has(s.user_id));
+  const monthDeductions = staffMonthStats.reduce(
     (sum, s) => sum + (Number(s.total_late_minutes) + Number(s.total_early_minutes)) * deductionRate,
     0
   );
-  const totalAttendanceDays = monthStats.reduce((sum, s) => sum + Number(s.days_present), 0);
-  const totalLateCases = monthStats.reduce((sum, s) => sum + Number(s.late_cases), 0);
+  const totalAttendanceDays = staffMonthStats.reduce((sum, s) => sum + Number(s.days_present), 0);
+  const totalLateCases = staffMonthStats.reduce((sum, s) => sum + Number(s.late_cases), 0);
 
   // Top 3 deductions this month
-  const topDeductions: TopDeduction[] = monthStats
+  const topDeductions: TopDeduction[] = staffMonthStats
     .map((s) => ({
       name: profileMap[s.user_id]?.full_name || "Unknown",
       total: (Number(s.total_late_minutes) + Number(s.total_early_minutes)) * deductionRate,
@@ -208,7 +213,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <LeaveBalanceCard />
+      {isStaff && <LeaveBalanceCard />}
 
       {/* Pulse Strip — at-a-glance today */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -292,11 +297,11 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {todayAttendance.length === 0 ? (
+            {staffAttendance.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">No attendance records yet today.</p>
             ) : (
               <div className="space-y-2">
-                {todayAttendance.map((a) => {
+                {staffAttendance.map((a) => {
                   const profile = profileMap[a.user_id];
                   const status = attendanceStatus(a);
                   return (
