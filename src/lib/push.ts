@@ -41,6 +41,10 @@ export async function sendPush(args: {
       },
     });
     if (error) throw error;
+    const payload = data as { ok?: boolean; error?: string } | null;
+    if (payload?.ok === false) {
+      return { ok: false, error: payload.error ?? "Push delivery failed", data };
+    }
     return { ok: true, data };
   } catch (e) {
     console.error("[push] send failed", e);
