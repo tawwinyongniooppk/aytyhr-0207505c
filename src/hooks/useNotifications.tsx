@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useProfile } from "./useProfile";
-import { getMessagingSafe, onMessage, requestFcmToken } from "@/lib/firebase";
+import { FCM_SW_SCOPE, getMessagingSafe, onMessage, requestFcmToken } from "@/lib/firebase";
 import { isPushEnabled } from "@/lib/push";
 import { toast } from "sonner";
 
@@ -109,7 +109,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     })();
 
     // Clear icon badge whenever the app regains focus (native-app behaviour).
-    const clearBadge = () => {
+    const clearBadge = async () => {
       if (document.visibilityState !== "visible") return;
       try {
         sessionStorage.setItem("badge_count", "0");
@@ -117,14 +117,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         if (nav && typeof nav.clearAppBadge === "function") {
           nav.clearAppBadge().catch(() => {});
         }
-        if (navigator.serviceWorker?.controller) {
-          navigator.serviceWorker.controller.postMessage({ type: "CLEAR_BADGE" });
+        const registration = await navigator.serviceWorker?.getRegistration(FCM_SW_SCOPE);
+        if (registration?.active) {
+          registration.active.postMessage({ type: "CLEAR_BADGE" });
         }
       } catch {
         /* ignore */
       }
     };
-    clearBadge();
+    void clearBadge();
     document.addEventListener("visibilitychange", clearBadge);
     window.addEventListener("focus", clearBadge);
 
