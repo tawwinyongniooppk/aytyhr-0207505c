@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useProfile } from "./useProfile";
-import { FCM_SW_SCOPE, getMessagingSafe, onMessage, requestFcmToken } from "@/lib/firebase";
+import { FCM_SW_SCOPE, getMessagingSafe, getPushAvailability, onMessage, requestFcmToken } from "@/lib/firebase";
 import { isPushEnabled } from "@/lib/push";
 import { toast } from "sonner";
 
@@ -74,10 +74,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     (async () => {
       try {
-        const token = await requestFcmToken();
+        const availability = await getPushAvailability();
+        if (!availability.supported) {
+          console.warn("[fcm]", availability.reason ?? "Push notifications are unsupported in this browser/context");
+          return;
+        }
+
+        const token = await requestFcmToken({ prompt: false });
         if (cancelled) return;
         if (!token) {
-          console.warn("[fcm] No token returned (permission denied or unsupported)");
+          console.warn("[fcm] No token returned (permission not granted yet)");
           return;
         }
 
