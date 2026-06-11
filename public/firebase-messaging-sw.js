@@ -65,6 +65,7 @@ messaging.onBackgroundMessage(async (payload) => {
     body,
     icon: "/pwa-192x192.png",
     badge: "/pwa-192x192.png",
+    sound: "default",
     data: { url },
     tag: payload.data?.tag || "ayty-notif",
     renotify: true,
@@ -72,6 +73,7 @@ messaging.onBackgroundMessage(async (payload) => {
     requireInteraction: false,
   });
 });
+
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
