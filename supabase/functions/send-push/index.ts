@@ -172,14 +172,18 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             message: {
               token: row.token,
-              // Send BOTH notification + data:
-              // - `webpush.notification` lets the browser auto-display with
-              //   system sound, vibration and app badge even if the SW
-              //   `onBackgroundMessage` is silent (some Android Chrome
-              //   builds suppress data-only pushes).
-              // - `data` keeps fields available for our SW handler and the
-              //   in-app foreground toast.
-              data: { url, title, body: message, ...data },
+              // Top-level notification → ensures Android/iOS treat this as a
+              // user-visible push (required for sound/vibration on some OEMs).
+              notification: { title, body: message },
+              // `data` keeps fields available for our SW handler, foreground
+              // toast, and badge counting (absolute count via `badge` key).
+              data: {
+                url,
+                title,
+                body: message,
+                badge: String(data.badge ?? ""),
+                ...data,
+              },
               webpush: {
                 headers: { Urgency: "high", TTL: "300" },
                 notification: {
@@ -187,6 +191,7 @@ Deno.serve(async (req) => {
                   body: message,
                   icon: "/pwa-192x192.png",
                   badge: "/pwa-192x192.png",
+                  sound: "default",
                   vibrate: [200, 100, 200],
                   requireInteraction: false,
                   tag: notificationTag,
@@ -196,6 +201,7 @@ Deno.serve(async (req) => {
               },
             },
           }),
+
 
         });
         if (res.ok) {
