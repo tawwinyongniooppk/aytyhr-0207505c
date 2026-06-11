@@ -99,10 +99,10 @@ export default function Dashboard() {
   const presentToday = staffAttendance.filter((a) => a.check_in_time).length;
   const lateToday = staffAttendance.filter((a) => a.late_minutes > 0).length;
 
-  const todayLeaves = leaveRequests.filter((l) => l.date === today && l.status === "approved" && l.type === "leave");
+  const todayLeaves = leaveRequests.filter((l) => l.date === today && l.status === "approved" && l.type === "leave" && staffIds.has(l.user_id));
   const onLeaveToday = todayLeaves.length;
 
-  const todayDeductions = todayAttendance.reduce(
+  const todayDeductions = staffAttendance.reduce(
     (sum, a) => sum + (a.late_minutes + a.early_minutes) * deductionRate,
     0
   );
