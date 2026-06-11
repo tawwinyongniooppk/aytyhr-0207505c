@@ -212,7 +212,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <LeaveBalanceCard />
+      {isStaff && <LeaveBalanceCard />}
 
       {/* Pulse Strip — at-a-glance today */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
