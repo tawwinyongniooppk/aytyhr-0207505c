@@ -11,8 +11,15 @@ importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-com
 
 // ------- Badge bumping (runs for EVERY push, regardless of notification field) -------
 let badgeCount = 0;
-async function bumpBadge() {
-  badgeCount += 1;
+async function applyBadge(absoluteOrIncrement) {
+  // If a string like "3" is supplied (from data.badge), set the absolute
+  // count. Otherwise increment by one.
+  const parsed = Number(absoluteOrIncrement);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    badgeCount = parsed;
+  } else {
+    badgeCount += 1;
+  }
   try {
     if (self.navigator && "setAppBadge" in self.navigator) {
       await self.navigator.setAppBadge(badgeCount);
@@ -23,10 +30,19 @@ async function bumpBadge() {
 }
 
 // IMPORTANT: register this BEFORE firebase.messaging() so it runs before
-// Firebase's internal push handler.
+// Firebase's internal push handler. Parse the raw payload so we can honor
+// `data.badge` for absolute-count badge updates on iOS/Android PWAs.
 self.addEventListener("push", (event) => {
-  event.waitUntil(bumpBadge());
+  let badgeVal;
+  try {
+    const json = event.data ? event.data.json() : null;
+    badgeVal = json?.data?.badge;
+  } catch (_) {
+    badgeVal = undefined;
+  }
+  event.waitUntil(applyBadge(badgeVal));
 });
+
 
 // ------- Firebase init -------
 firebase.initializeApp({
