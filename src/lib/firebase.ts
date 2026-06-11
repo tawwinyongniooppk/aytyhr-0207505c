@@ -1,6 +1,9 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getMessaging, getToken, onMessage, isSupported, type Messaging } from "firebase/messaging";
 
+export const FCM_SW_PATH = "/firebase-messaging-sw.js";
+export const FCM_SW_SCOPE = "/firebase-cloud-messaging-push-scope/";
+
 export const firebaseConfig = {
   apiKey: "AIzaSyAH7vLtvyQGhVWQkMscb6OnOR7jI70Zrdk",
   authDomain: "ayty-smart-hr.firebaseapp.com",
@@ -15,6 +18,19 @@ export const VAPID_KEY =
 export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 let messagingPromise: Promise<Messaging | null> | null = null;
+
+function getRegistrationScriptUrl(registration: ServiceWorkerRegistration | undefined | null) {
+  return (
+    registration?.active?.scriptURL ||
+    registration?.waiting?.scriptURL ||
+    registration?.installing?.scriptURL ||
+    ""
+  );
+}
+
+function isMessagingWorker(registration: ServiceWorkerRegistration | undefined | null) {
+  return getRegistrationScriptUrl(registration).endsWith(FCM_SW_PATH);
+}
 
 export async function getMessagingSafe(): Promise<Messaging | null> {
   if (typeof window === "undefined") return null;
@@ -34,9 +50,15 @@ export async function getMessagingSafe(): Promise<Messaging | null> {
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return null;
   try {
-    const existing = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
-    if (existing) return existing;
-    return await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+    const existing = await navigator.serviceWorker.getRegistration(FCM_SW_SCOPE);
+    if (isMessagingWorker(existing)) return existing;
+
+    const rootRegistration = await navigator.serviceWorker.getRegistration("/");
+    if (isMessagingWorker(rootRegistration)) {
+      await rootRegistration?.unregister().catch(() => false);
+    }
+
+    return await navigator.serviceWorker.register(FCM_SW_PATH, { scope: FCM_SW_SCOPE });
   } catch (e) {
     console.error("[fcm] sw register failed", e);
     return null;

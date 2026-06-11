@@ -43,6 +43,14 @@ self.addEventListener("push", (event) => {
   event.waitUntil(applyBadge(badgeVal));
 });
 
+self.addEventListener("install", () => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 
 // ------- Firebase init -------
 firebase.initializeApp({
@@ -98,7 +106,9 @@ self.addEventListener("notificationclick", (event) => {
       const wins = await clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const w of wins) {
         if ("focus" in w) {
-          w.navigate(url).catch(() => {});
+          if (new URL(w.url).origin === self.location.origin) {
+            w.navigate(url).catch(() => {});
+          }
           return w.focus();
         }
       }
