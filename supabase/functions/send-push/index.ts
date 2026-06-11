@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
       .in("user_id", userIds);
     if (error) throw error;
     if (!tokens?.length) {
-      return new Response(JSON.stringify({ sent: 0, failed: 0 }), {
+      return new Response(JSON.stringify({ ok: false, sent: 0, failed: 0, error: "no_registered_tokens" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -209,6 +209,7 @@ Deno.serve(async (req) => {
         } else {
           failed++;
           const txt = await res.text();
+          console.error("[send-push] FCM send failed", { status: res.status, token: row.token.slice(0, 16), body: txt });
           if (res.status === 404 || res.status === 400 || /UNREGISTERED|INVALID_ARGUMENT/i.test(txt)) {
             stale.push(row.token);
           }
@@ -220,7 +221,7 @@ Deno.serve(async (req) => {
       await admin.from("fcm_tokens").delete().in("token", stale);
     }
 
-    return new Response(JSON.stringify({ sent, failed, pruned: stale.length }), {
+    return new Response(JSON.stringify({ ok: sent > 0, sent, failed, pruned: stale.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
