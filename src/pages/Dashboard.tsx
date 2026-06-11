@@ -90,10 +90,14 @@ export default function Dashboard() {
     setLoading(false);
   }
 
+  // Only count Staff role for dashboard stats — IT Manager / Admin / Assistant excluded
+  const staffProfiles = profiles.filter((p) => p.role === "staff");
+  const staffIds = new Set(staffProfiles.map((p) => p.id));
   const profileMap = Object.fromEntries(profiles.map((p) => [p.id, p]));
-  const totalStaff = profiles.length;
-  const presentToday = todayAttendance.filter((a) => a.check_in_time).length;
-  const lateToday = todayAttendance.filter((a) => a.late_minutes > 0).length;
+  const totalStaff = staffProfiles.length;
+  const staffAttendance = todayAttendance.filter((a) => staffIds.has(a.user_id));
+  const presentToday = staffAttendance.filter((a) => a.check_in_time).length;
+  const lateToday = staffAttendance.filter((a) => a.late_minutes > 0).length;
 
   const todayLeaves = leaveRequests.filter((l) => l.date === today && l.status === "approved" && l.type === "leave");
   const onLeaveToday = todayLeaves.length;
