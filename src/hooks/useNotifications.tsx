@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useProfile } from "./useProfile";
-import { FCM_SW_SCOPE, getMessagingSafe, onMessage, requestFcmToken } from "@/lib/firebase";
+import { FCM_SW_SCOPE, getMessagingSafe, getPushAvailability, onMessage, requestFcmToken } from "@/lib/firebase";
 import { isPushEnabled } from "@/lib/push";
 import { toast } from "sonner";
 
@@ -11,15 +11,18 @@ async function showForegroundNotification(title: string, body: string, url: stri
     if (typeof window === "undefined" || typeof Notification === "undefined") return;
     if (Notification.permission !== "granted") return;
 
-    const registration = await navigator.serviceWorker?.getRegistration();
+    const registration =
+      (await navigator.serviceWorker?.getRegistration(FCM_SW_SCOPE)) ||
+      (await navigator.serviceWorker?.getRegistration());
     const options = {
       body,
       icon: "/pwa-192x192.png",
       badge: "/pwa-192x192.png",
       data: { url },
       tag: `fg-${url}-${Date.now()}`,
+      sound: "default",
       vibrate: [200, 100, 200],
-    } as NotificationOptions & { vibrate?: number[]; badge?: string };
+    } as NotificationOptions & { vibrate?: number[]; badge?: string; sound?: string };
     if (registration) {
       await registration.showNotification(title, options as NotificationOptions);
     } else {
@@ -74,10 +77,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     (async () => {
       try {
-        const token = await requestFcmToken();
+        const availability = await getPushAvailability();
+        if (!availability.supported) {
+          console.warn("[fcm]", availability.reason ?? "Push notifications are unsupported in this browser/context");
+          return;
+        }
+
+        const token = await requestFcmToken({ prompt: false });
         if (cancelled) return;
         if (!token) {
-          console.warn("[fcm] No token returned (permission denied or unsupported)");
+          console.warn("[fcm] No token returned (permission not granted yet)");
           return;
         }
 

@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { MapPin, Bell, Loader2 } from "lucide-react";
 import { isPushEnabled, setPushEnabled, sendPush } from "@/lib/push";
-import { requestFcmToken } from "@/lib/firebase";
+import { getPushAvailability, requestFcmToken } from "@/lib/firebase";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -77,11 +77,21 @@ export default function SettingsPage() {
     setPushBusy(true);
     try {
       if (next) {
+        const availability = await getPushAvailability();
+        if (!availability.supported) {
+          toast({
+            title: "Push not available here",
+            description: availability.reason,
+            variant: "destructive",
+          });
+          return;
+        }
+
         const token = await requestFcmToken();
         if (!token) {
           toast({
             title: "Could not enable notifications",
-            description: "Please allow notification permission in your browser settings.",
+            description: "Please allow notification permission, then retry from the published app on your real device.",
             variant: "destructive",
           });
           return;

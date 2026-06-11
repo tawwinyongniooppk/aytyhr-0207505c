@@ -1,13 +1,8 @@
 /* eslint-disable no-undef */
-// Firebase Cloud Messaging service worker for background pushes.
-// We send BOTH `webpush.notification` and `data` from the server:
-//  • The browser auto-displays the notification (sound + vibration + system badge)
-//    because `notification` is present.
-//  • When `notification` is present, Firebase does NOT fire `onBackgroundMessage`,
-//    so we additionally hook a raw `push` listener that runs before Firebase's
-//    own listener — we use it just to bump the in-app badge counter.
-importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js");
+// Firebase web push service worker.
+// We render background notifications ourselves from the raw push payload so
+// sound, vibration, body text, badge count, and click navigation are controlled
+// in one place on every supported device/browser.
 
 // ------- Badge bumping (runs for EVERY push, regardless of notification field) -------
 let badgeCount = 0;
@@ -29,18 +24,51 @@ async function applyBadge(absoluteOrIncrement) {
   }
 }
 
-// IMPORTANT: register this BEFORE firebase.messaging() so it runs before
-// Firebase's internal push handler. Parse the raw payload so we can honor
-// `data.badge` for absolute-count badge updates on iOS/Android PWAs.
+function normalizePayload(json) {
+  const rootNotification = json?.notification || {};
+  const webpushNotification = json?.webpush?.notification || {};
+  const data = json?.data || {};
+  const title =
+    rootNotification.title || webpushNotification.title || data.title || "AYTY Smart HR";
+  const body = rootNotification.body || webpushNotification.body || data.body || "";
+  const url = data.url || json?.fcmOptions?.link || json?.webpush?.fcm_options?.link || "/";
+  const tag = data.tag || webpushNotification.tag || "ayty-notif";
+
+  return {
+    title,
+    options: {
+      body,
+      icon: webpushNotification.icon || rootNotification.icon || "/pwa-192x192.png",
+      badge: webpushNotification.badge || "/pwa-192x192.png",
+      sound: webpushNotification.sound || "default",
+      vibrate: webpushNotification.vibrate || [200, 100, 200],
+      requireInteraction: webpushNotification.requireInteraction ?? false,
+      renotify: webpushNotification.renotify ?? true,
+      tag,
+      data: {
+        ...data,
+        url,
+      },
+    },
+    badgeValue: data.badge,
+  };
+}
+
 self.addEventListener("push", (event) => {
-  let badgeVal;
-  try {
-    const json = event.data ? event.data.json() : null;
-    badgeVal = json?.data?.badge;
-  } catch (_) {
-    badgeVal = undefined;
-  }
-  event.waitUntil(applyBadge(badgeVal));
+  event.waitUntil(
+    (async () => {
+      let payload = null;
+      try {
+        payload = event.data ? event.data.json() : null;
+      } catch (_) {
+        payload = null;
+      }
+
+      const normalized = normalizePayload(payload || {});
+      await applyBadge(normalized.badgeValue);
+      await self.registration.showNotification(normalized.title, normalized.options);
+    })(),
+  );
 });
 
 self.addEventListener("install", () => {
@@ -50,38 +78,6 @@ self.addEventListener("install", () => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
-
-
-// ------- Firebase init -------
-firebase.initializeApp({
-  apiKey: "AIzaSyAH7vLtvyQGhVWQkMscb6OnOR7jI70Zrdk",
-  authDomain: "ayty-smart-hr.firebaseapp.com",
-  projectId: "ayty-smart-hr",
-  messagingSenderId: "795102734433",
-  appId: "1:795102734433:web:30955ae4719a0bdb9f2220",
-});
-
-const messaging = firebase.messaging();
-
-// Fallback for data-only payloads (rare now that the server includes a
-// notification field, but kept so the SW degrades gracefully).
-messaging.onBackgroundMessage(async (payload) => {
-  const title = payload.notification?.title || payload.data?.title || "AYTY Smart HR";
-  const body = payload.notification?.body || payload.data?.body || "";
-  const url = payload.data?.url || "/";
-  self.registration.showNotification(title, {
-    body,
-    icon: "/pwa-192x192.png",
-    badge: "/pwa-192x192.png",
-    sound: "default",
-    data: { url },
-    tag: payload.data?.tag || "ayty-notif",
-    renotify: true,
-    vibrate: [200, 100, 200],
-    requireInteraction: false,
-  });
-});
-
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
