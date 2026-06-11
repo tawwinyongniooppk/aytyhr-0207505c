@@ -86,26 +86,16 @@ export default function SettingsPage() {
           });
           return;
         }
-        await supabase.from("fcm_tokens").upsert(
-          {
-            user_id: user.id,
-            token,
-            user_agent: navigator.userAgent,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "token" },
-        );
+        const { data, error } = await supabase.functions.invoke("register-fcm-token", {
+          body: { token, user_agent: navigator.userAgent },
+        });
+        if (error) throw error;
+        if (!(data as { ok?: boolean })?.ok) throw new Error("Token registration failed");
         setPushEnabled(true);
         setPushOn(true);
         toast({ title: "Push notifications enabled ✓" });
       } else {
-        const token = await requestFcmToken().catch(() => null);
-        if (token) {
-          await supabase.from("fcm_tokens").delete().eq("token", token);
-        } else {
-          // Best-effort: remove all this user's tokens.
-          await supabase.from("fcm_tokens").delete().eq("user_id", user.id);
-        }
+        await supabase.from("fcm_tokens").delete().eq("user_id", user.id);
         setPushEnabled(false);
         setPushOn(false);
         toast({ title: "Push notifications disabled" });
