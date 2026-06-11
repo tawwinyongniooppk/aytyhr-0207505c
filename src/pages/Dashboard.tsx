@@ -111,16 +111,17 @@ export default function Dashboard() {
   const approvedToday = leaveRequests.filter((l) => l.date === today && l.status === "approved");
   const rejectedToday = leaveRequests.filter((l) => l.date === today && l.status === "rejected");
 
-  // Monthly stats — aggregated server-side
-  const monthDeductions = monthStats.reduce(
+  // Monthly stats — aggregated server-side (Staff role only)
+  const staffMonthStats = monthStats.filter((s) => staffIds.has(s.user_id));
+  const monthDeductions = staffMonthStats.reduce(
     (sum, s) => sum + (Number(s.total_late_minutes) + Number(s.total_early_minutes)) * deductionRate,
     0
   );
-  const totalAttendanceDays = monthStats.reduce((sum, s) => sum + Number(s.days_present), 0);
-  const totalLateCases = monthStats.reduce((sum, s) => sum + Number(s.late_cases), 0);
+  const totalAttendanceDays = staffMonthStats.reduce((sum, s) => sum + Number(s.days_present), 0);
+  const totalLateCases = staffMonthStats.reduce((sum, s) => sum + Number(s.late_cases), 0);
 
   // Top 3 deductions this month
-  const topDeductions: TopDeduction[] = monthStats
+  const topDeductions: TopDeduction[] = staffMonthStats
     .map((s) => ({
       name: profileMap[s.user_id]?.full_name || "Unknown",
       total: (Number(s.total_late_minutes) + Number(s.total_early_minutes)) * deductionRate,
