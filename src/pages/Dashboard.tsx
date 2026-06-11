@@ -296,11 +296,11 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {todayAttendance.length === 0 ? (
+            {staffAttendance.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">No attendance records yet today.</p>
             ) : (
               <div className="space-y-2">
-                {todayAttendance.map((a) => {
+                {staffAttendance.map((a) => {
                   const profile = profileMap[a.user_id];
                   const status = attendanceStatus(a);
                   return (
