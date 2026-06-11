@@ -11,15 +11,18 @@ async function showForegroundNotification(title: string, body: string, url: stri
     if (typeof window === "undefined" || typeof Notification === "undefined") return;
     if (Notification.permission !== "granted") return;
 
-    const registration = await navigator.serviceWorker?.getRegistration();
+    const registration =
+      (await navigator.serviceWorker?.getRegistration(FCM_SW_SCOPE)) ||
+      (await navigator.serviceWorker?.getRegistration());
     const options = {
       body,
       icon: "/pwa-192x192.png",
       badge: "/pwa-192x192.png",
       data: { url },
       tag: `fg-${url}-${Date.now()}`,
+      sound: "default",
       vibrate: [200, 100, 200],
-    } as NotificationOptions & { vibrate?: number[]; badge?: string };
+    } as NotificationOptions & { vibrate?: number[]; badge?: string; sound?: string };
     if (registration) {
       await registration.showNotification(title, options as NotificationOptions);
     } else {
