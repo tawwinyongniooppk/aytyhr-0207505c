@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useProfile } from "./useProfile";
 import { FCM_SW_SCOPE, getMessagingSafe, getPushAvailability, onMessage, requestFcmToken } from "@/lib/firebase";
-import { isPushEnabled } from "@/lib/push";
+import { getStoredPushToken, isPushEnabled, registerCurrentDevicePushToken, setStoredPushToken } from "@/lib/push";
 import { toast } from "sonner";
 
 async function showForegroundNotification(title: string, body: string, url: string) {
@@ -57,24 +57,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     let unsub: (() => void) | undefined;
     let cancelled = false;
 
-    const syncToken = async (token: string) => {
-      try {
-        const { data, error } = await supabase.functions.invoke("register-fcm-token", {
-          body: { token, user_agent: navigator.userAgent },
-        });
-        if (error) throw error;
-        if ((data as { ok?: boolean })?.ok) {
-          console.log("[fcm] Token registered via edge function (service role)");
-          return true;
-        }
-        console.warn("[fcm] register-fcm-token returned non-ok payload", data);
-        return false;
-      } catch (e) {
-        console.error("[fcm] register-fcm-token invoke failed", e);
-        return false;
-      }
-    };
-
     (async () => {
       try {
         const availability = await getPushAvailability();
@@ -90,8 +72,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           return;
         }
 
-        // Always send to the edge function — service role guarantees the row lands.
-        await syncToken(token);
+        const cachedToken = getStoredPushToken();
+        if (cachedToken !== token) {
+          const registered = await registerCurrentDevicePushToken({ prompt: false });
+          if (!registered.ok) {
+            console.warn("[fcm] token sync skipped", registered.reason);
+          }
+        } else {
+          setStoredPushToken(token);
+        }
 
         const messaging = await getMessagingSafe();
         if (!messaging || cancelled) return;
