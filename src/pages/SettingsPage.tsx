@@ -8,8 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { MapPin, Bell, Loader2 } from "lucide-react";
-import { isPushEnabled, setPushEnabled, sendPush } from "@/lib/push";
-import { getPushAvailability, requestFcmToken } from "@/lib/firebase";
+import { isPushEnabled, registerCurrentDevicePushToken, sendPush, setPushEnabled, unregisterCurrentDevicePushToken } from "@/lib/push";
+import { getPushAvailability } from "@/lib/firebase";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -87,25 +87,20 @@ export default function SettingsPage() {
           return;
         }
 
-        const token = await requestFcmToken();
-        if (!token) {
+          const result = await registerCurrentDevicePushToken({ prompt: true });
+          if (!result.ok) {
           toast({
             title: "Could not enable notifications",
-            description: "Please allow notification permission, then retry from the published app on your real device.",
+              description: result.reason,
             variant: "destructive",
           });
           return;
         }
-        const { data, error } = await supabase.functions.invoke("register-fcm-token", {
-          body: { token, user_agent: navigator.userAgent },
-        });
-        if (error) throw error;
-        if (!(data as { ok?: boolean })?.ok) throw new Error("Token registration failed");
         setPushEnabled(true);
         setPushOn(true);
         toast({ title: "Push notifications enabled ✓" });
       } else {
-        await supabase.from("fcm_tokens").delete().eq("user_id", user.id);
+          await unregisterCurrentDevicePushToken();
         setPushEnabled(false);
         setPushOn(false);
         toast({ title: "Push notifications disabled" });
@@ -121,6 +116,11 @@ export default function SettingsPage() {
     if (!user) return;
     setTesting(true);
     try {
+      const ensureRegistered = await registerCurrentDevicePushToken({ prompt: false });
+      if (!ensureRegistered.ok) {
+        throw new Error(ensureRegistered.reason);
+      }
+
       const result = await sendPush({
         user_ids: [user.id],
         title: "Test notification",

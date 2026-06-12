@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getPushAvailability, requestFcmToken } from "@/lib/firebase";
 
 export const PUSH_ENABLED_KEY = "push_enabled";
+export const PUSH_TOKEN_KEY = "push_device_token";
 
 export function isPushEnabled(): boolean {
   if (typeof localStorage === "undefined") return true;
@@ -14,6 +16,69 @@ export function setPushEnabled(enabled: boolean) {
   } catch {
     /* ignore */
   }
+}
+
+export function getStoredPushToken(): string | null {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    return localStorage.getItem(PUSH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredPushToken(token: string | null) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    if (token) localStorage.setItem(PUSH_TOKEN_KEY, token);
+    else localStorage.removeItem(PUSH_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function registerCurrentDevicePushToken(options: { prompt?: boolean; token?: string | null } = {}) {
+  const availability = await getPushAvailability();
+  if (!availability.supported) {
+    return { ok: false as const, reason: availability.reason ?? "Push notifications are unavailable." };
+  }
+
+  const token = options.token ?? await requestFcmToken({ prompt: options.prompt ?? false });
+  if (!token) {
+    const permissionReason =
+      typeof Notification !== "undefined" && Notification.permission !== "granted"
+        ? "Please allow notification permission for this device."
+        : "Could not get a notification token for this device.";
+    return { ok: false as const, reason: permissionReason };
+  }
+
+  const { data, error } = await supabase.functions.invoke("register-fcm-token", {
+    body: { token, user_agent: navigator.userAgent },
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  if (!(data as { ok?: boolean } | null)?.ok) {
+    throw new Error("Token registration failed");
+  }
+
+  setStoredPushToken(token);
+  return { ok: true as const, token };
+}
+
+export async function unregisterCurrentDevicePushToken() {
+  const storedToken = getStoredPushToken();
+  const currentToken = storedToken ?? await requestFcmToken({ prompt: false });
+
+  if (currentToken) {
+    const { error } = await supabase.from("fcm_tokens").delete().eq("token", currentToken);
+    if (error) throw error;
+  }
+
+  setStoredPushToken(null);
+  return { ok: true as const };
 }
 
 /**

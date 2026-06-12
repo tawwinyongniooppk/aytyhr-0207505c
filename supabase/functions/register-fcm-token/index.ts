@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const token = typeof body.token === "string" ? body.token.trim() : "";
     const userAgent = typeof body.user_agent === "string" ? body.user_agent : "";
+    console.log("[register-fcm-token] request", { userId, hasToken: !!token, tokenLength: token.length });
     if (!token || token.length < 20) {
       return new Response(JSON.stringify({ error: "invalid_token" }), {
         status: 400,
@@ -73,6 +74,8 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    console.log("[register-fcm-token] stored", { userId, tokenPrefix: token.slice(0, 12) });
 
     return new Response(JSON.stringify({ ok: true, user_id: userId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
