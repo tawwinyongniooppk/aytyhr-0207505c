@@ -70,9 +70,10 @@ export async function registerCurrentDevicePushToken(options: { prompt?: boolean
 
 export async function unregisterCurrentDevicePushToken() {
   const storedToken = getStoredPushToken();
+  const currentToken = storedToken ?? await requestFcmToken({ prompt: false });
 
-  if (storedToken) {
-    const { error } = await supabase.from("fcm_tokens").delete().eq("token", storedToken);
+  if (currentToken) {
+    const { error } = await supabase.from("fcm_tokens").delete().eq("token", currentToken);
     if (error) throw error;
   }
 
