@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useProfile } from "./useProfile";
 import { FCM_SW_SCOPE, getMessagingSafe, getPushAvailability, onMessage, requestFcmToken } from "@/lib/firebase";
-import { getStoredPushToken, isPushEnabled, registerCurrentDevicePushToken, setStoredPushToken } from "@/lib/push";
+import { isPushEnabled, registerCurrentDevicePushToken } from "@/lib/push";
 import { toast } from "sonner";
 
 async function showForegroundNotification(title: string, body: string, url: string) {
@@ -72,14 +71,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           return;
         }
 
-        const cachedToken = getStoredPushToken();
-        if (cachedToken !== token) {
-          const registered = await registerCurrentDevicePushToken({ prompt: false });
-          if (!registered.ok) {
-            console.warn("[fcm] token sync skipped", registered.reason);
-          }
-        } else {
-          setStoredPushToken(token);
+        const registered = await registerCurrentDevicePushToken({ prompt: false });
+        if (!registered.ok) {
+          console.warn("[fcm] token sync skipped", registered.reason);
         }
 
         const messaging = await getMessagingSafe();
