@@ -92,6 +92,8 @@ Deno.serve(async (req) => {
       });
     }
 
+    console.log("[send-push] request", { userIds, title, url });
+
     // Auth check: service-role bypasses everything; otherwise any authenticated
     // user can send, but the targets are restricted to themselves or to
     // privileged staff (admin/assistant/it_manager). This lets staff notify
@@ -147,6 +149,7 @@ Deno.serve(async (req) => {
       .select("token")
       .in("user_id", userIds);
     if (error) throw error;
+    console.log("[send-push] token lookup", { userIds, tokenCount: tokens?.length ?? 0 });
     if (!tokens?.length) {
       return new Response(JSON.stringify({ ok: false, sent: 0, failed: 0, error: "no_registered_tokens" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
