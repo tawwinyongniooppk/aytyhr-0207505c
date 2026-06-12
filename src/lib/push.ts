@@ -37,13 +37,13 @@ export function setStoredPushToken(token: string | null) {
   }
 }
 
-export async function registerCurrentDevicePushToken(options: { prompt?: boolean } = {}) {
+export async function registerCurrentDevicePushToken(options: { prompt?: boolean; token?: string | null } = {}) {
   const availability = await getPushAvailability();
   if (!availability.supported) {
     return { ok: false as const, reason: availability.reason ?? "Push notifications are unavailable." };
   }
 
-  const token = await requestFcmToken({ prompt: options.prompt ?? false });
+  const token = options.token ?? await requestFcmToken({ prompt: options.prompt ?? false });
   if (!token) {
     const permissionReason =
       typeof Notification !== "undefined" && Notification.permission !== "granted"
