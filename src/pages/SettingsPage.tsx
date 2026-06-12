@@ -116,6 +116,11 @@ export default function SettingsPage() {
     if (!user) return;
     setTesting(true);
     try {
+      const ensureRegistered = await registerCurrentDevicePushToken({ prompt: false });
+      if (!ensureRegistered.ok) {
+        throw new Error(ensureRegistered.reason);
+      }
+
       const result = await sendPush({
         user_ids: [user.id],
         title: "Test notification",
