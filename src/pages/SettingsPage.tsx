@@ -7,9 +7,8 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { MapPin, Bell, Loader2 } from "lucide-react";
-import { isPushEnabled, registerCurrentDevicePushToken, sendPush, setPushEnabled, unregisterCurrentDevicePushToken } from "@/lib/push";
-import { getPushAvailability } from "@/lib/firebase";
+import { MapPin } from "lucide-react";
+import { PushNotificationSettings } from "@/components/PushNotificationSettings";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -19,9 +18,6 @@ export default function SettingsPage() {
   const [allowedRadius, setAllowedRadius] = useState("50");
   const [saving, setSaving] = useState(false);
 
-  const [pushOn, setPushOn] = useState<boolean>(isPushEnabled());
-  const [pushBusy, setPushBusy] = useState(false);
-  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -72,71 +68,6 @@ export default function SettingsPage() {
     );
   };
 
-  const handleTogglePush = async (next: boolean) => {
-    if (!user) return;
-    setPushBusy(true);
-    try {
-      if (next) {
-        const availability = await getPushAvailability();
-        if (!availability.supported) {
-          toast({
-            title: "Push not available here",
-            description: availability.reason,
-            variant: "destructive",
-          });
-          return;
-        }
-
-          const result = await registerCurrentDevicePushToken({ prompt: true });
-          if (!result.ok) {
-          toast({
-            title: "Could not enable notifications",
-              description: result.reason,
-            variant: "destructive",
-          });
-          return;
-        }
-        setPushEnabled(true);
-        setPushOn(true);
-        toast({ title: "Push notifications enabled ✓" });
-      } else {
-          await unregisterCurrentDevicePushToken();
-        setPushEnabled(false);
-        setPushOn(false);
-        toast({ title: "Push notifications disabled" });
-      }
-    } catch (e: any) {
-      toast({ title: "Update failed", description: e?.message ?? String(e), variant: "destructive" });
-    } finally {
-      setPushBusy(false);
-    }
-  };
-
-  const handleTestPush = async () => {
-    if (!user) return;
-    setTesting(true);
-    try {
-      const ensureRegistered = await registerCurrentDevicePushToken({ prompt: false });
-      if (!ensureRegistered.ok) {
-        throw new Error(ensureRegistered.reason);
-      }
-
-      const result = await sendPush({
-        user_ids: [user.id],
-        title: "Test notification",
-        body: "If you can see this, push notifications are working.",
-        url: "/settings",
-      });
-      if (!result?.ok) {
-        throw result?.error ?? new Error("Test push failed");
-      }
-      toast({ title: "Test sent", description: "Check your device for the push notification." });
-    } catch (e: any) {
-      toast({ title: "Test failed", description: e?.message ?? String(e), variant: "destructive" });
-    } finally {
-      setTesting(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -150,40 +81,7 @@ export default function SettingsPage() {
         on each staff card in <span className="font-medium">Staff Management</span>.
       </p>
 
-      <Card className="border border-border shadow-none">
-        <CardHeader>
-          <CardTitle className="text-base font-display flex items-center gap-2">
-            <Bell className="h-4 w-4" /> Push Notifications
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-0.5">
-              <Label className="text-sm">Enable push notifications</Label>
-              <p className="text-xs text-muted-foreground">
-                Receive task, leave, and calendar alerts on this device — even when the app is closed.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {pushBusy && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-              <Switch checked={pushOn} disabled={pushBusy} onCheckedChange={handleTogglePush} />
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleTestPush}
-            disabled={testing || !pushOn}
-          >
-            {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bell className="h-4 w-4 mr-2" />}
-            Test Push Notification
-          </Button>
-          {!pushOn && (
-            <p className="text-xs text-muted-foreground">Enable notifications above to send a test.</p>
-          )}
-        </CardContent>
-      </Card>
+      <PushNotificationSettings />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="border border-border shadow-none md:col-span-2">

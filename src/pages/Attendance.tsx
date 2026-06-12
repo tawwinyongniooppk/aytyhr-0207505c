@@ -34,6 +34,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
 import { notifyAdmins } from "@/lib/push";
+import { PushNotificationSettings } from "@/components/PushNotificationSettings";
 
 interface AttendanceRecord {
   id: string;
@@ -1204,6 +1205,8 @@ export default function Attendance() {
           </CardContent>
         </Card>
       )}
+
+      {userRole === "staff" && <PushNotificationSettings />}
 
       {/* Salary Modal after checkout */}
       <Dialog open={showSalaryModal} onOpenChange={setShowSalaryModal}>
