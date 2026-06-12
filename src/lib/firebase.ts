@@ -4,12 +4,6 @@ import { getMessaging, getToken, onMessage, isSupported, type Messaging } from "
 export const FCM_SW_PATH = "/firebase-messaging-sw.js";
 export const FCM_SW_SCOPE = "/firebase-cloud-messaging-push-scope/";
 
-const PREVIEW_HOST_SUFFIXES = [
-  ".lovableproject.com",
-  ".lovableproject-dev.com",
-  ".beta.lovable.dev",
-];
-
 export const firebaseConfig = {
   apiKey: "AIzaSyAH7vLtvyQGhVWQkMscb6OnOR7jI70Zrdk",
   authDomain: "ayty-smart-hr.firebaseapp.com",
@@ -25,40 +19,25 @@ export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseC
 
 let messagingPromise: Promise<Messaging | null> | null = null;
 
-function isPreviewHost(host: string) {
-  return (
-    host.startsWith("id-preview--") ||
-    host.startsWith("preview--") ||
-    host === "lovableproject.com" ||
-    host === "lovableproject-dev.com" ||
-    host === "beta.lovable.dev" ||
-    PREVIEW_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix))
-  );
-}
-
 export async function getPushAvailability(): Promise<{ supported: boolean; reason?: string }> {
   if (typeof window === "undefined") {
     return { supported: false, reason: "Push notifications are unavailable during server rendering." };
   }
 
+  // Only block when actually running inside an iframe (e.g. the Lovable
+  // in-app preview frame). Opening the preview URL directly in a browser tab
+  // is fine — service workers and FCM work there.
   try {
     if (window.self !== window.top) {
       return {
         supported: false,
-        reason: "Push notifications cannot be enabled inside the preview frame. Open the published app directly on your device.",
+        reason: "Push notifications cannot be enabled inside the preview frame. Open the app in a new browser tab.",
       };
     }
   } catch {
     return {
       supported: false,
-      reason: "Push notifications cannot be enabled inside the preview frame. Open the published app directly on your device.",
-    };
-  }
-
-  if (isPreviewHost(window.location.hostname)) {
-    return {
-      supported: false,
-      reason: "Push notifications do not work reliably on the preview URL. Open the published app directly on your device.",
+      reason: "Push notifications cannot be enabled inside the preview frame. Open the app in a new browser tab.",
     };
   }
 
