@@ -71,7 +71,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           return;
         }
 
-        const registered = await registerCurrentDevicePushToken({ prompt: false });
+        const registered = await registerCurrentDevicePushToken({ prompt: false, token });
         if (!registered.ok) {
           console.warn("[fcm] token sync skipped", registered.reason);
         }
