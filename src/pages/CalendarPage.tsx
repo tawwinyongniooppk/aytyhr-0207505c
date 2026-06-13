@@ -69,7 +69,7 @@ export default function CalendarPage() {
   const [submitting, setSubmitting] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [assignmentLoad, setAssignmentLoad] = useState<Record<string, { weekly: number; biweekly: number; weighted: number }>>({});
-  const [memberStats, setMemberStats] = useState<Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }>>({});
+  const [memberStats, setMemberStats] = useState<Record<string, { newTask: number; inProgress: number; submitted: number; approved: number; overdue: number; reject: number; allDone: number }>>({});
 
   const [form, setForm] = useState({
     title: "",
@@ -278,52 +278,28 @@ export default function CalendarPage() {
       const evList = (taskEvents as { id: string; start_date: string; end_date: string }[]) || [];
       // Don't early-return on empty list — we still want to compute auto All-Done units.
       const evMap = new Map(evList.map((e) => [e.id, e]));
-      let assList: Array<{ user_id: string; event_id: string; submission_status: string }> = [];
+      let assList: Array<{ user_id: string; event_id: string; submission_status: string; approved_at?: string | null }> = [];
       if (evList.length > 0) {
         const { data: ass } = await supabase
           .from("calendar_event_assignments")
-          .select("user_id, event_id, submission_status")
+          .select("user_id, event_id, submission_status, approved_at")
           .in("event_id", evList.map((e) => e.id));
         assList = (ass as any) || [];
       }
       const load: Record<string, { weekly: number; biweekly: number; weighted: number }> = {};
-      const stats: Record<string, { newTask: number; inProgress: number; submitted: number; overdue: number; reject: number; allDone: number }> = {};
       for (const a of assList) {
         const ev = evMap.get(a.event_id);
         if (!ev) continue;
         const unit = getTaskUnitCount(ev.start_date, ev.end_date);
         const isBiweekly = unit === 2;
-
-        // Weighted total = sum of all assigned units (cap check basis).
         const entry = load[a.user_id] || { weekly: 0, biweekly: 0, weighted: 0 };
         if (isBiweekly) { entry.biweekly += 1; entry.weighted += 2; }
         else { entry.weekly += 1; entry.weighted += 1; }
         load[a.user_id] = entry;
-
-        // Mutually-exclusive status bucket — each task's units land in exactly ONE column.
-        const status = a.submission_status || "not_started";
-        const s = stats[a.user_id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
-        const alreadyCredited = !!(a as any).approved_at && ev.end_date <= todayStr;
-        if (status === "approved" && alreadyCredited) {
-          s.allDone += unit;
-        } else if (status === "rejected") {
-          s.reject += unit;
-        } else if (status === "submitted") {
-          s.submitted += unit;
-        } else if (status === "in_progress") {
-          if (ev.end_date < todayStr) s.overdue += unit;
-          else s.inProgress += unit;
-        } else if (status === "approved") {
-          s.submitted += unit;
-        } else {
-          // not_started / new
-          if (ev.end_date < todayStr) s.overdue += unit;
-          else s.newTask += unit;
-        }
-        stats[a.user_id] = s;
       }
+      const { computeMemberStats } = await import("@/lib/taskStatusStats");
       setAssignmentLoad(load);
-      setMemberStats(stats);
+      setMemberStats(computeMemberStats(evList, assList, todayStr));
     } catch { /* ignore */ }
   }
 
@@ -676,7 +652,7 @@ export default function CalendarPage() {
                     {staffList.length === 0 && <p className="text-sm text-muted-foreground p-2">No staff found</p>}
                     {staffList.map((s) => {
                       const l = assignmentLoad[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
-                      const stats = memberStats[s.id] || { newTask: 0, inProgress: 0, submitted: 0, overdue: 0, reject: 0, allDone: 0 };
+                      const stats = memberStats[s.id] || { newTask: 0, inProgress: 0, submitted: 0, approved: 0, overdue: 0, reject: 0, allDone: 0 };
                       const newWeight = form.frequency === "weekly" ? 1 : 2;
                       const willExceed = l.weighted + newWeight > MONTHLY_WEIGHT_CAP;
                       const atCap = l.weighted >= MONTHLY_WEIGHT_CAP;
@@ -690,6 +666,7 @@ export default function CalendarPage() {
                         { label: "New Task", value: stats.newTask, cls: "bg-muted text-muted-foreground" },
                         { label: "In Progress", value: stats.inProgress, cls: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
                         { label: "Submitted", value: stats.submitted, cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" },
+                        { label: "Approved", value: stats.approved, cls: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" },
                         { label: "Overdue", value: stats.overdue, cls: "bg-destructive/10 text-destructive" },
                         { label: "Reject", value: stats.reject, cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
                         { label: "All Done", value: stats.allDone, cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
@@ -713,10 +690,10 @@ export default function CalendarPage() {
                               {stats.allDone >= MONTHLY_WEIGHT_CAP && " · Full"}
                             </span>
                           </div>
-                          <div className="grid grid-cols-6 gap-1 mt-2">
+                          <div className="grid grid-cols-4 sm:grid-cols-7 gap-1 mt-2">
                             {cols.map((c) => (
-                              <div key={c.label} className={`flex flex-col items-center justify-center rounded px-1 py-1 ${c.cls}`}>
-                                <span className="text-[9px] uppercase tracking-wider opacity-80 leading-none">{c.label}</span>
+                              <div key={c.label} className={`flex flex-col items-center justify-center rounded px-1 py-1 text-center ${c.cls}`}>
+                                <span className="text-[9px] uppercase tracking-wider opacity-80 leading-tight break-words">{c.label}</span>
                                 <span className="text-sm font-bold leading-tight mt-0.5">{c.value}</span>
                               </div>
                             ))}
