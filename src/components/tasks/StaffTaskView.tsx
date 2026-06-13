@@ -10,6 +10,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { notifyAdmins } from "@/lib/push";
 import { getMMTTodayISO } from "@/lib/mmt";
 import { toast } from "sonner";
+import { StatusMonitor } from "./StatusMonitor";
 
 interface TaskRow {
   id: string;
@@ -56,6 +57,7 @@ interface StaffTaskViewProps {
   calendarEvents?: CalEvent[];
   eventAssignments?: EventAssignment[];
   staffNames?: Record<string, string>;
+  staffList?: Array<{ id: string; full_name: string; sequence?: number | null }>;
 }
 
 const nowDate = () => getMMTTodayISO();
@@ -72,7 +74,7 @@ function sortByDeadline<T extends { dueDate?: string | null; status: string }>(i
   });
 }
 
-export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [], staffNames = {} }: StaffTaskViewProps) {
+export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [], staffNames = {}, staffList = [] }: StaffTaskViewProps) {
   const { user } = useAuth();
   const { profile } = useProfile();
   const staffName = profile?.full_name || "Staff";
@@ -371,6 +373,8 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
           )}
         </CardContent>
       </Card>
+
+      <StatusMonitor staffList={staffList} />
     </div>
   );
 }

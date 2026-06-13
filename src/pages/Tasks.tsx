@@ -259,6 +259,7 @@ export default function Tasks() {
         calendarEvents={calendarEvents}
         eventAssignments={eventAssignments}
         staffNames={staffNames}
+        staffList={staffList}
       />
     );
   }
