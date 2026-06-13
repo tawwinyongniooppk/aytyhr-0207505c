@@ -405,7 +405,7 @@ export default function Attendance() {
       const today = getMMTTodayISO();
       const monthStart = getMonthStart();
 
-      const [attRes, settRes, salRes, profileRes, bonusRes, addRes, profSalRes] = await Promise.all([
+      const [attRes, settRes, salRes, profileRes, bonusRes, addRes, profSalRes, smdRes] = await Promise.all([
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("key,value").in("key", ["start_time","end_time","grace_period_minutes","deduction_rate_per_minute","school_latitude","school_longitude","allowed_radius_meters"]),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
@@ -417,6 +417,7 @@ export default function Attendance() {
         supabase.from("bonus_transactions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("salary_manual_additions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("profiles").select("base_salary").eq("id", user!.id).maybeSingle(),
+        (supabase as any).from("salary_manual_deductions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
       ]);
 
       if (attRes.data) {
@@ -427,14 +428,17 @@ export default function Attendance() {
         }
       }
       {
+        // Mirrors SalaryPage's Final Salary formula exactly so the
+        // check-in/out remaining amount matches "My Salary & Bonus → Final Salary".
         const earnedBonus = (bonusRes.data as any[] | null)?.reduce((s, b) => s + (Number(b.amount) || 0), 0) ?? 0;
         const additions = (addRes.data as any[] | null)?.reduce((s, a) => s + (Number(a.amount) || 0), 0) ?? 0;
         const sal = salRes.data as any;
         const base = Number(sal?.base_salary ?? (profSalRes.data as any)?.base_salary ?? 0);
         const auto = Number(sal?.total_deductions ?? 0);
         const manual = Number(sal?.manual_deduction ?? 0);
-        const current = Math.max(0, base + earnedBonus + additions - auto - manual);
-        setSalary({ base_salary: base, current_salary: current, total_deductions: auto + manual });
+        const extraDed = ((smdRes as any).data as any[] | null)?.reduce((s, d) => s + (Number(d.amount) || 0), 0) ?? 0;
+        const current = base + earnedBonus + additions - auto - manual - extraDed;
+        setSalary({ base_salary: base, current_salary: current, total_deductions: auto + manual + extraDed });
       }
       if (profileRes.error) {
         console.error("[Attendance] profile fetch error:", profileRes.error);
