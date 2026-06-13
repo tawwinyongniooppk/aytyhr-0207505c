@@ -716,7 +716,8 @@ export default function Attendance() {
 
         // Show salary notification after check-in
         const estimatedDeduction = lateMin * settings.deduction_rate_per_minute;
-        showSalaryNotification(sal.current_salary, estimatedDeduction);
+        const finalSal = await computeFinalSalary();
+        showSalaryNotification(finalSal, estimatedDeduction);
       }
     } catch (e) {
       console.error("handleCheckIn error:", e);
@@ -788,7 +789,8 @@ export default function Attendance() {
           finalDeduction = result.deduction ?? 0;
           setRecord({ ...updatedRecord, deduction_applied: true });
           setLastDeduction(finalDeduction);
-          showSalaryNotification(newCurrent, finalDeduction);
+          const finalSal = await computeFinalSalary();
+          showSalaryNotification(finalSal, finalDeduction);
           // Refresh salary using the client-side recompute path (excludes bonus pot)
           loadData();
         }
