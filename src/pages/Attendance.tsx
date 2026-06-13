@@ -503,6 +503,32 @@ export default function Attendance() {
     }
   };
 
+  // Compute the user's current "Final Salary" exactly the same way My Salary &
+  // Bonus does, so the check-in/out remaining amount always matches the
+  // figure on the Salary page.
+  const computeFinalSalary = async (): Promise<number> => {
+    try {
+      const monthStart = getMonthStart();
+      const [salRes, bonusRes, addRes, profSalRes, smdRes] = await Promise.all([
+        supabase.from("salaries").select("base_salary, total_deductions, manual_deduction").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
+        supabase.from("bonus_transactions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
+        supabase.from("salary_manual_additions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
+        supabase.from("profiles").select("base_salary").eq("id", user!.id).maybeSingle(),
+        (supabase as any).from("salary_manual_deductions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
+      ]);
+      const sal = salRes.data as any;
+      const base = Number(sal?.base_salary ?? (profSalRes.data as any)?.base_salary ?? 0);
+      const earnedBonus = (bonusRes.data as any[] | null)?.reduce((s, b) => s + (Number(b.amount) || 0), 0) ?? 0;
+      const additions = (addRes.data as any[] | null)?.reduce((s, a) => s + (Number(a.amount) || 0), 0) ?? 0;
+      const auto = Number(sal?.total_deductions ?? 0);
+      const manual = Number(sal?.manual_deduction ?? 0);
+      const extraDed = ((smdRes as any).data as any[] | null)?.reduce((s, d) => s + (Number(d.amount) || 0), 0) ?? 0;
+      return base + earnedBonus + additions - auto - manual - extraDed;
+    } catch {
+      return 0;
+    }
+  };
+
   const schoolConfigured = settings.school_latitude !== 0 || settings.school_longitude !== 0;
   const isAdmin = userRole === "admin";
 
