@@ -28,10 +28,7 @@ function getTaskUnitCount(startDate: string, endDate: string) {
   return days >= 12 ? 2 : 1;
 }
 
-async function sendCreditPushes(
-  supabase: ReturnType<typeof createClient>,
-  rows: Array<{ user_id: string; amount: number; title: string }>,
-) {
+async function sendCreditPushes(rows: Array<{ user_id: string; amount: number; title: string }>) {
   if (rows.length === 0) return;
 
   await Promise.allSettled(
@@ -161,7 +158,7 @@ Deno.serve(async (req) => {
           if (bErr) console.error("[deadline-sweep] bulk bonus tx (tasks)", bErr);
           else {
             log.bonus_tx += bonusPayload.length;
-            await sendCreditPushes(supabase, bonusPayload.map((row) => ({
+            await sendCreditPushes(bonusPayload.map((row) => ({
               user_id: row.user_id,
               amount: row.amount,
               title: row.title,
@@ -247,7 +244,7 @@ Deno.serve(async (req) => {
             if (bErr) console.error("[deadline-sweep] bulk bonus tx (assignments)", bErr);
             else {
               log.bonus_tx += bonusPayload.length;
-              await sendCreditPushes(supabase, bonusPayload.map((row) => ({
+              await sendCreditPushes(bonusPayload.map((row) => ({
                 user_id: row.user_id,
                 amount: row.amount,
                 title: row.title,
