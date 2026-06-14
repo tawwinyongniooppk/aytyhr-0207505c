@@ -23,6 +23,7 @@ interface StaffLite {
 const MONTHLY_WEIGHT_CAP = 4;
 
 export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Record<string, MemberStats>>({});
 
