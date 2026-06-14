@@ -84,7 +84,11 @@ export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
           <p className="text-sm text-muted-foreground p-3">No staff found.</p>
         ) : (
           <div className="space-y-2">
-            {staffList.map((s) => {
+            {[...staffList].sort((a, b) => {
+              if (user && a.id === user.id) return -1;
+              if (user && b.id === user.id) return 1;
+              return (a.sequence ?? 999) - (b.sequence ?? 999);
+            }).map((s) => {
               const st = stats[s.id] || emptyMemberStats();
               const totalDone = Math.min(st.allDone, MONTHLY_WEIGHT_CAP);
               return (
