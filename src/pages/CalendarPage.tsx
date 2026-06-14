@@ -818,7 +818,7 @@ export default function CalendarPage() {
                       <div key={e.id} className={`h-1 w-1 rounded-full ${EVENT_DOT_COLORS[e.event_type] || "bg-muted-foreground"}`} title={e.title} />
                     ))}
                   </div>
-                  {isOffDay && <span className="absolute inset-x-1 bottom-0.5 h-1 rounded-full bg-destructive" />}
+                  
                 </button>
               );
             })}
