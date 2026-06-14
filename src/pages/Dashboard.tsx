@@ -18,6 +18,8 @@ interface Profile {
   full_name: string;
   role: string;
   base_salary: number;
+  sequence?: number | null;
+  work_schedule?: Record<string, { active: boolean }> | null;
 }
 
 interface AttendanceRow {
@@ -105,7 +107,7 @@ export default function Dashboard() {
   const todayWeekday = new Date(`${today}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", timeZone: "Asia/Yangon" });
   const offDayStaffIds = new Set(
     staffProfiles
-      .filter((p: any) => p.work_schedule && (p.work_schedule as any)[todayWeekday]?.active === false)
+      .filter((p) => p.work_schedule?.[todayWeekday]?.active === false)
       .map((p) => p.id),
   );
 
@@ -185,7 +187,7 @@ export default function Dashboard() {
   const taskTotal = pendingTasks + completedTasks;
   const taskCompletion = taskTotal > 0 ? Math.round((completedTasks / taskTotal) * 100) : 0;
   const avgDailyDeduction = totalAttendanceDays > 0 ? Math.round(monthDeductions / totalAttendanceDays) : 0;
-  const adminStaffList = staffProfiles.map((p) => ({ id: p.id, full_name: p.full_name, sequence: (p as any).sequence ?? null }));
+  const adminStaffList = staffProfiles.map((p) => ({ id: p.id, full_name: p.full_name, sequence: p.sequence ?? null }));
 
   return (
     <div className="space-y-6">
@@ -202,7 +204,7 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold font-display tracking-tight">Dashboard</h1>
             <p className="text-muted-foreground text-sm mt-1">{formatMMTDate(new Date(), "en-US")} · Myanmar Standard Time</p>
           </div>
-          <div className="grid grid-cols-3 gap-3 md:gap-5 md:min-w-[420px]">
+          <div className="grid grid-cols-3 md:grid-cols-4 gap-3 md:gap-5 md:min-w-[520px]">
             <div className="rounded-xl bg-card/70 backdrop-blur border border-border/60 px-3 py-2.5">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Attendance</p>
               <p className="text-lg font-bold font-display text-primary">{attendanceRate}%</p>
