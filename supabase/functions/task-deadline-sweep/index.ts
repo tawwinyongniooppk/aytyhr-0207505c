@@ -28,6 +28,31 @@ function getTaskUnitCount(startDate: string, endDate: string) {
   return days >= 12 ? 2 : 1;
 }
 
+async function sendCreditPushes(
+  supabase: ReturnType<typeof createClient>,
+  rows: Array<{ user_id: string; amount: number; title: string }>,
+) {
+  if (rows.length === 0) return;
+
+  await Promise.allSettled(
+    rows.map((row) =>
+      fetch(`${Deno.env.get("SUPABASE_URL")!}/functions/v1/send-push`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+        },
+        body: JSON.stringify({
+          user_ids: [row.user_id],
+          title: "Task bonus credited",
+          body: `${row.title} — +${row.amount.toLocaleString()} MMK`,
+          url: "/salary",
+        }),
+      }),
+    ),
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -134,7 +159,14 @@ Deno.serve(async (req) => {
         if (bonusPayload.length > 0) {
           const { error: bErr } = await supabase.from("bonus_transactions").insert(bonusPayload);
           if (bErr) console.error("[deadline-sweep] bulk bonus tx (tasks)", bErr);
-          else log.bonus_tx += bonusPayload.length;
+          else {
+            log.bonus_tx += bonusPayload.length;
+            await sendCreditPushes(supabase, bonusPayload.map((row) => ({
+              user_id: row.user_id,
+              amount: row.amount,
+              title: row.title,
+            })));
+          }
         }
       }
     }
@@ -213,7 +245,14 @@ Deno.serve(async (req) => {
           if (bonusPayload.length > 0) {
             const { error: bErr } = await supabase.from("bonus_transactions").insert(bonusPayload);
             if (bErr) console.error("[deadline-sweep] bulk bonus tx (assignments)", bErr);
-            else log.bonus_tx += bonusPayload.length;
+            else {
+              log.bonus_tx += bonusPayload.length;
+              await sendCreditPushes(supabase, bonusPayload.map((row) => ({
+                user_id: row.user_id,
+                amount: row.amount,
+                title: row.title,
+              })));
+            }
           }
         }
       }
