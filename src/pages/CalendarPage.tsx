@@ -146,19 +146,9 @@ export default function CalendarPage() {
   async function loadMySchedule() {
     if (!user) return;
     try {
-      if (isAssistant) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("work_schedule")
-          .eq("id", user.id)
-          .maybeSingle();
-        setMySchedule((data?.work_schedule as any) ?? null);
-        setOffStaffByWeekday({});
-        return;
-      }
-
-      // Admin/Assistant: collect per-weekday off staff names. Any staff marked off => weekday is a holiday for them.
-      // Staff: use own schedule.
+      // Admin & Assistant Admin: aggregate per-weekday off staff names.
+      // Any staff (or assistant) marked off on a weekday => the calendar cell
+      // for that weekday gets the light-red Off Day highlight.
       if (!isStaff) {
         const { data } = await supabase
           .from("profiles")
@@ -172,7 +162,7 @@ export default function CalendarPage() {
             .filter((r) => r.work_schedule && r.work_schedule[day] && r.work_schedule[day].active === false)
             .map((r) => r.full_name || "Unnamed");
           byDay[day] = offNames;
-          // Treat the day as a Holiday if ANY staff is off that day
+          // Treat the day as a Holiday if ANY staff/assistant is off that day
           merged[day] = { active: offNames.length === 0 };
         }
         setOffStaffByWeekday(byDay);
