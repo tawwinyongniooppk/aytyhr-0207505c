@@ -92,7 +92,7 @@ export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
               const st = stats[s.id] || emptyMemberStats();
               const totalDone = Math.min(st.allDone, MONTHLY_WEIGHT_CAP);
               return (
-                <div key={s.id} className="rounded-md border border-border bg-background px-3 py-2">
+                <div key={s.id} className={`rounded-md border px-3 py-2 ${user && s.id === user.id ? "border-primary/50 bg-primary/5" : "border-border bg-background"}`}>
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="flex items-center gap-2 min-w-0">
                       <span className="text-[10px] font-bold text-muted-foreground w-5 shrink-0">
