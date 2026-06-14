@@ -682,7 +682,6 @@ export default function CalendarPage() {
                               {selectable && (
                                 <Checkbox checked={selected} disabled={atCap} onCheckedChange={pickOne} />
                               )}
-                              <span className="text-[10px] font-bold text-muted-foreground w-5 shrink-0">#{s.sequence ?? "—"}</span>
                               <span className="font-medium text-sm truncate">{s.full_name || "Unnamed"}</span>
                             </span>
                             <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${stats.allDone >= MONTHLY_WEIGHT_CAP ? "bg-destructive/15 text-destructive" : atCap ? "bg-destructive/15 text-destructive" : willExceed ? "bg-warning/15 text-warning" : "bg-accent/15 text-accent"}`}>
