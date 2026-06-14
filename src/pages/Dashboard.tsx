@@ -12,6 +12,7 @@ import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 import { StaffLeaveBalancesCard } from "@/components/dashboard/StaffLeaveBalancesCard";
 import { useNotifications } from "@/hooks/useNotifications";
 import { formatMMTDate, getMMTMonthEndISO, getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
+import type { Json } from "@/integrations/supabase/types";
 
 interface Profile {
   id: string;
@@ -19,7 +20,7 @@ interface Profile {
   role: string;
   base_salary: number;
   sequence?: number | null;
-  work_schedule?: Record<string, { active: boolean }> | null;
+  work_schedule?: Json | null;
 }
 
 interface AttendanceRow {
@@ -105,9 +106,14 @@ export default function Dashboard() {
   const todayLeaves = leaveRequests.filter((l) => l.date === today && l.status === "approved" && l.type === "leave" && staffIds.has(l.user_id));
   const onLeaveToday = todayLeaves.length;
   const todayWeekday = new Date(`${today}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", timeZone: "Asia/Yangon" });
+  const isInactiveOffDay = (schedule: Json | null | undefined, weekday: string) => {
+    if (!schedule || typeof schedule !== "object" || Array.isArray(schedule)) return false;
+    const day = (schedule as Record<string, any>)[weekday];
+    return !!day && typeof day === "object" && day.active === false;
+  };
   const offDayStaffIds = new Set(
     staffProfiles
-      .filter((p) => p.work_schedule?.[todayWeekday]?.active === false)
+      .filter((p) => isInactiveOffDay(p.work_schedule, todayWeekday))
       .map((p) => p.id),
   );
 
