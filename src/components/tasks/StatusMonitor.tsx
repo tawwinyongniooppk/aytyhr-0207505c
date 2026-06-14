@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Activity } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
 import {
   STATUS_COLUMNS,
