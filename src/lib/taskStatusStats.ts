@@ -54,7 +54,9 @@ export function computeMemberStats(
     const unit = getTaskUnitCount(ev.start_date, ev.end_date);
     const status = a.submission_status || "not_started";
     const s = stats[a.user_id] || emptyMemberStats();
-    const deadlinePassed = ev.end_date <= todayStr;
+    // Deadline checkpoint = 11:59 PM MMT of end_date. Approved tasks only
+    // graduate to "All Done" AFTER that checkpoint, i.e. when today > end_date.
+    const deadlinePassed = ev.end_date < todayStr;
 
     if (status === "approved" && !!a.approved_at && deadlinePassed) {
       s.allDone += unit;

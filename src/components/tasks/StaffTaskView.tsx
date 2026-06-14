@@ -154,25 +154,29 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
   }
 
 
+  // "Fix & Resubmit" goes directly from Rejected → Submitted per spec.
   async function handleResubmitTask(taskId: string) {
     setSubmittingTaskId(taskId);
     try {
-      const { error } = await supabase.from("tasks").update({ submission_status: "in_progress", rejection_reason: null, rejected_at: null, rejected_by: null }).eq("id", taskId);
+      const { error } = await supabase.from("tasks").update({ submission_status: "submitted", submitted_at: new Date().toISOString(), completed: true, rejection_reason: null, rejected_at: null, rejected_by: null }).eq("id", taskId);
       if (error) throw error;
-      toast.success("Re-opened — make corrections and submit again");
-      setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, submission_status: "in_progress", rejection_reason: null } : t));
-    } catch { toast.error("Failed to reopen task"); }
+      toast.success("Resubmitted for review");
+      setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, submission_status: "submitted", completed: true, rejection_reason: null } : t));
+      const t = localTasks.find(x => x.id === taskId);
+      notifyAdmins("Task resubmitted", `${staffName} resubmitted: ${t?.title ?? "a task"}`, "/tasks");
+    } catch { toast.error("Failed to resubmit task"); }
     finally { setSubmittingTaskId(null); }
   }
 
   async function handleResubmitAssignment(assignmentId: string) {
     setSubmittingId(assignmentId);
     try {
-      const { error } = await supabase.from("calendar_event_assignments").update({ submission_status: "in_progress", rejection_reason: null, rejected_at: null, rejected_by: null }).eq("id", assignmentId);
+      const { error } = await supabase.from("calendar_event_assignments").update({ submission_status: "submitted", submitted_at: new Date().toISOString(), rejection_reason: null, rejected_at: null, rejected_by: null }).eq("id", assignmentId);
       if (error) throw error;
-      toast.success("Re-opened — make corrections and submit again");
-      setLocalAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, submission_status: "in_progress", rejection_reason: null } : a));
-    } catch { toast.error("Failed to reopen"); }
+      toast.success("Resubmitted for review");
+      setLocalAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, submission_status: "submitted", rejection_reason: null } : a));
+      notifyAdmins("Task resubmitted", `${staffName} resubmitted a task`, "/tasks");
+    } catch { toast.error("Failed to resubmit"); }
     finally { setSubmittingId(null); }
   }
 
