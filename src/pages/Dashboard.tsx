@@ -2,21 +2,26 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2, ListChecks, ChevronRight, Activity, CheckCircle2, UserX, Sparkles } from "lucide-react";
+import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2, ListChecks, ChevronRight, Activity, CheckCircle2, UserX, Sparkles, CalendarDays } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { cn } from "@/lib/utils";
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
+import { StaffLeaveBalancesCard } from "@/components/dashboard/StaffLeaveBalancesCard";
 import { useNotifications } from "@/hooks/useNotifications";
 import { formatMMTDate, getMMTMonthEndISO, getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
+import type { Json } from "@/integrations/supabase/types";
+import { getMyanmarHoliday } from "@/lib/mmCalendar";
 
 interface Profile {
   id: string;
   full_name: string;
   role: string;
   base_salary: number;
+  sequence?: number | null;
+  work_schedule?: Json | null;
 }
 
 interface AttendanceRow {
@@ -57,6 +62,8 @@ export default function Dashboard() {
   const [pendingTasks, setPendingTasks] = useState(0);
   const [completedTasks, setCompletedTasks] = useState(0);
   const [deductionRate, setDeductionRate] = useState(200);
+  const [holidayOffUserIds, setHolidayOffUserIds] = useState<string[]>([]);
+  const [isGlobalOffDay, setIsGlobalOffDay] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const today = getMMTTodayISO();
@@ -87,7 +94,40 @@ export default function Dashboard() {
     const taskRows = (tasksRes.data ?? []) as { completed: boolean }[];
     setPendingTasks(taskRows.filter((t) => !t.completed).length);
     setCompletedTasks(taskRows.filter((t) => t.completed).length);
+
+    const mmHoliday = getMyanmarHoliday(today);
+    if (mmHoliday) {
+      setIsGlobalOffDay(true);
+      setHolidayOffUserIds(staffProfilesFromRpc(profilesRes.data ?? []).map((p) => p.id));
+    } else {
+      const holidayRes = await supabase
+        .from("calendar_events")
+        .select("id, assigned_to_all")
+        .eq("event_type", "holiday")
+        .lte("start_date", today)
+        .gte("end_date", today);
+
+      const holidayEvents = (holidayRes.data ?? []) as Array<{ id: string; assigned_to_all: boolean }>;
+      if (holidayEvents.some((e) => e.assigned_to_all)) {
+        setIsGlobalOffDay(true);
+        setHolidayOffUserIds(staffProfilesFromRpc(profilesRes.data ?? []).map((p) => p.id));
+      } else if (holidayEvents.length > 0) {
+        const { data: assData } = await supabase
+          .from("calendar_event_assignments")
+          .select("user_id, event_id")
+          .in("event_id", holidayEvents.map((e) => e.id));
+        setIsGlobalOffDay(false);
+        setHolidayOffUserIds(Array.from(new Set(((assData as Array<{ user_id: string }> | null) ?? []).map((a) => a.user_id))));
+      } else {
+        setIsGlobalOffDay(false);
+        setHolidayOffUserIds([]);
+      }
+    }
     setLoading(false);
+  }
+
+  function staffProfilesFromRpc(rows: any[]): Profile[] {
+    return rows as Profile[];
   }
 
   // Only count Staff role for dashboard stats — IT Manager / Admin / Assistant excluded
@@ -101,6 +141,18 @@ export default function Dashboard() {
 
   const todayLeaves = leaveRequests.filter((l) => l.date === today && l.status === "approved" && l.type === "leave" && staffIds.has(l.user_id));
   const onLeaveToday = todayLeaves.length;
+  const todayWeekday = new Date(`${today}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", timeZone: "Asia/Yangon" });
+  const isInactiveOffDay = (schedule: Json | null | undefined, weekday: string) => {
+    if (!schedule || typeof schedule !== "object" || Array.isArray(schedule)) return false;
+    const day = (schedule as Record<string, any>)[weekday];
+    return !!day && typeof day === "object" && day.active === false;
+  };
+  const offDayStaffIds = new Set(
+    staffProfiles
+      .filter((p) => isInactiveOffDay(p.work_schedule, todayWeekday))
+      .map((p) => p.id),
+  );
+  holidayOffUserIds.forEach((id) => offDayStaffIds.add(id));
 
   const todayDeductions = staffAttendance.reduce(
     (sum, a) => sum + (a.late_minutes + a.early_minutes) * deductionRate,
@@ -170,13 +222,15 @@ export default function Dashboard() {
     );
   }
 
-  const absentToday = Math.max(0, totalStaff - presentToday - onLeaveToday);
+  const activeStaffToday = isGlobalOffDay ? 0 : Math.max(0, totalStaff - offDayStaffIds.size);
+  const absentToday = isGlobalOffDay ? 0 : Math.max(0, activeStaffToday - presentToday - onLeaveToday);
   const onTimeToday = Math.max(0, presentToday - lateToday);
-  const attendanceRate = totalStaff > 0 ? Math.round((presentToday / totalStaff) * 100) : 0;
+  const attendanceRate = activeStaffToday > 0 ? Math.round((presentToday / activeStaffToday) * 100) : 0;
   const punctualityRate = presentToday > 0 ? Math.round((onTimeToday / presentToday) * 100) : 0;
   const taskTotal = pendingTasks + completedTasks;
   const taskCompletion = taskTotal > 0 ? Math.round((completedTasks / taskTotal) * 100) : 0;
   const avgDailyDeduction = totalAttendanceDays > 0 ? Math.round(monthDeductions / totalAttendanceDays) : 0;
+  const adminStaffList = staffProfiles.map((p) => ({ id: p.id, full_name: p.full_name, sequence: p.sequence ?? null }));
 
   return (
     <div className="space-y-6">
@@ -193,7 +247,7 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold font-display tracking-tight">Dashboard</h1>
             <p className="text-muted-foreground text-sm mt-1">{formatMMTDate(new Date(), "en-US")} · Myanmar Standard Time</p>
           </div>
-          <div className="grid grid-cols-3 gap-3 md:gap-5 md:min-w-[420px]">
+          <div className="grid grid-cols-3 md:grid-cols-4 gap-3 md:gap-5 md:min-w-[520px]">
             <div className="rounded-xl bg-card/70 backdrop-blur border border-border/60 px-3 py-2.5">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Attendance</p>
               <p className="text-lg font-bold font-display text-primary">{attendanceRate}%</p>
@@ -205,6 +259,11 @@ export default function Dashboard() {
               <Progress value={punctualityRate} className="h-1 mt-1.5" />
             </div>
             <div className="rounded-xl bg-card/70 backdrop-blur border border-border/60 px-3 py-2.5">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Active Staff</p>
+              <p className="text-lg font-bold font-display text-secondary">{activeStaffToday}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{offDayStaffIds.size} off today</p>
+            </div>
+            <div className="rounded-xl bg-card/70 backdrop-blur border border-border/60 px-3 py-2.5 hidden md:block">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Tasks Done</p>
               <p className="text-lg font-bold font-display text-secondary">{taskCompletion}%</p>
               <Progress value={taskCompletion} className="h-1 mt-1.5" />
@@ -214,6 +273,39 @@ export default function Dashboard() {
       </div>
 
       {isStaff && <LeaveBalanceCard />}
+      {!isStaff && (
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
+          <Card className="border border-border shadow-sm bg-gradient-to-b from-card to-muted/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-display flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-primary" />
+                Today Workforce Snapshot
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl border border-border/70 bg-background/80 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total Staff</p>
+                <p className="mt-2 text-2xl font-bold font-display">{totalStaff}</p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-background/80 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Working Today</p>
+                <p className="mt-2 text-2xl font-bold font-display text-primary">{activeStaffToday}</p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-background/80 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Off Day</p>
+                <p className="mt-2 text-2xl font-bold font-display text-destructive">{offDayStaffIds.size}</p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-background/80 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Absent Count</p>
+                <p className="mt-2 text-2xl font-bold font-display">{absentToday}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">Off-day staff excluded</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <StaffLeaveBalancesCard staff={adminStaffList} />
+        </div>
+      )}
 
       {/* Pulse Strip — at-a-glance today */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -222,7 +314,7 @@ export default function Dashboard() {
             <CheckCircle2 className="h-4 w-4 text-accent" />
             <span className="text-[10px] font-semibold uppercase tracking-wide text-accent/80">On time</span>
           </div>
-          <p className="text-2xl font-bold font-display mt-2">{onTimeToday}<span className="text-xs font-normal text-muted-foreground"> / {totalStaff}</span></p>
+          <p className="text-2xl font-bold font-display mt-2">{onTimeToday}<span className="text-xs font-normal text-muted-foreground"> / {activeStaffToday}</span></p>
           <p className="text-xs text-muted-foreground mt-1">Checked in punctually</p>
         </div>
         <div onClick={() => navigate("/attendance")} className="group cursor-pointer rounded-xl border border-border bg-gradient-to-br from-destructive/5 to-transparent p-4 hover:border-destructive/40 hover:shadow-md transition-all">
@@ -247,7 +339,7 @@ export default function Dashboard() {
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Absent</span>
           </div>
           <p className="text-2xl font-bold font-display mt-2">{absentToday}</p>
-          <p className="text-xs text-muted-foreground mt-1">Not checked in yet</p>
+          <p className="text-xs text-muted-foreground mt-1">{isGlobalOffDay ? "Today is an off day" : "Off-day staff excluded"}</p>
         </div>
       </div>
 
@@ -301,7 +393,9 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground py-4 text-center">No attendance records yet today.</p>
             ) : (
               <div className="space-y-2">
-                {staffAttendance.map((a) => {
+                 {staffAttendance
+                  .filter((a) => !offDayStaffIds.has(a.user_id))
+                  .map((a) => {
                   const profile = profileMap[a.user_id];
                   const status = attendanceStatus(a);
                   return (
@@ -324,7 +418,7 @@ export default function Dashboard() {
                       </Badge>
                     </div>
                   );
-                })}
+                 })}
               </div>
             )}
           </CardContent>
