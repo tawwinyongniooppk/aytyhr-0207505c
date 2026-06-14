@@ -64,7 +64,6 @@ export function StaffLeaveBalancesCard({ staff }: { staff: StaffLeaveBalanceMemb
           <CalendarDays className="h-4 w-4 text-primary" />
           Staff Leave Balances
         </CardTitle>
-        <p className="text-xs text-muted-foreground">Ordered by staff no. set by IT Manager</p>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -75,9 +74,8 @@ export function StaffLeaveBalancesCard({ staff }: { staff: StaffLeaveBalanceMemb
           <p className="py-10 text-center text-sm text-muted-foreground">No staff found.</p>
         ) : (
           <div className="grid gap-2 max-h-[24rem] overflow-y-auto pr-1">
-            {orderedStaff.map((member, index) => {
+            {orderedStaff.map((member) => {
               const balance = balances[member.id];
-              const orderLabel = member.sequence ?? index + 1;
 
               return (
                 <div
@@ -85,9 +83,6 @@ export function StaffLeaveBalancesCard({ staff }: { staff: StaffLeaveBalanceMemb
                   className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/80 px-3 py-2.5"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
-                      {orderLabel}
-                    </div>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{member.full_name}</p>
                       <p className="text-xs text-muted-foreground">Leave balance</p>

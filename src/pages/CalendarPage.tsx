@@ -146,19 +146,9 @@ export default function CalendarPage() {
   async function loadMySchedule() {
     if (!user) return;
     try {
-      if (isAssistant) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("work_schedule")
-          .eq("id", user.id)
-          .maybeSingle();
-        setMySchedule((data?.work_schedule as any) ?? null);
-        setOffStaffByWeekday({});
-        return;
-      }
-
-      // Admin/Assistant: collect per-weekday off staff names. Any staff marked off => weekday is a holiday for them.
-      // Staff: use own schedule.
+      // Admin & Assistant Admin: aggregate per-weekday off staff names.
+      // Any staff (or assistant) marked off on a weekday => the calendar cell
+      // for that weekday gets the light-red Off Day highlight.
       if (!isStaff) {
         const { data } = await supabase
           .from("profiles")
@@ -172,7 +162,7 @@ export default function CalendarPage() {
             .filter((r) => r.work_schedule && r.work_schedule[day] && r.work_schedule[day].active === false)
             .map((r) => r.full_name || "Unnamed");
           byDay[day] = offNames;
-          // Treat the day as a Holiday if ANY staff is off that day
+          // Treat the day as a Holiday if ANY staff/assistant is off that day
           merged[day] = { active: offNames.length === 0 };
         }
         setOffStaffByWeekday(byDay);
@@ -682,7 +672,6 @@ export default function CalendarPage() {
                               {selectable && (
                                 <Checkbox checked={selected} disabled={atCap} onCheckedChange={pickOne} />
                               )}
-                              <span className="text-[10px] font-bold text-muted-foreground w-5 shrink-0">#{s.sequence ?? "—"}</span>
                               <span className="font-medium text-sm truncate">{s.full_name || "Unnamed"}</span>
                             </span>
                             <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${stats.allDone >= MONTHLY_WEIGHT_CAP ? "bg-destructive/15 text-destructive" : atCap ? "bg-destructive/15 text-destructive" : willExceed ? "bg-warning/15 text-warning" : "bg-accent/15 text-accent"}`}>
@@ -819,7 +808,7 @@ export default function CalendarPage() {
                       <div key={e.id} className={`h-1 w-1 rounded-full ${EVENT_DOT_COLORS[e.event_type] || "bg-muted-foreground"}`} title={e.title} />
                     ))}
                   </div>
-                  {isOffDay && <span className="absolute inset-x-1 bottom-0.5 h-1 rounded-full bg-destructive" />}
+                  
                 </button>
               );
             })}
