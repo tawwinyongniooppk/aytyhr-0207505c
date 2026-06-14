@@ -9,10 +9,10 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.auto-weekly-task-credit]
-verify_jwt = true
+verify_jwt = false
 
 [functions.task-deadline-sweep]
-verify_jwt = true
+verify_jwt = false
 
 [functions.monthly-reset]
 verify_jwt = true
