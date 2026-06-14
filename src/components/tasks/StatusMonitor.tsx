@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Activity } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
 import {
   STATUS_COLUMNS,
@@ -22,6 +23,7 @@ interface StaffLite {
 const MONTHLY_WEIGHT_CAP = 4;
 
 export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Record<string, MemberStats>>({});
 
@@ -82,11 +84,15 @@ export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
           <p className="text-sm text-muted-foreground p-3">No staff found.</p>
         ) : (
           <div className="space-y-2">
-            {staffList.map((s) => {
+            {[...staffList].sort((a, b) => {
+              if (user && a.id === user.id) return -1;
+              if (user && b.id === user.id) return 1;
+              return (a.sequence ?? 999) - (b.sequence ?? 999);
+            }).map((s) => {
               const st = stats[s.id] || emptyMemberStats();
               const totalDone = Math.min(st.allDone, MONTHLY_WEIGHT_CAP);
               return (
-                <div key={s.id} className="rounded-md border border-border bg-background px-3 py-2">
+                <div key={s.id} className={`rounded-md border px-3 py-2 ${user && s.id === user.id ? "border-primary/50 bg-primary/5" : "border-border bg-background"}`}>
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="flex items-center gap-2 min-w-0">
                       <span className="text-[10px] font-bold text-muted-foreground w-5 shrink-0">
