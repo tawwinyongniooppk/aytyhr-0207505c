@@ -64,7 +64,6 @@ export function StaffLeaveBalancesCard({ staff }: { staff: StaffLeaveBalanceMemb
           <CalendarDays className="h-4 w-4 text-primary" />
           Staff Leave Balances
         </CardTitle>
-        <p className="text-xs text-muted-foreground">Ordered by staff no. set by IT Manager</p>
       </CardHeader>
       <CardContent>
         {loading ? (
