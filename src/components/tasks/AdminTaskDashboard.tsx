@@ -356,6 +356,7 @@ export function AdminTaskDashboard({
     setApprovingId(item.id);
     try {
       const approvedAt = new Date().toISOString();
+      const todayMMT = getMMTTodayISO();
       const deadlineDate = item.dueDate || null;
 
       if (item.source === "task") {
@@ -372,12 +373,65 @@ export function AdminTaskDashboard({
         if (error) throw error;
       }
 
+      // Instant bonus credit when the deadline has already passed ("All Done").
+      // Early approvals (deadline still in future) are credited by the nightly
+      // task-deadline-sweep cron on the deadline day at 23:55 MMT.
+      let creditedAmount = 0;
+      if (deadlineDate && deadlineDate < todayMMT) {
+        const monthStart = todayMMT.slice(0, 7) + "-01";
+        let unitCount = 1;
+        if (item.source === "calendar") {
+          const days = Math.round(
+            (new Date(deadlineDate + "T00:00:00").getTime() -
+              new Date(item.startDate + "T00:00:00").getTime()) / 86400000,
+          );
+          unitCount = days >= 12 ? 2 : 1;
+        }
 
-      toast.success("Approved successfully");
+        // Idempotency: skip if a bonus row already exists for this task/assignment.
+        const existingQ = supabase.from("bonus_transactions").select("id").limit(1);
+        const { data: existing } = item.source === "task"
+          ? await existingQ.eq("task_id", item.sourceId)
+          : await existingQ.eq("assignment_id", item.assignmentId!);
+
+        if (!existing || existing.length === 0) {
+          const { data: perUnit } = await supabase.rpc("compute_bonus_per_unit", {
+            p_user_id: item.staffId,
+            p_month: monthStart,
+          });
+          const amount = ((perUnit as unknown as number) || 0) * unitCount;
+          if (amount > 0) {
+            const row: any = {
+              user_id: item.staffId,
+              source: item.source,
+              month: monthStart,
+              amount,
+              unit_count: unitCount,
+              deadline_date: deadlineDate,
+              approved_date: todayMMT,
+              auto_approved: false,
+              title: item.title,
+            };
+            if (item.source === "task") row.task_id = item.sourceId;
+            else row.assignment_id = item.assignmentId;
+            const { error: bErr } = await supabase.from("bonus_transactions").insert(row);
+            if (!bErr) creditedAmount = amount;
+            else console.error("[approve] bonus insert failed", bErr);
+          }
+        }
+      }
+
+      toast.success(
+        creditedAmount > 0
+          ? `Approved — ${creditedAmount.toLocaleString()} MMK credited`
+          : "Approved successfully",
+      );
       sendPush({
         user_ids: [item.staffId],
-        title: "Task approved",
-        body: item.title,
+        title: creditedAmount > 0 ? "Task approved — Bonus credited" : "Task approved",
+        body: creditedAmount > 0
+          ? `${item.title} — +${creditedAmount.toLocaleString()} MMK`
+          : item.title,
         url: "/tasks",
       });
       onRefresh();
