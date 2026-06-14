@@ -13,6 +13,7 @@ import { StaffLeaveBalancesCard } from "@/components/dashboard/StaffLeaveBalance
 import { useNotifications } from "@/hooks/useNotifications";
 import { formatMMTDate, getMMTMonthEndISO, getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
 import type { Json } from "@/integrations/supabase/types";
+import { getMyanmarHoliday } from "@/lib/mmCalendar";
 
 interface Profile {
   id: string;
@@ -61,6 +62,8 @@ export default function Dashboard() {
   const [pendingTasks, setPendingTasks] = useState(0);
   const [completedTasks, setCompletedTasks] = useState(0);
   const [deductionRate, setDeductionRate] = useState(200);
+  const [holidayOffUserIds, setHolidayOffUserIds] = useState<string[]>([]);
+  const [isGlobalOffDay, setIsGlobalOffDay] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const today = getMMTTodayISO();
@@ -91,7 +94,40 @@ export default function Dashboard() {
     const taskRows = (tasksRes.data ?? []) as { completed: boolean }[];
     setPendingTasks(taskRows.filter((t) => !t.completed).length);
     setCompletedTasks(taskRows.filter((t) => t.completed).length);
+
+    const mmHoliday = getMyanmarHoliday(today);
+    if (mmHoliday) {
+      setIsGlobalOffDay(true);
+      setHolidayOffUserIds(staffProfilesFromRpc(profilesRes.data ?? []).map((p) => p.id));
+    } else {
+      const holidayRes = await supabase
+        .from("calendar_events")
+        .select("id, assigned_to_all")
+        .eq("event_type", "holiday")
+        .lte("start_date", today)
+        .gte("end_date", today);
+
+      const holidayEvents = (holidayRes.data ?? []) as Array<{ id: string; assigned_to_all: boolean }>;
+      if (holidayEvents.some((e) => e.assigned_to_all)) {
+        setIsGlobalOffDay(true);
+        setHolidayOffUserIds(staffProfilesFromRpc(profilesRes.data ?? []).map((p) => p.id));
+      } else if (holidayEvents.length > 0) {
+        const { data: assData } = await supabase
+          .from("calendar_event_assignments")
+          .select("user_id, event_id")
+          .in("event_id", holidayEvents.map((e) => e.id));
+        setIsGlobalOffDay(false);
+        setHolidayOffUserIds(Array.from(new Set(((assData as Array<{ user_id: string }> | null) ?? []).map((a) => a.user_id))));
+      } else {
+        setIsGlobalOffDay(false);
+        setHolidayOffUserIds([]);
+      }
+    }
     setLoading(false);
+  }
+
+  function staffProfilesFromRpc(rows: any[]): Profile[] {
+    return rows as Profile[];
   }
 
   // Only count Staff role for dashboard stats — IT Manager / Admin / Assistant excluded
@@ -116,6 +152,7 @@ export default function Dashboard() {
       .filter((p) => isInactiveOffDay(p.work_schedule, todayWeekday))
       .map((p) => p.id),
   );
+  holidayOffUserIds.forEach((id) => offDayStaffIds.add(id));
 
   const todayDeductions = staffAttendance.reduce(
     (sum, a) => sum + (a.late_minutes + a.early_minutes) * deductionRate,
@@ -185,8 +222,8 @@ export default function Dashboard() {
     );
   }
 
-  const activeStaffToday = Math.max(0, totalStaff - offDayStaffIds.size);
-  const absentToday = Math.max(0, activeStaffToday - presentToday - onLeaveToday);
+  const activeStaffToday = isGlobalOffDay ? 0 : Math.max(0, totalStaff - offDayStaffIds.size);
+  const absentToday = isGlobalOffDay ? 0 : Math.max(0, activeStaffToday - presentToday - onLeaveToday);
   const onTimeToday = Math.max(0, presentToday - lateToday);
   const attendanceRate = activeStaffToday > 0 ? Math.round((presentToday / activeStaffToday) * 100) : 0;
   const punctualityRate = presentToday > 0 ? Math.round((onTimeToday / presentToday) * 100) : 0;
@@ -302,7 +339,7 @@ export default function Dashboard() {
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Absent</span>
           </div>
           <p className="text-2xl font-bold font-display mt-2">{absentToday}</p>
-          <p className="text-xs text-muted-foreground mt-1">Off-day staff excluded</p>
+          <p className="text-xs text-muted-foreground mt-1">{isGlobalOffDay ? "Today is an off day" : "Off-day staff excluded"}</p>
         </div>
       </div>
 
