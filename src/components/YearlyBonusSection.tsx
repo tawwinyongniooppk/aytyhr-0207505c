@@ -69,17 +69,21 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      // Today in MMT (UTC+6:30) — same checkpoint used by Status Monitor's "All Done".
+      const { year, month, day } = getMMTDateParts(new Date());
+      const todayStr = `${year}-${month}-${day}`;
+
       const [tasksRes, assignRes] = await Promise.all([
         supabase
           .from("tasks")
-          .select("id, submission_status, created_at")
+          .select("id, submission_status, created_at, due_date")
           .eq("assignee_id", user.id)
           .gte("created_at", period.start)
           .lt("created_at", period.end),
         supabase
           .from("calendar_event_assignments")
           .select(
-            "id, submission_status, calendar_events!inner(start_date, end_date, event_type)",
+            "id, submission_status, approved_at, calendar_events!inner(start_date, end_date, event_type)",
           )
           .eq("user_id", user.id),
       ]);
@@ -94,7 +98,10 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
         // Each standalone task = 1 unit
         if (t.submission_status === "rejected") continue;
         assignedUnits += 1;
-        if (t.submission_status === "approved") doneUnits += 1;
+        // Bonus only credits AFTER the deadline checkpoint passes (matches Status Monitor).
+        const dueStr: string | null = t.due_date ? String(t.due_date).slice(0, 10) : null;
+        const deadlinePassed = dueStr ? dueStr < todayStr : true;
+        if (t.submission_status === "approved" && deadlinePassed) doneUnits += 1;
       }
 
       const assigns = (assignRes.data as any[]) || [];
@@ -105,7 +112,10 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
         if (r.submission_status === "rejected") continue;
         const u = unitsForSpan(ev.start_date, ev.end_date);
         assignedUnits += u;
-        if (r.submission_status === "approved") doneUnits += u;
+        const deadlinePassed = ev.end_date < todayStr;
+        if (r.submission_status === "approved" && !!r.approved_at && deadlinePassed) {
+          doneUnits += u;
+        }
       }
 
       setAssigned(assignedUnits);
