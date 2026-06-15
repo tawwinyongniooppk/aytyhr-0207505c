@@ -392,7 +392,52 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
         </CardContent>
       </Card>
 
+      {teamTasks.length > 0 && (
+        <Card className="border border-border shadow-sm bg-gradient-to-b from-card to-accent/5">
+          <CardContent className="p-4">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-1">👀 Team Tasks (visible to you)</h3>
+            <p className="text-[11px] text-muted-foreground mb-3">
+              Tasks assigned to other team members. Read-only — for awareness only.
+            </p>
+            <div className="space-y-1">
+              {teamTasks.map(({ event, assignments }) =>
+                assignments.map((a) => {
+                  const status =
+                    a.submission_status === "approved" ? "approved" :
+                    a.submission_status === "rejected" ? "rejected" :
+                    a.submission_status === "submitted" ? "submitted" :
+                    a.submission_status === "in_progress" ? "in_progress" :
+                    (event.end_date && event.end_date < now) ? "overdue" : "not_started";
+                  return (
+                    <div
+                      key={`team-${a.id}`}
+                      className={`flex flex-col sm:flex-row sm:items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(status, event.end_date)}`}
+                    >
+                      <div className="flex-1 min-w-0 w-full">
+                        <p className="text-sm font-medium break-words">{event.title}</p>
+                        {event.description && (
+                          <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words">{event.description}</p>
+                        )}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
+                          <span>👤 Assigned to: {staffNames[a.user_id] || "Staff"}</span>
+                          {event.start_date && <span>📅 Start: {event.start_date}</span>}
+                          {event.end_date && <span>⏰ Deadline: {event.end_date}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 sm:shrink-0 flex-wrap w-full sm:w-auto sm:justify-end">
+                        {getStatusBadge(status)}
+                      </div>
+                    </div>
+                  );
+                }),
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <StatusMonitor staffList={staffList} />
+
     </div>
   );
 }
