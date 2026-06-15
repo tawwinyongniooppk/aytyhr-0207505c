@@ -59,29 +59,20 @@ function parseOverrideWindow(raw: string | null, year: number, month: number) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  // Cron-only endpoint: require CRON_SECRET, service role, or anon-key (pg_cron internal).
+  // Cron-only endpoint: require CRON_SECRET or service role. Anon key NOT accepted.
   const cronSecret = Deno.env.get("CRON_SECRET");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const authHeader = req.headers.get("Authorization") ?? "";
-  const apikeyHeader = req.headers.get("apikey") ?? "";
-  if (!authHeader && !apikeyHeader) {
-    console.warn("[auto-weekly-credit] 401 — missing Authorization/apikey header");
-    return new Response(JSON.stringify({ error: "Unauthorized: missing CRON_SECRET" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  const allowed =
+  const isPrivileged =
     (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
-    (SERVICE_ROLE && authHeader === `Bearer ${SERVICE_ROLE}`) ||
-    (!!anonKey && (authHeader === `Bearer ${anonKey}` || apikeyHeader === anonKey));
-  if (!allowed) {
-    console.warn("[auto-weekly-credit] 401 — invalid CRON_SECRET / unauthorized caller");
-    return new Response(JSON.stringify({ error: "Unauthorized: invalid CRON_SECRET" }), {
+    (SERVICE_ROLE && authHeader === `Bearer ${SERVICE_ROLE}`);
+  if (!isPrivileged) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
   try {
     const t = mmtToday();
+    // x-force-window is admin-only (already gated above by isPrivileged).
     const overrideWindow = parseOverrideWindow(req.headers.get("x-force-window"), t.y, t.m);
     const win = overrideWindow ?? weekWindow(t.d, t.y, t.m);
     if (!win) {
