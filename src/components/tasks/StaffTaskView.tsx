@@ -100,6 +100,20 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
       .filter(Boolean) as Array<{ event: CalEvent; assignment: EventAssignment }>;
   }, [calendarEvents, localAssignments, user]);
 
+  // Team-visible tasks assigned to OTHER staff — separate, read-only card.
+  // Only public-visibility task events where the current user is NOT assigned.
+  const teamTasks = useMemo(() => {
+    if (!user) return [] as Array<{ event: CalEvent; assignments: EventAssignment[] }>;
+    return calendarEvents
+      .filter((ev) => ev.event_type === "task" && ev.visibility === "public" && !ev.assigned_to_all)
+      .map((ev) => {
+        const ass = localAssignments.filter((a) => a.event_id === ev.id && a.user_id !== user.id);
+        return ass.length > 0 ? { event: ev, assignments: ass } : null;
+      })
+      .filter(Boolean) as Array<{ event: CalEvent; assignments: EventAssignment[] }>;
+  }, [calendarEvents, localAssignments, user]);
+
+
   useEffect(() => {
     const newOnes = localTasks.filter(t => t.submission_status === "not_started" || t.submission_status === "not_submitted");
     const newAssignments = myCalendarTasks.filter(({ assignment }) => assignment.submission_status === "not_started" || assignment.submission_status === "not_submitted");
