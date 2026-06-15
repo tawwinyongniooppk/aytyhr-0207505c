@@ -729,7 +729,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      _get_cron_secret: { Args: never; Returns: string }
       admin_list_profiles: {
         Args: never
         Returns: {
