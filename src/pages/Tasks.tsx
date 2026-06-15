@@ -112,27 +112,13 @@ export default function Tasks() {
         .order("full_name", { ascending: true });
 
       if (isStaff) {
-        const monthStart = (() => {
-          const d = new Date();
-          return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
-        })();
-        const [tasksRes, profilesRes, ownAssRes, publicEvRes] = await Promise.all([
+        const [tasksRes, profilesRes, assRes] = await Promise.all([
           supabase.from("tasks").select("*").eq("assignee_id", user.id).order("created_at", { ascending: false }),
           profilesPromise,
           supabase
             .from("calendar_event_assignments")
             .select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by")
             .eq("user_id", user.id),
-          // Team-visible task events for the current month onward — for the
-          // separate "Team Tasks" card. Staff can see these per the updated
-          // RLS policy on calendar_event_assignments.
-          supabase
-            .from("calendar_events")
-            .select("*")
-            .eq("event_type", "task")
-            .eq("visibility", "public")
-            .gte("start_date", monthStart)
-            .order("start_date", { ascending: false }),
         ]);
 
         if (tasksRes.error) console.error("[Tasks] tasks fetch error:", tasksRes.error);
@@ -147,74 +133,36 @@ export default function Tasks() {
           setStaffList(profilesRes.data.filter((p: any) => p.role === "staff"));
         }
 
-        const ownAssignments = (ownAssRes.data as EventAssignment[]) || [];
+        const assignments = (assRes.data as EventAssignment[]) || [];
+        setEventAssignments(assignments);
         setTasks((tasksRes.data as TaskRow[]) || []);
 
-        const publicEvents = (publicEvRes.data as CalEvent[]) || [];
-        const ownEventIds = new Set(ownAssignments.map((a) => a.event_id));
-        const extraEventIds = publicEvents
-          .map((e) => e.id)
-          .filter((id) => !ownEventIds.has(id));
-
-        // Pull all assignments for team-visible events so we can show who is
-        // working on them (read-only) in the Team Tasks card.
-        let teamAssignments: EventAssignment[] = [];
-        if (publicEvents.length > 0) {
-          const { data: teamAss } = await supabase
+        const eventIds = Array.from(new Set(assignments.map((a) => a.event_id))).filter(Boolean);
+        if (eventIds.length > 0) {
+          const evRes = await supabase
+            .from("calendar_events")
+            .select("*")
+            .in("id", eventIds)
+            .order("start_date", { ascending: false });
+          setCalendarEvents((evRes.data as CalEvent[]) || []);
+        } else {
+          setCalendarEvents([]);
+        }
+      } else {
+        // Admin View - DB ဝန်သက်သာအောင် ပြီးခဲ့သမျှအကုန်လုံး မယူဘဲ အသစ်ဆုံးအခု ၁၀၀/၁၅၀ ဝန်းကျင်ပဲ ကန့်သတ်ယူပါတယ်
+        const [tasksRes, profilesRes, evRes, assRes] = await Promise.all([
+          supabase.from("tasks").select("*").order("created_at", { ascending: false }).limit(150),
+          profilesPromise,
+          supabase.from("calendar_events").select("*").order("start_date", { ascending: false }).limit(100),
+          supabase
             .from("calendar_event_assignments")
             .select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by")
-            .in("event_id", publicEvents.map((e) => e.id));
-          teamAssignments = (teamAss as EventAssignment[]) || [];
-        }
-
-        // Merge: own + team assignments (dedupe by id), so myCalendarTasks still works.
-        const mergedAss = new Map<string, EventAssignment>();
-        [...ownAssignments, ...teamAssignments].forEach((a) => mergedAss.set(a.id, a));
-        setEventAssignments(Array.from(mergedAss.values()));
-
-        // Fetch own event details (older than this month may not appear in public window)
-        const ownOnlyMissing = Array.from(ownEventIds).filter(
-          (id) => !publicEvents.some((e) => e.id === id),
-        );
-        let ownEvents: CalEvent[] = [];
-        if (ownOnlyMissing.length > 0) {
-          const { data: evRes } = await supabase
-            .from("calendar_events")
-            .select("*")
-            .in("id", ownOnlyMissing);
-          ownEvents = (evRes as CalEvent[]) || [];
-        }
-        setCalendarEvents([...publicEvents, ...ownEvents]);
-        void extraEventIds;
-
-      } else {
-        // Admin View — current month onward (plus any still-active items whose
-        // end_date is in the current/future month). No hard row caps, so newly
-        // assigned tasks and recently completed units always appear.
-        const monthStart = (() => {
-          const d = new Date();
-          return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
-        })();
-
-        const [tasksRes, profilesRes, evRes] = await Promise.all([
-          // Tasks: include anything created this month OR still due this month/later
-          supabase
-            .from("tasks")
-            .select("*")
-            .or(`created_at.gte.${monthStart},due_date.gte.${monthStart}`)
-            .order("created_at", { ascending: false }),
-          profilesPromise,
-          // Calendar events: anything that is active in (or after) the current month
-          supabase
-            .from("calendar_events")
-            .select("*")
-            .gte("end_date", monthStart)
-            .order("start_date", { ascending: false }),
+            .order("submitted_at", { ascending: false })
+            .limit(150),
         ]);
 
         if (tasksRes.error) console.error("[Tasks] tasks fetch error:", tasksRes.error);
         if (profilesRes.error) console.error("[Tasks] profiles fetch error:", profilesRes.error);
-        if (evRes.error) console.error("[Tasks] events fetch error:", evRes.error);
 
         const names: Record<string, string> = {};
         if (profilesRes.data) {
@@ -226,23 +174,9 @@ export default function Tasks() {
           setStaffNames(names);
         }
 
-        const events = (evRes.data as CalEvent[]) || [];
-
-        // Assignments scoped to the fetched events — guarantees every visible
-        // event has its full assignment set (no row-limit truncation).
-        let assignments: EventAssignment[] = [];
-        if (events.length > 0) {
-          const { data: assRows, error: assErr } = await supabase
-            .from("calendar_event_assignments")
-            .select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by")
-            .in("event_id", events.map((e) => e.id));
-          if (assErr) console.error("[Tasks] assignments fetch error:", assErr);
-          assignments = (assRows as EventAssignment[]) || [];
-        }
-
         setTasks((tasksRes.data as TaskRow[]) || []);
-        setCalendarEvents(events);
-        setEventAssignments(assignments);
+        setCalendarEvents((evRes.data as CalEvent[]) || []);
+        setEventAssignments((assRes.data as EventAssignment[]) || []);
       }
     } catch (e) {
       console.error("[Tasks] loadData exception:", e);

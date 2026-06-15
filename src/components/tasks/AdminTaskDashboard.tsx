@@ -41,9 +41,7 @@ interface CalEvent {
   event_type: string;
   visibility: string;
   created_by: string;
-  assigned_to_all?: boolean;
 }
-
 
 interface EventAssignment {
   event_id: string;
@@ -217,11 +215,7 @@ export function AdminTaskDashboard({
 
     calendarEvents.forEach((ev) => {
       const evType = (ev.event_type as UnifiedItem["type"]) || "event";
-      // For oversight purposes a task is ONLY counted against the staff who
-      // actually have an assignment row. "Assign to one — visible to team"
-      // (visibility=public, assigned_to_all=false) must NOT inflate stats for
-      // unassigned staff — that's a viewing convenience for staff only.
-      if (ev.assigned_to_all) {
+      if (ev.visibility === "public") {
         staffList.forEach((s) => {
           const assignment = eventAssignments.find(a => a.event_id === ev.id && a.user_id === s.id);
           items.push({
@@ -265,7 +259,6 @@ export function AdminTaskDashboard({
         });
       }
     });
-
 
     console.log("[AdminTaskDashboard] unifiedItems:", items.length, "from", tasks.length, "tasks +", calendarEvents.length, "events (", calendarEvents.filter(e => e.event_type === "task").length, "of type=task) +", eventAssignments.length, "assignments");
 
@@ -504,7 +497,7 @@ export function AdminTaskDashboard({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold font-display">Task Oversight</h1>
+        <h1 className="text-2xl font-bold font-display">Task Monitor</h1>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           <button type="button" onClick={() => setFilterStatus(filterStatus === "not_started" ? "all" : "not_started")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "not_started" ? "ring-2 ring-ring " : ""}bg-muted text-muted-foreground hover:opacity-80`}>{notStartedCount} not started</button>
           <button type="button" onClick={() => setFilterStatus(filterStatus === "in_progress" ? "all" : "in_progress")} className={`text-xs px-2 py-1 rounded-md transition ${filterStatus === "in_progress" ? "ring-2 ring-ring " : ""}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:opacity-80`}>{inProgressCount} in progress</button>
