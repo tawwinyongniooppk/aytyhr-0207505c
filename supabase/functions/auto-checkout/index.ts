@@ -66,25 +66,16 @@ function isOffDay(profile: any): boolean {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  // Accept CRON_SECRET, service-role, or internal pg_cron (anon apikey).
+  // Cron-only: require CRON_SECRET or service-role. The public anon key is NOT accepted.
   const cronSecret = Deno.env.get("CRON_SECRET");
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const authHeader = req.headers.get("Authorization") ?? "";
-  const apikeyHeader = req.headers.get("apikey") ?? "";
-  if (!authHeader && !apikeyHeader) {
-    console.warn("[auto-checkout] 401 — missing Authorization/apikey header");
-    return new Response(JSON.stringify({ error: "Unauthorized: missing CRON_SECRET" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
   const allowed =
     (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
-    (serviceRole && authHeader === `Bearer ${serviceRole}`) ||
-    (!!anonKey && (authHeader === `Bearer ${anonKey}` || apikeyHeader === anonKey));
+    (serviceRole && authHeader === `Bearer ${serviceRole}`);
   if (!allowed) {
-    console.warn("[auto-checkout] 401 — invalid CRON_SECRET / unauthorized caller");
-    return new Response(JSON.stringify({ error: "Unauthorized: invalid CRON_SECRET" }), {
+    console.warn("[auto-checkout] 401 — invalid/missing CRON_SECRET");
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
