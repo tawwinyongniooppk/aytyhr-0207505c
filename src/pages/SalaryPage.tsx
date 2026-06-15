@@ -330,7 +330,7 @@ export default function SalaryPage() {
       const earlyMin = a.early_minutes ?? 0;
       if (lateMin === 0 && earlyMin === 0) continue;
       const excuses = leaveByDate.get(a.date) ?? new Set<string>();
-      const lateExcused = excuses.has("leave") || excuses.has("late_excuse") || excuses.has("partial_leave");
+      const lateExcused = excuses.has("leave") || excuses.has("late_excuse");
       const earlyExcused = excuses.has("leave") || excuses.has("partial_leave");
       const effLate = lateExcused ? 0 : lateMin;
       const effEarly = earlyExcused ? 0 : earlyMin;
