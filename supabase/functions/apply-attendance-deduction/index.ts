@@ -109,9 +109,10 @@ Deno.serve(async (req) => {
     const hasLateExcuse = types.includes("late_excuse");
     const hasPartialLeave = types.includes("partial_leave");
 
-    // Paid approvals (full leave, late excuse, partial leave) excuse minute-based salary deduction
-    const excused = hasLeave || hasLateExcuse || hasPartialLeave;
-    const lateMin = excused ? 0 : (att.late_minutes ?? 0);
+    // Paid Full Leave or Late Excuse waive the late-minute deduction.
+    // Partial Leave only covers its declared time window — it does NOT excuse a late morning check-in.
+    const lateExcused = hasLeave || hasLateExcuse;
+    const lateMin = lateExcused ? 0 : (att.late_minutes ?? 0);
     const earlyMin = hasLeave || hasPartialLeave ? 0 : computedEarly;
     const deduction = (lateMin * lateRate) + (earlyMin * earlyRate);
 

@@ -135,7 +135,7 @@ export default function SalariesAndBonuses() {
     for (const a of (attRes.data as any[]) || []) {
       const r = rateMap[a.user_id] || { late: 200, early: 200 };
       const excuses = leavesByUserDate.get(`${a.user_id}|${a.date}`) ?? new Set<string>();
-      const lateExcused = excuses.has("leave") || excuses.has("late_excuse") || excuses.has("partial_leave");
+      const lateExcused = excuses.has("leave") || excuses.has("late_excuse");
       const earlyExcused = excuses.has("leave") || excuses.has("partial_leave");
       const lateAmt = lateExcused ? 0 : (a.late_minutes ?? 0) * r.late;
       const earlyAmt = earlyExcused ? 0 : (a.early_minutes ?? 0) * r.early;
