@@ -710,7 +710,7 @@ export default function Attendance() {
 
         notifyAdmins(
           "Staff checked in",
-          `${fullName || "Staff"} checked in${lateMin > 0 ? ` (${lateMin} min late)` : " on time"}`,
+          `${fullName || "Staff"} checked in${lateMin > 0 ? ` (${lateMin} min late · -${(lateMin * settings.deduction_rate_per_minute).toLocaleString()} Ks)` : " on time"}`,
           "/attendance",
         );
 
@@ -718,7 +718,18 @@ export default function Attendance() {
         const estimatedDeduction = lateMin * settings.deduction_rate_per_minute;
         const finalSal = await computeFinalSalary();
         showSalaryNotification(finalSal, estimatedDeduction);
+
+        // Interactive push to the staff member when there's a late-entry deduction
+        if (lateMin > 0 && estimatedDeduction > 0) {
+          sendPush({
+            user_ids: [user.id],
+            title: "Late Entry Deduction",
+            body: `${lateMin} min × ${settings.deduction_rate_per_minute.toLocaleString()} Ks = -${estimatedDeduction.toLocaleString()} Ks`,
+            url: "/salary",
+          });
+        }
       }
+
     } catch (e) {
       console.error("handleCheckIn error:", e);
       toast({
