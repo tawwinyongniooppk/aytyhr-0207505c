@@ -106,7 +106,21 @@ export default function SalaryPage() {
   useEffect(() => {
     if (!user) return;
     loadData();
+    // Realtime: refresh when any of the user's salary-related rows change
+    const ch = supabase
+      .channel(`salary-live-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "attendance", filter: `user_id=eq.${user.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salaries", filter: `user_id=eq.${user.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_deductions", filter: `user_id=eq.${user.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_additions", filter: `user_id=eq.${user.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions", filter: `user_id=eq.${user.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "leave_manual_deductions", filter: `user_id=eq.${user.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests", filter: `user_id=eq.${user.id}` }, () => loadData())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, [user]);
+
+
 
   const loadData = async () => {
     setLoading(true);
@@ -223,16 +237,38 @@ export default function SalaryPage() {
     .filter((a) => (a.kind || "manual") === "manual")
     .reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
   const totalAdditions = autoAdditions + manualAddTotal;
-  const autoDeductions = Math.max(0, Number(salary?.total_deductions ?? 0));
-  const autoForgetCheckoutTotal = manualDeductionsList
-    .filter((d) => (d.source || "manual") === "auto_early_out")
+  // Live auto-deduction from attendance rows (late + early × per-min rates) with paid-leave excuses.
+  // This makes Transaction History and Final Salary update the instant a late check-in is recorded,
+  // without waiting for check-out / the apply-attendance-deduction edge function to persist totals.
+  const attendanceAutoDeduction = (() => {
+    const leaveByDate = new Map<string, Set<string>>();
+    for (const l of approvedLeaves) {
+      if ((l.payment_type ?? "paid") !== "paid") continue;
+      const set = leaveByDate.get(l.date) ?? new Set<string>();
+      set.add(l.type);
+      leaveByDate.set(l.date, set);
+    }
+    let total = 0;
+    for (const a of attendanceRows) {
+      const excuses = leaveByDate.get(a.date) ?? new Set<string>();
+      const lateExcused = excuses.has("leave") || excuses.has("late_excuse") || excuses.has("partial_leave");
+      const earlyExcused = excuses.has("leave") || excuses.has("partial_leave");
+      if (!lateExcused) total += (a.late_minutes ?? 0) * rates.late;
+      if (!earlyExcused) total += (a.early_minutes ?? 0) * rates.early;
+    }
+    return total;
+  })();
+  const isAutoSource = (s: string) => s === "auto_early_out" || s === "partial_leave";
+  const autoExtraTotal = manualDeductionsList
+    .filter((d) => isAutoSource(d.source || "manual"))
     .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
   const manualDeductionTxTotal = manualDeductionsList
-    .filter((d) => (d.source || "manual") !== "auto_early_out")
+    .filter((d) => !isAutoSource(d.source || "manual"))
     .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
   const manualDeductionAmt = Math.max(0, Number(salary?.manual_deduction ?? 0)) + manualDeductionTxTotal;
-  const totalAutoDeductions = autoDeductions + autoForgetCheckoutTotal;
+  const totalAutoDeductions = attendanceAutoDeduction + autoExtraTotal;
   const totalDeductions = totalAutoDeductions + manualDeductionAmt;
+
   const finalSalary = baseSalary + totalBonus + totalAdditions - totalDeductions;
 
 
@@ -333,9 +369,10 @@ export default function SalaryPage() {
 
     const seenForgetCheckoutRows = new Set<string>();
 
-    // Per-transaction manual deductions (e.g. Half Leave approvals)
+    // Per-transaction manual deductions (e.g. Half Leave approvals, Partial Leave auto, Forget-checkout auto)
     for (const d of manualDeductionsList) {
-      if ((d.source || "manual") === "auto_early_out") {
+      const src = d.source || "manual";
+      if (src === "auto_early_out") {
         const deductionDate = getForgetCheckoutDate(d.title, d.created_at);
         const dedupeKey = `${deductionDate}-${Number(d.amount) || 0}`;
         if (seenForgetCheckoutRows.has(dedupeKey)) continue;
@@ -350,6 +387,16 @@ export default function SalaryPage() {
         });
         continue;
       }
+      if (src === "partial_leave") {
+        items.push({
+          id: `auto-partial-${d.id}`,
+          date: getMMTDateISO(d.created_at),
+          type: "auto_deduction",
+          description: d.title,
+          amount: -(Number(d.amount) || 0),
+        });
+        continue;
+      }
 
       items.push({
         id: `smd-${d.id}`,
@@ -359,6 +406,7 @@ export default function SalaryPage() {
         amount: -(Number(d.amount) || 0),
       });
     }
+
 
     // Informational rows for manual leave-day deductions (not a money amount)
     for (const md of manualLeaveDeductions) {
