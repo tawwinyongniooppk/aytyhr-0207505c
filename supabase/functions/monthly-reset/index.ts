@@ -20,33 +20,17 @@ Deno.serve(async (req) => {
   // Destructive guard: ?force=1 still requires CRON_SECRET / service-role.
   const cronSecret = Deno.env.get("CRON_SECRET");
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const authHeader = req.headers.get("Authorization") ?? "";
-  const apikeyHeader = req.headers.get("apikey") ?? "";
-  if (!authHeader && !apikeyHeader) {
-    console.warn("[monthly-reset] 401 — missing Authorization/apikey header");
-    return new Response(JSON.stringify({ error: "Unauthorized: missing CRON_SECRET" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
   const isPrivileged =
     (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
     (serviceRole && authHeader === `Bearer ${serviceRole}`);
-  const isInternalCron =
-    !!anonKey && (authHeader === `Bearer ${anonKey}` || apikeyHeader === anonKey);
+  if (!isPrivileged) {
+    console.warn("[monthly-reset] 401 — invalid/missing CRON_SECRET");
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
   const force = new URL(req.url).searchParams.get("force") === "1";
-  if (!isPrivileged && !isInternalCron) {
-    console.warn("[monthly-reset] 401 — invalid CRON_SECRET / unauthorized caller");
-    return new Response(JSON.stringify({ error: "Unauthorized: invalid CRON_SECRET" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  if (force && !isPrivileged) {
-    console.warn("[monthly-reset] 401 — ?force=1 requires CRON_SECRET/service-role");
-    return new Response(JSON.stringify({ error: "Unauthorized: force requires CRON_SECRET" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
 
   try {
     const supabase = createClient(
