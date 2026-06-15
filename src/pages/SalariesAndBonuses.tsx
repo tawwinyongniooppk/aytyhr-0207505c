@@ -51,6 +51,8 @@ export default function SalariesAndBonuses() {
   const [salaryMap, setSalaryMap] = useState<Record<string, SalaryRecord>>({});
   const [bonusEarnedMap, setBonusEarnedMap] = useState<Record<string, number>>({});
   const [additionsMap, setAdditionsMap] = useState<Record<string, ManualAddition[]>>({});
+  const [autoDeductMap, setAutoDeductMap] = useState<Record<string, number>>({});
+  const [manualDeductExtraMap, setManualDeductExtraMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ bonus: "0", manual_deduction: "0", deduction_reason: "" });
@@ -64,23 +66,42 @@ export default function SalariesAndBonuses() {
   useEffect(() => {
     if (!user) return;
     load();
+    const ch = supabase
+      .channel("admin-salaries-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "salaries" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "attendance" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_deductions" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_additions" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests" }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, [user]);
 
   const load = async () => {
     setLoading(true);
     const monthStart = getMonthStart();
-    const [profilesRes, salariesRes, bonusTxRes, additionsRes] = await Promise.all([
+    const [profilesRes, salariesRes, bonusTxRes, additionsRes, attRes, leavesRes, smdRes] = await Promise.all([
       supabase.rpc("admin_list_profiles"),
       supabase.from("salaries").select("*").eq("month", monthStart),
       supabase.from("bonus_transactions").select("user_id, amount").eq("month", monthStart),
       supabase.from("salary_manual_additions").select("*").eq("month", monthStart).order("created_at", { ascending: false }),
+      supabase.from("attendance").select("user_id, date, late_minutes, early_minutes").gte("date", monthStart),
+      supabase.from("leave_requests").select("user_id, date, type, payment_type, status").eq("status", "approved").gte("date", monthStart),
+      (supabase as any).from("salary_manual_deductions").select("user_id, amount, source").eq("month", monthStart),
     ]);
-    if (profilesRes.data) {
-      const filtered = (profilesRes.data as any[]).filter(
-        (p) => p.role !== "it_manager" && p.role !== "admin" && p.id !== user?.id
-      );
-      setStaff(filtered as StaffRow[]);
+    const profilesData = (profilesRes.data as any[]) || [];
+    const rateMap: Record<string, { late: number; early: number }> = {};
+    for (const p of profilesData) {
+      const legacy = Number(p.deduction_rate_per_minute) || 200;
+      rateMap[p.id] = {
+        late: Number(p.late_deduction_per_minute) || legacy,
+        early: Number(p.early_deduction_per_minute) || legacy,
+      };
     }
+    const filtered = profilesData.filter((p) => p.role !== "it_manager" && p.role !== "admin" && p.id !== user?.id);
+    setStaff(filtered as StaffRow[]);
+
     if (salariesRes.data) {
       const map: Record<string, SalaryRecord> = {};
       (salariesRes.data as unknown as SalaryRecord[]).forEach((s) => { map[s.user_id] = s; });
@@ -100,8 +121,42 @@ export default function SalariesAndBonuses() {
       });
       setAdditionsMap(map);
     }
+
+    // Live auto-deduction from attendance × per-min rates, with paid-leave excuses
+    const leavesByUserDate = new Map<string, Set<string>>();
+    for (const l of (leavesRes.data as any[]) || []) {
+      if ((l.payment_type ?? "paid") !== "paid") continue;
+      const k = `${l.user_id}|${l.date}`;
+      const set = leavesByUserDate.get(k) ?? new Set<string>();
+      set.add(l.type);
+      leavesByUserDate.set(k, set);
+    }
+    const autoMap: Record<string, number> = {};
+    for (const a of (attRes.data as any[]) || []) {
+      const r = rateMap[a.user_id] || { late: 200, early: 200 };
+      const excuses = leavesByUserDate.get(`${a.user_id}|${a.date}`) ?? new Set<string>();
+      const lateExcused = excuses.has("leave") || excuses.has("late_excuse") || excuses.has("partial_leave");
+      const earlyExcused = excuses.has("leave") || excuses.has("partial_leave");
+      const lateAmt = lateExcused ? 0 : (a.late_minutes ?? 0) * r.late;
+      const earlyAmt = earlyExcused ? 0 : (a.early_minutes ?? 0) * r.early;
+      autoMap[a.user_id] = (autoMap[a.user_id] || 0) + lateAmt + earlyAmt;
+    }
+    // Add auto-source manual_deductions (partial_leave, auto_early_out) to auto bucket; rest to manual extras
+    const manExtra: Record<string, number> = {};
+    for (const d of (smdRes as any).data || []) {
+      const src = d.source || "manual";
+      const amt = Number(d.amount) || 0;
+      if (src === "auto_early_out" || src === "partial_leave") {
+        autoMap[d.user_id] = (autoMap[d.user_id] || 0) + amt;
+      } else {
+        manExtra[d.user_id] = (manExtra[d.user_id] || 0) + amt;
+      }
+    }
+    setAutoDeductMap(autoMap);
+    setManualDeductExtraMap(manExtra);
     setLoading(false);
   };
+
 
   const additionTotal = (uid: string, kind?: "manual" | "auto") =>
     (additionsMap[uid] || [])
