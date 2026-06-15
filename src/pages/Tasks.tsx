@@ -188,20 +188,33 @@ export default function Tasks() {
         void extraEventIds;
 
       } else {
-        // Admin View - DB ဝန်သက်သာအောင် ပြီးခဲ့သမျှအကုန်လုံး မယူဘဲ အသစ်ဆုံးအခု ၁၀၀/၁၅၀ ဝန်းကျင်ပဲ ကန့်သတ်ယူပါတယ်
-        const [tasksRes, profilesRes, evRes, assRes] = await Promise.all([
-          supabase.from("tasks").select("*").order("created_at", { ascending: false }).limit(150),
-          profilesPromise,
-          supabase.from("calendar_events").select("*").order("start_date", { ascending: false }).limit(100),
+        // Admin View — current month onward (plus any still-active items whose
+        // end_date is in the current/future month). No hard row caps, so newly
+        // assigned tasks and recently completed units always appear.
+        const monthStart = (() => {
+          const d = new Date();
+          return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+        })();
+
+        const [tasksRes, profilesRes, evRes] = await Promise.all([
+          // Tasks: include anything created this month OR still due this month/later
           supabase
-            .from("calendar_event_assignments")
-            .select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by")
-            .order("submitted_at", { ascending: false })
-            .limit(150),
+            .from("tasks")
+            .select("*")
+            .or(`created_at.gte.${monthStart},due_date.gte.${monthStart}`)
+            .order("created_at", { ascending: false }),
+          profilesPromise,
+          // Calendar events: anything that is active in (or after) the current month
+          supabase
+            .from("calendar_events")
+            .select("*")
+            .gte("end_date", monthStart)
+            .order("start_date", { ascending: false }),
         ]);
 
         if (tasksRes.error) console.error("[Tasks] tasks fetch error:", tasksRes.error);
         if (profilesRes.error) console.error("[Tasks] profiles fetch error:", profilesRes.error);
+        if (evRes.error) console.error("[Tasks] events fetch error:", evRes.error);
 
         const names: Record<string, string> = {};
         if (profilesRes.data) {
@@ -213,9 +226,23 @@ export default function Tasks() {
           setStaffNames(names);
         }
 
+        const events = (evRes.data as CalEvent[]) || [];
+
+        // Assignments scoped to the fetched events — guarantees every visible
+        // event has its full assignment set (no row-limit truncation).
+        let assignments: EventAssignment[] = [];
+        if (events.length > 0) {
+          const { data: assRows, error: assErr } = await supabase
+            .from("calendar_event_assignments")
+            .select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by")
+            .in("event_id", events.map((e) => e.id));
+          if (assErr) console.error("[Tasks] assignments fetch error:", assErr);
+          assignments = (assRows as EventAssignment[]) || [];
+        }
+
         setTasks((tasksRes.data as TaskRow[]) || []);
-        setCalendarEvents((evRes.data as CalEvent[]) || []);
-        setEventAssignments((assRes.data as EventAssignment[]) || []);
+        setCalendarEvents(events);
+        setEventAssignments(assignments);
       }
     } catch (e) {
       console.error("[Tasks] loadData exception:", e);
