@@ -369,9 +369,10 @@ export default function SalaryPage() {
 
     const seenForgetCheckoutRows = new Set<string>();
 
-    // Per-transaction manual deductions (e.g. Half Leave approvals)
+    // Per-transaction manual deductions (e.g. Half Leave approvals, Partial Leave auto, Forget-checkout auto)
     for (const d of manualDeductionsList) {
-      if ((d.source || "manual") === "auto_early_out") {
+      const src = d.source || "manual";
+      if (src === "auto_early_out") {
         const deductionDate = getForgetCheckoutDate(d.title, d.created_at);
         const dedupeKey = `${deductionDate}-${Number(d.amount) || 0}`;
         if (seenForgetCheckoutRows.has(dedupeKey)) continue;
@@ -386,6 +387,16 @@ export default function SalaryPage() {
         });
         continue;
       }
+      if (src === "partial_leave") {
+        items.push({
+          id: `auto-partial-${d.id}`,
+          date: getMMTDateISO(d.created_at),
+          type: "auto_deduction",
+          description: d.title,
+          amount: -(Number(d.amount) || 0),
+        });
+        continue;
+      }
 
       items.push({
         id: `smd-${d.id}`,
@@ -395,6 +406,7 @@ export default function SalaryPage() {
         amount: -(Number(d.amount) || 0),
       });
     }
+
 
     // Informational rows for manual leave-day deductions (not a money amount)
     for (const md of manualLeaveDeductions) {
