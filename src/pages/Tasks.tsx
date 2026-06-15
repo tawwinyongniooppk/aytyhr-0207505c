@@ -112,13 +112,27 @@ export default function Tasks() {
         .order("full_name", { ascending: true });
 
       if (isStaff) {
-        const [tasksRes, profilesRes, assRes] = await Promise.all([
+        const monthStart = (() => {
+          const d = new Date();
+          return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+        })();
+        const [tasksRes, profilesRes, ownAssRes, publicEvRes] = await Promise.all([
           supabase.from("tasks").select("*").eq("assignee_id", user.id).order("created_at", { ascending: false }),
           profilesPromise,
           supabase
             .from("calendar_event_assignments")
             .select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by")
             .eq("user_id", user.id),
+          // Team-visible task events for the current month onward — for the
+          // separate "Team Tasks" card. Staff can see these per the updated
+          // RLS policy on calendar_event_assignments.
+          supabase
+            .from("calendar_events")
+            .select("*")
+            .eq("event_type", "task")
+            .eq("visibility", "public")
+            .gte("start_date", monthStart)
+            .order("start_date", { ascending: false }),
         ]);
 
         if (tasksRes.error) console.error("[Tasks] tasks fetch error:", tasksRes.error);
@@ -133,21 +147,46 @@ export default function Tasks() {
           setStaffList(profilesRes.data.filter((p: any) => p.role === "staff"));
         }
 
-        const assignments = (assRes.data as EventAssignment[]) || [];
-        setEventAssignments(assignments);
+        const ownAssignments = (ownAssRes.data as EventAssignment[]) || [];
         setTasks((tasksRes.data as TaskRow[]) || []);
 
-        const eventIds = Array.from(new Set(assignments.map((a) => a.event_id))).filter(Boolean);
-        if (eventIds.length > 0) {
-          const evRes = await supabase
+        const publicEvents = (publicEvRes.data as CalEvent[]) || [];
+        const ownEventIds = new Set(ownAssignments.map((a) => a.event_id));
+        const extraEventIds = publicEvents
+          .map((e) => e.id)
+          .filter((id) => !ownEventIds.has(id));
+
+        // Pull all assignments for team-visible events so we can show who is
+        // working on them (read-only) in the Team Tasks card.
+        let teamAssignments: EventAssignment[] = [];
+        if (publicEvents.length > 0) {
+          const { data: teamAss } = await supabase
+            .from("calendar_event_assignments")
+            .select("id, event_id, user_id, submission_status, submitted_at, approved_at, approved_by")
+            .in("event_id", publicEvents.map((e) => e.id));
+          teamAssignments = (teamAss as EventAssignment[]) || [];
+        }
+
+        // Merge: own + team assignments (dedupe by id), so myCalendarTasks still works.
+        const mergedAss = new Map<string, EventAssignment>();
+        [...ownAssignments, ...teamAssignments].forEach((a) => mergedAss.set(a.id, a));
+        setEventAssignments(Array.from(mergedAss.values()));
+
+        // Fetch own event details (older than this month may not appear in public window)
+        const ownOnlyMissing = Array.from(ownEventIds).filter(
+          (id) => !publicEvents.some((e) => e.id === id),
+        );
+        let ownEvents: CalEvent[] = [];
+        if (ownOnlyMissing.length > 0) {
+          const { data: evRes } = await supabase
             .from("calendar_events")
             .select("*")
-            .in("id", eventIds)
-            .order("start_date", { ascending: false });
-          setCalendarEvents((evRes.data as CalEvent[]) || []);
-        } else {
-          setCalendarEvents([]);
+            .in("id", ownOnlyMissing);
+          ownEvents = (evRes as CalEvent[]) || [];
         }
+        setCalendarEvents([...publicEvents, ...ownEvents]);
+        void extraEventIds;
+
       } else {
         // Admin View - DB ဝန်သက်သာအောင် ပြီးခဲ့သမျှအကုန်လုံး မယူဘဲ အသစ်ဆုံးအခု ၁၀၀/၁၅၀ ဝန်းကျင်ပဲ ကန့်သတ်ယူပါတယ်
         const [tasksRes, profilesRes, evRes, assRes] = await Promise.all([
