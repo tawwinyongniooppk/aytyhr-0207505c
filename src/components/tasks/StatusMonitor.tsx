@@ -1,18 +1,10 @@
-// Status Monitor — shown at the bottom of the Staff "My Tasks" page so each
-// staff can see their own + everyone else's progress across the current month.
-// Status counts only; NO bonus/financial figures are surfaced here.
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Activity } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
-import {
-  STATUS_COLUMNS,
-  computeMemberStats,
-  emptyMemberStats,
-  type MemberStats,
-} from "@/lib/taskStatusStats";
+import { getMMTMonthStartISO } from "@/lib/mmt";
+import { STATUS_COLUMNS, emptyMemberStats, type MemberStats } from "@/lib/taskStatusStats";
 
 interface StaffLite {
   id: string;
@@ -20,12 +12,14 @@ interface StaffLite {
   sequence?: number | null;
 }
 
+interface MonitorRow extends StaffLite, MemberStats {}
+
 const MONTHLY_WEIGHT_CAP = 4;
 
 export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<Record<string, MemberStats>>({});
+  const [rows, setRows] = useState<MonitorRow[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,30 +27,25 @@ export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
       try {
         setLoading(true);
         const monthStart = getMMTMonthStartISO();
-        const [y, m] = monthStart.split("-").map(Number);
-        const ny = m === 12 ? y + 1 : y;
-        const nm = m === 12 ? 1 : m + 1;
-        const nextMonthStart = `${ny}-${String(nm).padStart(2, "0")}-01`;
-        const today = getMMTTodayISO();
+        const { data, error } = await (supabase as any).rpc("get_task_status_monitor", {
+          p_month_start: monthStart,
+        });
+        if (error) throw error;
 
-        const { data: evs } = await supabase
-          .from("calendar_events")
-          .select("id, start_date, end_date")
-          .eq("event_type", "task")
-          .gte("start_date", monthStart)
-          .lt("start_date", nextMonthStart);
-        const events = (evs as { id: string; start_date: string; end_date: string }[]) || [];
-
-        let assignments: any[] = [];
-        if (events.length > 0) {
-          const { data: ass } = await supabase
-            .from("calendar_event_assignments")
-            .select("user_id, event_id, submission_status, approved_at")
-            .in("event_id", events.map((e) => e.id));
-          assignments = (ass as any[]) || [];
+        if (!cancelled) {
+          setRows(((data as any[]) || []).map((r) => ({
+            id: r.user_id,
+            full_name: r.full_name || "Unnamed",
+            sequence: r.sequence,
+            newTask: Number(r.new_task || 0),
+            inProgress: Number(r.in_progress || 0),
+            submitted: Number(r.submitted || 0),
+            approved: Number(r.approved || 0),
+            overdue: Number(r.overdue || 0),
+            reject: Number(r.reject || 0),
+            allDone: Number(r.all_done || 0),
+          })));
         }
-
-        if (!cancelled) setStats(computeMemberStats(events, assignments, today));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -64,6 +53,8 @@ export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
     load();
     return () => { cancelled = true; };
   }, []);
+
+  const displayRows = rows.length > 0 ? rows : staffList.map((s) => ({ ...s, ...emptyMemberStats() }));
 
   return (
     <Card className="border border-border shadow-sm">
@@ -80,16 +71,16 @@ export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        ) : staffList.length === 0 ? (
+        ) : displayRows.length === 0 ? (
           <p className="text-sm text-muted-foreground p-3">No staff found.</p>
         ) : (
           <div className="space-y-2">
-            {[...staffList].sort((a, b) => {
+            {[...displayRows].sort((a, b) => {
               if (user && a.id === user.id) return -1;
               if (user && b.id === user.id) return 1;
               return (a.sequence ?? 999) - (b.sequence ?? 999);
             }).map((s) => {
-              const st = stats[s.id] || emptyMemberStats();
+              const st = s || emptyMemberStats();
               const totalDone = Math.min(st.allDone, MONTHLY_WEIGHT_CAP);
               return (
                 <div key={s.id} className={`rounded-md border px-3 py-2 ${user && s.id === user.id ? "border-primary/50 bg-primary/5" : "border-border bg-background"}`}>
