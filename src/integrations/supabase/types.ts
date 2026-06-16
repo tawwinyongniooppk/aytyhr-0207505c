@@ -814,10 +814,12 @@ export type Database = {
         Returns: {
           all_done: number
           approved: number
+          full_name: string
           in_progress: number
           new_task: number
           overdue: number
           reject: number
+          sequence: number
           submitted: number
           user_id: string
         }[]
