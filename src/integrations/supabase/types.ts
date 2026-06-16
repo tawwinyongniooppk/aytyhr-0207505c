@@ -809,6 +809,19 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_task_status_monitor: {
+        Args: { p_month_start: string }
+        Returns: {
+          all_done: number
+          approved: number
+          in_progress: number
+          new_task: number
+          overdue: number
+          reject: number
+          submitted: number
+          user_id: string
+        }[]
+      }
       is_admin_or_assistant: { Args: never; Returns: boolean }
       is_it_manager: { Args: never; Returns: boolean }
       is_privileged_user: { Args: never; Returns: boolean }
