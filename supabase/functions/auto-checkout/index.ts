@@ -114,9 +114,25 @@ Deno.serve(async (req) => {
     const userIds = Array.from(new Set(open.map((r: any) => r.user_id)));
     const { data: profiles } = await admin
       .from("profiles")
-      .select("id, base_salary, work_day, check_out_time, work_schedule, deduction_rate_per_minute, early_deduction_per_minute")
+      .select("id, full_name, base_salary, work_day, check_out_time, work_schedule, deduction_rate_per_minute, early_deduction_per_minute")
       .in("id", userIds);
     const profileMap = new Map<string, any>((profiles ?? []).map((p: any) => [p.id, p]));
+    const { data: adminRows } = await admin.from("profiles").select("id").in("role", ["admin", "assistant"]);
+    const adminIds = (adminRows ?? []).map((r: any) => r.id);
+
+    async function notify(ids: string[], title: string, body: string, url = "/salary") {
+      const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+      if (!uniqueIds.length) return;
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceRoleKey}` },
+          body: JSON.stringify({ user_ids: uniqueIds, title, body, url }),
+        });
+      } catch (e) {
+        console.warn("[auto-checkout] notify failed", e);
+      }
+    }
 
     const results: any[] = [];
 
@@ -192,6 +208,12 @@ Deno.serve(async (req) => {
       if (txErr && txErr.code !== "23505") {
         console.warn("[auto-checkout] deduction transaction insert failed", txErr);
       }
+
+      await notify(
+        [att.user_id, ...adminIds],
+        "Forget to Check out — Auto Deduction",
+        `${profile.full_name || "Staff"} အတွက် ${penalty.toLocaleString()} MMK flat deduction ဝင်ထားပါသည်။`,
+      );
 
       results.push({ user_id: att.user_id, penalty, check_out_time: autoCheckOutISO });
     }
