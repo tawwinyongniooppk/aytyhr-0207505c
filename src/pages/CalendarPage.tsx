@@ -81,7 +81,7 @@ export default function CalendarPage() {
     allStaff: true,
     assignedIds: [] as string[],
     frequency: "weekly" as "weekly" | "biweekly",
-    assignMode: "everyone" as "everyone" | "single_private" | "single_public",
+    assignMode: "everyone" as "everyone" | "single_private",
   });
 
   function addDaysISO(dateStr: string, days: number) {
@@ -437,8 +437,7 @@ export default function CalendarPage() {
       // Mode → visibility:
       //  - everyone: assigned to all staff (private record, but every staff has an assignment)
       //  - single_private: assigned to one staff, only that staff sees it
-      //  - single_public: assigned to one staff, visible to the whole team
-      const visibility = form.assignMode === "single_public" ? "public" : "private";
+      const visibility = "private";
       const isAllStaff = form.assignMode === "everyone";
 
       const { data: ev, error } = await supabase
@@ -623,13 +622,6 @@ export default function CalendarPage() {
                       <div>
                         <p className="text-sm font-medium">Assign to one person only</p>
                         <p className="text-xs text-muted-foreground">Only the chosen staff sees this task.</p>
-                      </div>
-                    </label>
-                    <label className={`flex items-start gap-2 p-3 rounded-md border cursor-pointer transition ${form.assignMode === "single_public" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"}`}>
-                      <RadioGroupItem value="single_public" className="mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium">Assign to one — visible to team</p>
-                        <p className="text-xs text-muted-foreground">One staff is responsible; the rest can see it.</p>
                       </div>
                     </label>
                   </RadioGroup>
