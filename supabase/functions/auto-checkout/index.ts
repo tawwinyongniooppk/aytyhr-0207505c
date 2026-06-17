@@ -180,6 +180,19 @@ Deno.serve(async (req) => {
         last_updated: new Date().toISOString(),
       }).eq("user_id", att.user_id).eq("month", monthStart);
 
+      const txTitle = `Forget to Check out (${today})`;
+      const { error: txErr } = await admin.from("salary_manual_deductions").insert({
+        user_id: att.user_id,
+        month: monthStart,
+        title: txTitle,
+        amount: penalty,
+        source: "auto_early_out",
+        created_by: att.user_id,
+      });
+      if (txErr && txErr.code !== "23505") {
+        console.warn("[auto-checkout] deduction transaction insert failed", txErr);
+      }
+
       results.push({ user_id: att.user_id, penalty, check_out_time: autoCheckOutISO });
     }
 
