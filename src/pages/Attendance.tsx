@@ -417,7 +417,7 @@ export default function Attendance() {
         supabase.from("bonus_transactions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("salary_manual_additions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("profiles").select("base_salary").eq("id", user!.id).maybeSingle(),
-        (supabase as any).from("salary_manual_deductions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
+        (supabase as any).from("salary_manual_deductions").select("amount, source").eq("user_id", user!.id).eq("month", monthStart),
       ]);
 
       if (attRes.data) {
@@ -436,7 +436,9 @@ export default function Attendance() {
         const base = Number(sal?.base_salary ?? (profSalRes.data as any)?.base_salary ?? 0);
         const auto = Number(sal?.total_deductions ?? 0);
         const manual = Number(sal?.manual_deduction ?? 0);
-        const extraDed = ((smdRes as any).data as any[] | null)?.reduce((s, d) => s + (Number(d.amount) || 0), 0) ?? 0;
+        const extraDed = ((smdRes as any).data as any[] | null)
+          ?.filter((d) => (d.source || "manual") !== "auto_early_out")
+          .reduce((s, d) => s + (Number(d.amount) || 0), 0) ?? 0;
         const current = base + earnedBonus + additions - auto - manual - extraDed;
         setSalary({ base_salary: base, current_salary: current, total_deductions: auto + manual + extraDed });
       }
@@ -514,7 +516,7 @@ export default function Attendance() {
         supabase.from("bonus_transactions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("salary_manual_additions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("profiles").select("base_salary").eq("id", user!.id).maybeSingle(),
-        (supabase as any).from("salary_manual_deductions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
+        (supabase as any).from("salary_manual_deductions").select("amount, source").eq("user_id", user!.id).eq("month", monthStart),
       ]);
       const sal = salRes.data as any;
       const base = Number(sal?.base_salary ?? (profSalRes.data as any)?.base_salary ?? 0);
@@ -522,7 +524,9 @@ export default function Attendance() {
       const additions = (addRes.data as any[] | null)?.reduce((s, a) => s + (Number(a.amount) || 0), 0) ?? 0;
       const auto = Number(sal?.total_deductions ?? 0);
       const manual = Number(sal?.manual_deduction ?? 0);
-      const extraDed = ((smdRes as any).data as any[] | null)?.reduce((s, d) => s + (Number(d.amount) || 0), 0) ?? 0;
+      const extraDed = ((smdRes as any).data as any[] | null)
+        ?.filter((d) => (d.source || "manual") !== "auto_early_out")
+        .reduce((s, d) => s + (Number(d.amount) || 0), 0) ?? 0;
       return base + earnedBonus + additions - auto - manual - extraDed;
     } catch {
       return 0;
@@ -680,8 +684,6 @@ export default function Attendance() {
         user_id: user.id,
         date: today,
         check_in_time: now.toISOString(),
-        late_minutes: lateMin,
-        deduction_applied: false,
         location_status: locationStatus || null,
       };
 
@@ -696,7 +698,9 @@ export default function Attendance() {
       if (error) {
         toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
       } else {
-        setRecord(data as unknown as AttendanceRecord);
+        const savedRecord = data as unknown as AttendanceRecord;
+        const actualLateMin = savedRecord.late_minutes ?? lateMin;
+        setRecord(savedRecord);
         setCheckInNotice("Checked in successfully");
         setCheckOutNotice(null);
         const sal = await ensureSalaryRecord();
@@ -705,26 +709,26 @@ export default function Attendance() {
         const overrideNote = (geoDenied || geoError) && isAdmin ? " (Admin override)" : "";
         toast({
           title:
-            lateMin > 0 ? `Checked in (${lateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}`,
+            actualLateMin > 0 ? `Checked in (${actualLateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}`,
         });
 
         notifyAdmins(
           "Staff checked in",
-          `${fullName || "Staff"} checked in${lateMin > 0 ? ` (${lateMin} min late · -${(lateMin * settings.deduction_rate_per_minute).toLocaleString()} Ks)` : " on time"}`,
+          `${fullName || "Staff"} checked in${actualLateMin > 0 ? ` (${actualLateMin} min late · -${(actualLateMin * settings.deduction_rate_per_minute).toLocaleString()} Ks)` : " on time"}`,
           "/attendance",
         );
 
         // Show salary notification after check-in
-        const estimatedDeduction = lateMin * settings.deduction_rate_per_minute;
+        const estimatedDeduction = actualLateMin * settings.deduction_rate_per_minute;
         const finalSal = await computeFinalSalary();
         showSalaryNotification(finalSal, estimatedDeduction);
 
         // Interactive push to the staff member when there's a late-entry deduction
-        if (lateMin > 0 && estimatedDeduction > 0) {
+        if (actualLateMin > 0 && estimatedDeduction > 0) {
           sendPush({
             user_ids: [user.id],
             title: "Late Entry Deduction",
-            body: `${lateMin} min × ${settings.deduction_rate_per_minute.toLocaleString()} Ks = -${estimatedDeduction.toLocaleString()} Ks`,
+            body: `${actualLateMin} min × ${settings.deduction_rate_per_minute.toLocaleString()} Ks = -${estimatedDeduction.toLocaleString()} Ks`,
             url: "/salary",
           });
         }
