@@ -417,7 +417,7 @@ export default function Attendance() {
         supabase.from("bonus_transactions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("salary_manual_additions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("profiles").select("base_salary").eq("id", user!.id).maybeSingle(),
-        (supabase as any).from("salary_manual_deductions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
+        (supabase as any).from("salary_manual_deductions").select("amount, source").eq("user_id", user!.id).eq("month", monthStart),
       ]);
 
       if (attRes.data) {
@@ -436,7 +436,9 @@ export default function Attendance() {
         const base = Number(sal?.base_salary ?? (profSalRes.data as any)?.base_salary ?? 0);
         const auto = Number(sal?.total_deductions ?? 0);
         const manual = Number(sal?.manual_deduction ?? 0);
-        const extraDed = ((smdRes as any).data as any[] | null)?.reduce((s, d) => s + (Number(d.amount) || 0), 0) ?? 0;
+        const extraDed = ((smdRes as any).data as any[] | null)
+          ?.filter((d) => (d.source || "manual") !== "auto_early_out")
+          .reduce((s, d) => s + (Number(d.amount) || 0), 0) ?? 0;
         const current = base + earnedBonus + additions - auto - manual - extraDed;
         setSalary({ base_salary: base, current_salary: current, total_deductions: auto + manual + extraDed });
       }
@@ -514,7 +516,7 @@ export default function Attendance() {
         supabase.from("bonus_transactions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("salary_manual_additions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("profiles").select("base_salary").eq("id", user!.id).maybeSingle(),
-        (supabase as any).from("salary_manual_deductions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
+        (supabase as any).from("salary_manual_deductions").select("amount, source").eq("user_id", user!.id).eq("month", monthStart),
       ]);
       const sal = salRes.data as any;
       const base = Number(sal?.base_salary ?? (profSalRes.data as any)?.base_salary ?? 0);
@@ -522,7 +524,9 @@ export default function Attendance() {
       const additions = (addRes.data as any[] | null)?.reduce((s, a) => s + (Number(a.amount) || 0), 0) ?? 0;
       const auto = Number(sal?.total_deductions ?? 0);
       const manual = Number(sal?.manual_deduction ?? 0);
-      const extraDed = ((smdRes as any).data as any[] | null)?.reduce((s, d) => s + (Number(d.amount) || 0), 0) ?? 0;
+      const extraDed = ((smdRes as any).data as any[] | null)
+        ?.filter((d) => (d.source || "manual") !== "auto_early_out")
+        .reduce((s, d) => s + (Number(d.amount) || 0), 0) ?? 0;
       return base + earnedBonus + additions - auto - manual - extraDed;
     } catch {
       return 0;
@@ -680,8 +684,6 @@ export default function Attendance() {
         user_id: user.id,
         date: today,
         check_in_time: now.toISOString(),
-        late_minutes: lateMin,
-        deduction_applied: false,
         location_status: locationStatus || null,
       };
 
