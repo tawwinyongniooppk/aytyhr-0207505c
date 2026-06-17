@@ -698,7 +698,9 @@ export default function Attendance() {
       if (error) {
         toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
       } else {
-        setRecord(data as unknown as AttendanceRecord);
+        const savedRecord = data as unknown as AttendanceRecord;
+        const actualLateMin = savedRecord.late_minutes ?? lateMin;
+        setRecord(savedRecord);
         setCheckInNotice("Checked in successfully");
         setCheckOutNotice(null);
         const sal = await ensureSalaryRecord();
@@ -707,26 +709,26 @@ export default function Attendance() {
         const overrideNote = (geoDenied || geoError) && isAdmin ? " (Admin override)" : "";
         toast({
           title:
-            lateMin > 0 ? `Checked in (${lateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}`,
+            actualLateMin > 0 ? `Checked in (${actualLateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}`,
         });
 
         notifyAdmins(
           "Staff checked in",
-          `${fullName || "Staff"} checked in${lateMin > 0 ? ` (${lateMin} min late · -${(lateMin * settings.deduction_rate_per_minute).toLocaleString()} Ks)` : " on time"}`,
+          `${fullName || "Staff"} checked in${actualLateMin > 0 ? ` (${actualLateMin} min late · -${(actualLateMin * settings.deduction_rate_per_minute).toLocaleString()} Ks)` : " on time"}`,
           "/attendance",
         );
 
         // Show salary notification after check-in
-        const estimatedDeduction = lateMin * settings.deduction_rate_per_minute;
+        const estimatedDeduction = actualLateMin * settings.deduction_rate_per_minute;
         const finalSal = await computeFinalSalary();
         showSalaryNotification(finalSal, estimatedDeduction);
 
         // Interactive push to the staff member when there's a late-entry deduction
-        if (lateMin > 0 && estimatedDeduction > 0) {
+        if (actualLateMin > 0 && estimatedDeduction > 0) {
           sendPush({
             user_ids: [user.id],
             title: "Late Entry Deduction",
-            body: `${lateMin} min × ${settings.deduction_rate_per_minute.toLocaleString()} Ks = -${estimatedDeduction.toLocaleString()} Ks`,
+            body: `${actualLateMin} min × ${settings.deduction_rate_per_minute.toLocaleString()} Ks = -${estimatedDeduction.toLocaleString()} Ks`,
             url: "/salary",
           });
         }
