@@ -538,23 +538,48 @@ export default function Attendance() {
   const computeFinalSalary = async (): Promise<number> => {
     try {
       const monthStart = getMonthStart();
-      const [salRes, bonusRes, addRes, profSalRes, smdRes] = await Promise.all([
-        supabase.from("salaries").select("base_salary, total_deductions, manual_deduction").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
+      const [salRes, bonusRes, addRes, profSalRes, smdRes, monthAttRes, leavesRes, ratesRes] = await Promise.all([
+        supabase.from("salaries").select("base_salary, manual_deduction").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
         supabase.from("bonus_transactions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("salary_manual_additions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("profiles").select("base_salary").eq("id", user!.id).maybeSingle(),
         (supabase as any).from("salary_manual_deductions").select("amount, source").eq("user_id", user!.id).eq("month", monthStart),
+        supabase.from("attendance").select("date, late_minutes, early_minutes").eq("user_id", user!.id).gte("date", monthStart),
+        supabase.from("leave_requests").select("date, type, payment_type, status").eq("user_id", user!.id).eq("status", "approved").gte("date", monthStart),
+        supabase.from("profiles").select("late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute").eq("id", user!.id).maybeSingle(),
       ]);
       const sal = salRes.data as any;
       const base = Number(sal?.base_salary ?? (profSalRes.data as any)?.base_salary ?? 0);
       const earnedBonus = (bonusRes.data as any[] | null)?.reduce((s, b) => s + (Number(b.amount) || 0), 0) ?? 0;
       const additions = (addRes.data as any[] | null)?.reduce((s, a) => s + (Number(a.amount) || 0), 0) ?? 0;
-      const auto = Number(sal?.total_deductions ?? 0);
       const manual = Number(sal?.manual_deduction ?? 0);
-      const extraDed = ((smdRes as any).data as any[] | null)
-        ?.filter((d) => (d.source || "manual") !== "auto_early_out")
-        .reduce((s, d) => s + (Number(d.amount) || 0), 0) ?? 0;
-      return base + earnedBonus + additions - auto - manual - extraDed;
+      const rp = ratesRes.data as any;
+      const legacyRate = Number(rp?.deduction_rate_per_minute) || 200;
+      const lateRate = Number(rp?.late_deduction_per_minute) || legacyRate;
+      const earlyRate = Number(rp?.early_deduction_per_minute) || legacyRate;
+      const leaveByDate = new Map<string, Set<string>>();
+      for (const l of ((leavesRes.data as any[]) || [])) {
+        if ((l.payment_type ?? "paid") !== "paid") continue;
+        const s = leaveByDate.get(l.date) ?? new Set<string>();
+        s.add(l.type);
+        leaveByDate.set(l.date, s);
+      }
+      let attAuto = 0;
+      for (const a of ((monthAttRes.data as any[]) || [])) {
+        const ex = leaveByDate.get(a.date) ?? new Set<string>();
+        const lateExc = ex.has("leave") || ex.has("late_excuse");
+        const earlyExc = ex.has("leave") || ex.has("partial_leave");
+        if (!lateExc) attAuto += (a.late_minutes ?? 0) * lateRate;
+        if (!earlyExc) attAuto += (a.early_minutes ?? 0) * earlyRate;
+      }
+      const smdRows = ((smdRes as any).data as any[] | null) ?? [];
+      const autoSmd = smdRows
+        .filter((d) => d.source === "auto_early_out" || d.source === "partial_leave")
+        .reduce((s, d) => s + (Number(d.amount) || 0), 0);
+      const manualSmd = smdRows
+        .filter((d) => d.source !== "auto_early_out" && d.source !== "partial_leave")
+        .reduce((s, d) => s + (Number(d.amount) || 0), 0);
+      return base + earnedBonus + additions - attAuto - autoSmd - manual - manualSmd;
     } catch {
       return 0;
     }
