@@ -191,6 +191,13 @@ Deno.serve(async (req) => {
       if (claimErr) throw claimErr;
       if (!claimedAttendance) continue;
 
+      // If a partial leave already covered the check-out time, just close the
+      // attendance row silently — no salary deduction, no notification.
+      if (penalty === 0) {
+        results.push({ user_id: att.user_id, penalty: 0, check_out_time: autoCheckOutISO, partial_leave_covered: true });
+        continue;
+      }
+
       // Ensure salary row
       let { data: salary } = await admin.from("salaries")
         .select("*").eq("user_id", att.user_id).eq("month", monthStart).maybeSingle();
@@ -237,6 +244,7 @@ Deno.serve(async (req) => {
 
       results.push({ user_id: att.user_id, penalty, check_out_time: autoCheckOutISO });
     }
+
 
     return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
