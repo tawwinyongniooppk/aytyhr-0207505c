@@ -64,9 +64,24 @@ export default function SalariesAndBonuses() {
   const [addForm, setAddForm] = useState({ title: "", amount: "" });
   const [addSaving, setAddSaving] = useState(false);
 
+  // Slip signing toggle
+  const [slipEnabled, setSlipEnabled] = useState(false);
+  const [slipUntil, setSlipUntil] = useState<string | null>(null);
+  const [slipSaving, setSlipSaving] = useState(false);
+  const [nowMs, setNowMs] = useState(Date.now());
+
+  // Tick once a minute to auto-hide toggle status after MMT 23:59:59
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const slipActive = slipEnabled && !!slipUntil && nowMs < Date.parse(slipUntil);
+
   useEffect(() => {
     if (!user) return;
     load();
+    loadSlipSetting();
     const ch = supabase
       .channel("admin-salaries-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "salaries" }, () => load())
@@ -75,9 +90,59 @@ export default function SalariesAndBonuses() {
       .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_additions" }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions" }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => loadSlipSetting())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user]);
+
+  const loadSlipSetting = async () => {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .in("key", ["slip_signing_enabled", "slip_signing_enabled_until"]);
+    let en = false, until: string | null = null;
+    for (const r of (data as any[]) || []) {
+      if (r.key === "slip_signing_enabled") en = r.value === "true";
+      if (r.key === "slip_signing_enabled_until") until = r.value;
+    }
+    setSlipEnabled(en);
+    setSlipUntil(until);
+  };
+
+  // Returns the UTC ISO string for today's MMT 23:59:59
+  const computeMMTEndOfDayISO = () => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Yangon",
+      year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(new Date());
+    const y = parts.find(p => p.type === "year")!.value;
+    const m = parts.find(p => p.type === "month")!.value;
+    const d = parts.find(p => p.type === "day")!.value;
+    // MMT 23:59:59.999 = UTC 17:29:59.999
+    return `${y}-${m}-${d}T17:29:59.999Z`;
+  };
+
+  const toggleSlip = async (next: boolean) => {
+    if (!isAdminRole) return;
+    setSlipSaving(true);
+    const until = next ? computeMMTEndOfDayISO() : (slipUntil || computeMMTEndOfDayISO());
+    const rows = [
+      { key: "slip_signing_enabled", value: next ? "true" : "false" },
+      { key: "slip_signing_enabled_until", value: until },
+    ];
+    const { error } = await (supabase as any).from("app_settings").upsert(rows, { onConflict: "key" });
+    if (error) {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    } else {
+      setSlipEnabled(next);
+      setSlipUntil(until);
+      toast({
+        title: next ? "Sign & Download enabled" : "Sign & Download disabled",
+        description: next ? "Staff နိုင်ပါပြီ ၊ ညနေ ၁၁:၅၉ PM MMT တွင် Auto Off ဖြစ်မည်" : undefined,
+      });
+    }
+    setSlipSaving(false);
+  };
 
   const load = async () => {
     setLoading(true);
