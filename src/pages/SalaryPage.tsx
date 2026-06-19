@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote, Plus, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { formatMMTMonthLabel, getMMTDateParts, getMMTMonthStartISO } from "@/lib/mmt";
 import { YearlyBonusSection } from "@/components/YearlyBonusSection";
+import SignatureSlipDialog from "@/components/SignatureSlipDialog";
 
 type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction" | "manual_addition" | "auto_addition";
 interface LedgerEntry {
