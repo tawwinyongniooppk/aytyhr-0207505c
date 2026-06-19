@@ -669,10 +669,31 @@ export default function SalaryPage() {
                   {finalSalary.toLocaleString()} MMK
                 </div>
               </div>
+              {slipActive && isStaff && (
+                <div className="border-t border-border bg-background px-3 py-3 flex justify-end">
+                  <Button size="sm" onClick={() => setSignOpen(true)} className="gap-1">
+                    <PenLine className="h-3 w-3" /> Sign and Download
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <SignatureSlipDialog
+        open={signOpen}
+        onOpenChange={setSignOpen}
+        staffName={profile?.full_name || "Staff"}
+        monthStartISO={getMonthStart()}
+        baseSalary={baseSalary}
+        totalBonus={totalBonus}
+        totalAdditions={totalAdditions}
+        totalDeductions={totalDeductions}
+        finalSalary={finalSalary}
+        ledger={ledger.map(l => ({ date: l.date, type: l.type, description: l.description, amount: l.amount }))}
+      />
     </div>
   );
 }
+
