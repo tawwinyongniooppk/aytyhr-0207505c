@@ -289,6 +289,13 @@ export default function Attendance() {
       setHasAfternoonHalfLeaveToday(
         leaves.some((l) => l.type === "half_leave" && l.half_period === "afternoon"),
       );
+      // Approved Partial Leaves' end_time list — used to auto-close check-out box
+      // when a partial-leave window extends to (or past) the expected check-out time.
+      setPartialLeaveEndsToday(
+        leaves
+          .filter((l) => l.type === "partial_leave" && l.status === "approved" && l.end_time)
+          .map((l) => String(l.end_time).slice(0, 5)),
+      );
     } catch {
       /* ignore */
     }
