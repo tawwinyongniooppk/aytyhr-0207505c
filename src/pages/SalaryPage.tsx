@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote, Plus, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { formatMMTMonthLabel, getMMTDateParts, getMMTMonthStartISO } from "@/lib/mmt";
 import { YearlyBonusSection } from "@/components/YearlyBonusSection";
+import SignatureSlipDialog from "@/components/SignatureSlipDialog";
 
 type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction" | "manual_addition" | "auto_addition";
 interface LedgerEntry {
@@ -92,7 +94,7 @@ function getForgetCheckoutDate(title?: string | null, fallback?: string | null) 
 
 export default function SalaryPage() {
   const { user } = useAuth();
-  const { isNeutralClass, isStaff } = useProfile();
+  const { profile, isNeutralClass, isStaff } = useProfile();
   const [salary, setSalary] = useState<SalaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [manualLeaveDeductions, setManualLeaveDeductions] = useState<any[]>([]);
@@ -102,10 +104,36 @@ export default function SalaryPage() {
   const [manualAdditions, setManualAdditions] = useState<any[]>([]);
   const [manualDeductionsList, setManualDeductionsList] = useState<any[]>([]);
   const [rates, setRates] = useState<{ late: number; early: number }>({ late: 200, early: 200 });
+  const [slipEnabled, setSlipEnabled] = useState(false);
+  const [slipUntil, setSlipUntil] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(Date.now());
+  const [signOpen, setSignOpen] = useState(false);
+
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const slipActive = slipEnabled && !!slipUntil && nowMs < Date.parse(slipUntil);
+
+  const loadSlipSetting = async () => {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .in("key", ["slip_signing_enabled", "slip_signing_enabled_until"]);
+    let en = false, until: string | null = null;
+    for (const r of (data as any[]) || []) {
+      if (r.key === "slip_signing_enabled") en = r.value === "true";
+      if (r.key === "slip_signing_enabled_until") until = r.value;
+    }
+    setSlipEnabled(en);
+    setSlipUntil(until);
+  };
 
   useEffect(() => {
     if (!user) return;
     loadData();
+    loadSlipSetting();
     // Realtime: refresh when any of the user's salary-related rows change
     const ch = supabase
       .channel(`salary-live-${user.id}`)
@@ -116,9 +144,11 @@ export default function SalaryPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions", filter: `user_id=eq.${user.id}` }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "leave_manual_deductions", filter: `user_id=eq.${user.id}` }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests", filter: `user_id=eq.${user.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => loadSlipSetting())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user]);
+
 
 
 
@@ -639,10 +669,31 @@ export default function SalaryPage() {
                   {finalSalary.toLocaleString()} MMK
                 </div>
               </div>
+              {slipActive && isStaff && (
+                <div className="border-t border-border bg-background px-3 py-3 flex justify-end">
+                  <Button size="sm" onClick={() => setSignOpen(true)} className="gap-1">
+                    <PenLine className="h-3 w-3" /> Sign and Download
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <SignatureSlipDialog
+        open={signOpen}
+        onOpenChange={setSignOpen}
+        staffName={profile?.full_name || "Staff"}
+        monthStartISO={getMonthStart()}
+        baseSalary={baseSalary}
+        totalBonus={totalBonus}
+        totalAdditions={totalAdditions}
+        totalDeductions={totalDeductions}
+        finalSalary={finalSalary}
+        ledger={ledger.map(l => ({ date: l.date, type: l.type, description: l.description, amount: l.amount }))}
+      />
     </div>
   );
 }
+

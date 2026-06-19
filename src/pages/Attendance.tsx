@@ -185,6 +185,7 @@ export default function Attendance() {
   const [hasFullLeaveToday, setHasFullLeaveToday] = useState(false);
   const [hasMorningHalfLeaveToday, setHasMorningHalfLeaveToday] = useState(false);
   const [hasAfternoonHalfLeaveToday, setHasAfternoonHalfLeaveToday] = useState(false);
+  const [partialLeaveEndsToday, setPartialLeaveEndsToday] = useState<string[]>([]);
   const [nowTick, setNowTick] = useState<number>(Date.now());
   const [location, setLocation] = useState<LocationState>({
     status: "idle",
@@ -287,6 +288,13 @@ export default function Attendance() {
       );
       setHasAfternoonHalfLeaveToday(
         leaves.some((l) => l.type === "half_leave" && l.half_period === "afternoon"),
+      );
+      // Approved Partial Leaves' end_time list — used to auto-close check-out box
+      // when a partial-leave window extends to (or past) the expected check-out time.
+      setPartialLeaveEndsToday(
+        leaves
+          .filter((l) => l.type === "partial_leave" && l.status === "approved" && l.end_time)
+          .map((l) => String(l.end_time).slice(0, 5)),
       );
     } catch {
       /* ignore */
@@ -650,7 +658,14 @@ export default function Attendance() {
     if ((geoDenied || geoError) && isAdmin) return true;
     return false;
   })();
-  const canCheckOut = !!record?.check_in_time && !record?.check_out_time && !isOffToday && !afternoonHalfLocked;
+  // If an approved Partial Leave ends at-or-after the expected check-out time,
+  // the staff has effectively checked out — hide the Check Out box and skip the
+  // forget-to-checkout 1000 MMK penalty (auto-checkout edge function handles it
+  // server-side too).
+  const partialCoversCheckout = partialLeaveEndsToday.some(
+    (end) => hhmmToMinutes(end) >= hhmmToMinutes(expectedCheckOutTime),
+  );
+  const canCheckOut = !!record?.check_in_time && !record?.check_out_time && !isOffToday && !afternoonHalfLocked && !partialCoversCheckout;
 
   const getLocationStatusLabel = (): string => {
     if (!schoolConfigured) return "";
