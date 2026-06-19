@@ -145,7 +145,27 @@ Deno.serve(async (req) => {
       const dueMinOfDay = hhmmToMinutes(expectedStr) + GRACE_AFTER_CHECKOUT_MIN;
       if (nowMinOfDay < dueMinOfDay) continue; // not yet eligible
 
-      const penalty = FLAT_PENALTY_MMK;
+      // ---- Partial-leave suppression ----
+      // If the staff has an APPROVED partial_leave on this date whose end_time
+      // matches (or covers) the expected check-out time, then we treat the staff
+      // as already checked out at expected_check_out. No 1000 MMK penalty is
+      // applied; we silently close the attendance row.
+      const expectedMin = hhmmToMinutes(expectedStr);
+      const { data: partial } = await admin
+        .from("leave_requests")
+        .select("start_time, end_time, status, type")
+        .eq("user_id", att.user_id)
+        .eq("date", today)
+        .eq("type", "partial_leave")
+        .eq("status", "approved");
+      const partialCovers = (partial || []).some((p: any) => {
+        if (!p.end_time) return false;
+        const endMin = hhmmToMinutes(String(p.end_time).slice(0, 5));
+        // covers if partial-leave end is at or after expected check-out
+        return endMin >= expectedMin;
+      });
+
+      const penalty = partialCovers ? 0 : FLAT_PENALTY_MMK;
 
       // Auto check-out at (expected check-out + 30 min) in MMT, stored as UTC ISO.
       const [expH, expM] = expectedStr.split(":").map(Number);
