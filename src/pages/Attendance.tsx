@@ -658,7 +658,14 @@ export default function Attendance() {
     if ((geoDenied || geoError) && isAdmin) return true;
     return false;
   })();
-  const canCheckOut = !!record?.check_in_time && !record?.check_out_time && !isOffToday && !afternoonHalfLocked;
+  // If an approved Partial Leave ends at-or-after the expected check-out time,
+  // the staff has effectively checked out — hide the Check Out box and skip the
+  // forget-to-checkout 1000 MMK penalty (auto-checkout edge function handles it
+  // server-side too).
+  const partialCoversCheckout = partialLeaveEndsToday.some(
+    (end) => hhmmToMinutes(end) >= hhmmToMinutes(expectedCheckOutTime),
+  );
+  const canCheckOut = !!record?.check_in_time && !record?.check_out_time && !isOffToday && !afternoonHalfLocked && !partialCoversCheckout;
 
   const getLocationStatusLabel = (): string => {
     if (!schoolConfigured) return "";
