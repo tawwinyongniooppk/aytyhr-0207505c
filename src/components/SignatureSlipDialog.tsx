@@ -179,7 +179,7 @@ export default function SignatureSlipDialog(props: Props) {
       y += 6;
 
       pdf.setFontSize(9);
-      pdf.setFillColor(240);
+      pdf.setFillColor(240, 240, 240);
       pdf.rect(marginX, y - 4, pageW - marginX * 2, 6, "F");
       pdf.text("Date", marginX + 2, y);
       pdf.text("Type", marginX + 28, y);
