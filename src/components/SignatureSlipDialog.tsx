@@ -198,7 +198,7 @@ export default function SignatureSlipDialog(props: Props) {
         const sign = e.amount >= 0 ? "+" : "-";
         const amt = `${sign}${Math.abs(e.amount).toLocaleString()}`;
         const descLines = pdf.splitTextToSize(e.description, 80);
-        pdf.text(`Day ${day}`, marginX + 2, y);
+        pdf.text(String(`Day ${day}`), marginX + 2, y);
         pdf.text((e.type || "").replace(/_/g, " "), marginX + 28, y);
         pdf.text(descLines, marginX + 60, y);
         pdf.text(amt, pageW - marginX - 2, y, { align: "right" });
