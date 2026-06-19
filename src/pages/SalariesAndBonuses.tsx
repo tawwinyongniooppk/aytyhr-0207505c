@@ -363,9 +363,30 @@ export default function SalariesAndBonuses() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold font-display">Salaries &amp; Bonuses</h1>
-        <p className="text-muted-foreground text-sm mt-1">{staff.length} staff · {currentMonth}</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold font-display">Salaries &amp; Bonuses</h1>
+          <p className="text-muted-foreground text-sm mt-1">{staff.length} staff · {currentMonth}</p>
+        </div>
+        {isAdminRole && (
+          <div className="rounded-lg border border-border bg-card px-3 py-2 flex items-start gap-3 max-w-xs">
+            <PenLine className="h-4 w-4 text-primary mt-1 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <Switch checked={slipActive} onCheckedChange={toggleSlip} disabled={slipSaving} />
+                <span className="text-xs font-semibold">{slipActive ? "ON" : "OFF"}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
+                Allow Staff to Sign and Download Salary &amp; Bonus Slips
+              </p>
+              {slipActive && slipUntil && (
+                <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                  Auto-off: 11:59 PM MMT
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Aggregate summary */}
