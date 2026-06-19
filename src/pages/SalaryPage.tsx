@@ -94,7 +94,7 @@ function getForgetCheckoutDate(title?: string | null, fallback?: string | null) 
 
 export default function SalaryPage() {
   const { user } = useAuth();
-  const { isNeutralClass, isStaff } = useProfile();
+  const { profile, isNeutralClass, isStaff } = useProfile();
   const [salary, setSalary] = useState<SalaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [manualLeaveDeductions, setManualLeaveDeductions] = useState<any[]>([]);
@@ -104,10 +104,36 @@ export default function SalaryPage() {
   const [manualAdditions, setManualAdditions] = useState<any[]>([]);
   const [manualDeductionsList, setManualDeductionsList] = useState<any[]>([]);
   const [rates, setRates] = useState<{ late: number; early: number }>({ late: 200, early: 200 });
+  const [slipEnabled, setSlipEnabled] = useState(false);
+  const [slipUntil, setSlipUntil] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(Date.now());
+  const [signOpen, setSignOpen] = useState(false);
+
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const slipActive = slipEnabled && !!slipUntil && nowMs < Date.parse(slipUntil);
+
+  const loadSlipSetting = async () => {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .in("key", ["slip_signing_enabled", "slip_signing_enabled_until"]);
+    let en = false, until: string | null = null;
+    for (const r of (data as any[]) || []) {
+      if (r.key === "slip_signing_enabled") en = r.value === "true";
+      if (r.key === "slip_signing_enabled_until") until = r.value;
+    }
+    setSlipEnabled(en);
+    setSlipUntil(until);
+  };
 
   useEffect(() => {
     if (!user) return;
     loadData();
+    loadSlipSetting();
     // Realtime: refresh when any of the user's salary-related rows change
     const ch = supabase
       .channel(`salary-live-${user.id}`)
@@ -118,9 +144,11 @@ export default function SalaryPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions", filter: `user_id=eq.${user.id}` }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "leave_manual_deductions", filter: `user_id=eq.${user.id}` }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests", filter: `user_id=eq.${user.id}` }, () => loadData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => loadSlipSetting())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user]);
+
 
 
 
