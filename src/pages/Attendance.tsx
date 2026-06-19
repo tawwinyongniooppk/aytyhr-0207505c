@@ -185,6 +185,7 @@ export default function Attendance() {
   const [hasFullLeaveToday, setHasFullLeaveToday] = useState(false);
   const [hasMorningHalfLeaveToday, setHasMorningHalfLeaveToday] = useState(false);
   const [hasAfternoonHalfLeaveToday, setHasAfternoonHalfLeaveToday] = useState(false);
+  const [partialLeaveEndsToday, setPartialLeaveEndsToday] = useState<string[]>([]);
   const [nowTick, setNowTick] = useState<number>(Date.now());
   const [location, setLocation] = useState<LocationState>({
     status: "idle",
