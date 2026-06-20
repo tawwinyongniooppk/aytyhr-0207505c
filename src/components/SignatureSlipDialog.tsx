@@ -111,19 +111,6 @@ export default function SignatureSlipDialog(props: Props) {
     hasInk.current = false;
   };
 
-  const handleSubmit = async () => {
-    if (!hasInk.current) {
-      toast({ title: "Signature လိုအပ်ပါသည်", description: "ကျေးဇူးပြု၍ အရင်ဆုံး Sign ထိုးပါ", variant: "destructive" });
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const sigDataUrl = canvasRef.current!.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = 210, pageH = 297;
-      const marginX = 15;
-      let y = 15;
-
   // Render text (which may contain Burmese/Unicode) to a PNG data URL using
   // the browser's font stack so jsPDF can embed it as an image. jsPDF's
   // built-in Helvetica does not support non-Latin scripts and would otherwise
@@ -150,10 +137,11 @@ export default function SignatureSlipDialog(props: Props) {
     ctx.fillStyle = color;
     ctx.textBaseline = "middle";
     ctx.fillText(text, padX, h / 2);
-    // ~96 DPI baseline → 1 px ≈ 0.2645 mm; scale down so it doesn't dominate page.
     const pxToMm = 0.2645 / 1.6;
     return { dataUrl: c.toDataURL("image/png"), widthMm: w * pxToMm, heightMm: h * pxToMm };
   };
+
+
 
   const handleSubmit = async () => {
     if (!hasInk.current) {
