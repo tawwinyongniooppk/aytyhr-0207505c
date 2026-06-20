@@ -557,10 +557,12 @@ export default function Attendance() {
         supabase.from("profiles").select("late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute").eq("id", user!.id).maybeSingle(),
       ]);
       const sal = salRes.data as any;
-      const base = Number(sal?.base_salary ?? (profSalRes.data as any)?.base_salary ?? 0);
+      // Align with SalaryPage exactly: base from salary row only (no profile fallback),
+      // manual_deduction clamped to ≥ 0. Avoids over-reporting Final Salary in edge cases.
+      const base = Math.max(0, Number(sal?.base_salary ?? 0));
       const earnedBonus = (bonusRes.data as any[] | null)?.reduce((s, b) => s + (Number(b.amount) || 0), 0) ?? 0;
       const additions = (addRes.data as any[] | null)?.reduce((s, a) => s + (Number(a.amount) || 0), 0) ?? 0;
-      const manual = Number(sal?.manual_deduction ?? 0);
+      const manual = Math.max(0, Number(sal?.manual_deduction ?? 0));
       const rp = ratesRes.data as any;
       const legacyRate = Number(rp?.deduction_rate_per_minute) || 200;
       const lateRate = Number(rp?.late_deduction_per_minute) || legacyRate;
@@ -588,6 +590,7 @@ export default function Attendance() {
         .filter((d) => d.source !== "auto_early_out" && d.source !== "partial_leave")
         .reduce((s, d) => s + (Number(d.amount) || 0), 0);
       return base + earnedBonus + additions - attAuto - autoSmd - manual - manualSmd;
+
     } catch {
       return 0;
     }
