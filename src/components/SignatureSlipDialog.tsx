@@ -150,6 +150,9 @@ export default function SignatureSlipDialog(props: Props) {
     }
     setSubmitting(true);
     try {
+      // Make sure the Burmese webfont is loaded before measuring/drawing.
+      try { await (document as any).fonts?.load('700 26px "Noto Sans Myanmar"'); } catch {}
+      try { await (document as any).fonts?.ready; } catch {}
       const sigDataUrl = canvasRef.current!.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageW = 210, pageH = 297;
