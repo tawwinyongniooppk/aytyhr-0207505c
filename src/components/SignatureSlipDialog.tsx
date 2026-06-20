@@ -111,6 +111,38 @@ export default function SignatureSlipDialog(props: Props) {
     hasInk.current = false;
   };
 
+  // Render text (which may contain Burmese/Unicode) to a PNG data URL using
+  // the browser's font stack so jsPDF can embed it as an image. jsPDF's
+  // built-in Helvetica does not support non-Latin scripts and would otherwise
+  // render Burmese glyphs as spaced boxes.
+  const renderTextImage = (
+    text: string,
+    opts: { fontPx?: number; bold?: boolean; color?: string } = {},
+  ): { dataUrl: string; widthMm: number; heightMm: number } => {
+    const fontPx = opts.fontPx ?? 28;
+    const bold = opts.bold ? "bold " : "";
+    const color = opts.color ?? "#0f172a";
+    const font = `${bold}${fontPx}px "Noto Sans Myanmar", "Padauk", "Myanmar Text", system-ui, -apple-system, "Segoe UI", Arial, sans-serif`;
+    const measure = document.createElement("canvas").getContext("2d")!;
+    measure.font = font;
+    const m = measure.measureText(text);
+    const padX = 4;
+    const w = Math.max(2, Math.ceil(m.width)) + padX * 2;
+    const h = Math.ceil(fontPx * 1.4);
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const ctx = c.getContext("2d")!;
+    ctx.clearRect(0, 0, w, h);
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, padX, h / 2);
+    const pxToMm = 0.2645 / 1.6;
+    return { dataUrl: c.toDataURL("image/png"), widthMm: w * pxToMm, heightMm: h * pxToMm };
+  };
+
+
+
   const handleSubmit = async () => {
     if (!hasInk.current) {
       toast({ title: "Signature လိုအပ်ပါသည်", description: "ကျေးဇူးပြု၍ အရင်ဆုံး Sign ထိုးပါ", variant: "destructive" });
@@ -118,6 +150,9 @@ export default function SignatureSlipDialog(props: Props) {
     }
     setSubmitting(true);
     try {
+      // Make sure the Burmese webfont is loaded before measuring/drawing.
+      try { await (document as any).fonts?.load('700 26px "Noto Sans Myanmar"'); } catch {}
+      try { await (document as any).fonts?.ready; } catch {}
       const sigDataUrl = canvasRef.current!.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageW = 210, pageH = 297;
@@ -140,9 +175,17 @@ export default function SignatureSlipDialog(props: Props) {
       pdf.line(marginX, y, pageW - marginX, y);
       y += 6;
 
+      // Staff label + name (name as image so Burmese renders correctly)
       pdf.setFontSize(11);
       pdf.setFont("helvetica", "bold");
-      pdf.text(`Staff: ${staffName}`, marginX, y);
+      pdf.text("Staff:", marginX, y);
+      const labelW = pdf.getTextWidth("Staff:");
+      const nameImg = renderTextImage(staffName, { fontPx: 26, bold: true });
+      const nameH = 5;
+      const nameW = Math.min(pageW - marginX * 2 - labelW - 4 - 60, nameImg.widthMm * (nameH / nameImg.heightMm));
+      try {
+        pdf.addImage(nameImg.dataUrl, "PNG", marginX + labelW + 2, y - nameH + 1.2, nameW, nameH);
+      } catch {}
       pdf.setFont("helvetica", "normal");
       pdf.text(`Generated: ${formatMMTDateTime(new Date())}`, pageW - marginX, y, { align: "right" });
       y += 8;
@@ -188,7 +231,12 @@ export default function SignatureSlipDialog(props: Props) {
       y += 5;
       pdf.setFont("helvetica", "normal");
 
-      const sigAreaTop = pageH - 50;
+      // Reserve space for signature block (kept fully inside page)
+      const sigW = 60, sigH = 22;
+      const sigX = pageW - marginX - sigW;
+      const sigBlockTop = pageH - 38; // signature image top
+      const sigAreaTop = sigBlockTop - 6;
+
       for (const e of ledger) {
         if (y > sigAreaTop - 8) {
           pdf.addPage();
@@ -205,17 +253,29 @@ export default function SignatureSlipDialog(props: Props) {
         y += Math.max(5, descLines.length * 4);
       }
 
-      // Signature block bottom-right
-      const sigW = 70, sigH = 28;
-      const sigX = pageW - marginX - sigW;
-      const sigY = pageH - 40;
+      // Signature block — kept fully within A4 bounds
       pdf.setDrawColor(200);
-      pdf.line(sigX, sigY + sigH + 2, sigX + sigW, sigY + sigH + 2);
+      try { pdf.addImage(sigDataUrl, "PNG", sigX + 2, sigBlockTop, sigW - 4, sigH); } catch {}
+      const lineY = sigBlockTop + sigH + 1;
+      pdf.line(sigX, lineY, sigX + sigW, lineY);
       pdf.setFontSize(9);
       pdf.setFont("helvetica", "normal");
-      pdf.text("Signature", sigX + sigW / 2, sigY + sigH + 7, { align: "center" });
-      pdf.text(staffName, sigX + sigW / 2, sigY + sigH + 12, { align: "center" });
-      try { pdf.addImage(sigDataUrl, "PNG", sigX + 2, sigY, sigW - 4, sigH); } catch {}
+      pdf.text("Signature", sigX + sigW / 2, lineY + 4, { align: "center" });
+      // Render the actual staff name as image (supports Burmese)
+      const sigNameImg = renderTextImage(staffName, { fontPx: 22, bold: false });
+      const sigNameH = 4.2;
+      const sigNameW = Math.min(sigW - 4, sigNameImg.widthMm * (sigNameH / sigNameImg.heightMm));
+      try {
+        pdf.addImage(
+          sigNameImg.dataUrl,
+          "PNG",
+          sigX + (sigW - sigNameW) / 2,
+          lineY + 5.5,
+          sigNameW,
+          sigNameH,
+        );
+      } catch {}
+
 
       const filename = `Salary-Bonus-Report_${staffName.replace(/\s+/g, "_")}_${monthStartISO}.pdf`;
       pdf.save(filename);
