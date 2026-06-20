@@ -84,16 +84,17 @@ export default function SalariesAndBonuses() {
     loadSlipSetting();
     const ch = supabase
       .channel("admin-salaries-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "salaries" }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "attendance" }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_deductions" }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_additions" }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions" }, () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salaries" }, () => load(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "attendance" }, () => load(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_deductions" }, () => load(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_additions" }, () => load(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions" }, () => load(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests" }, () => load(true))
       .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => loadSlipSetting())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user]);
+
 
   const loadSlipSetting = async () => {
     const { data } = await supabase
@@ -144,8 +145,9 @@ export default function SalariesAndBonuses() {
     setSlipSaving(false);
   };
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
+
     const monthStart = getMonthStart();
     const [profilesRes, salariesRes, bonusTxRes, additionsRes, attRes, leavesRes, smdRes] = await Promise.all([
       supabase.rpc("admin_list_profiles"),
