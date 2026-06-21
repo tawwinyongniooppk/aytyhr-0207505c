@@ -1,4 +1,4 @@
-import type { LessonPlanTemplate, Palette, Cell, Row, TemplateFormat } from "./lessonPlanTypes";
+import type { LessonPlanTemplate, Palette, Cell, Row, TemplateFormat, PageContent } from "./lessonPlanTypes";
 
 export const PALETTES: Palette[] = [
   { id: "ocean", name: "Ocean Deep", primary: "#0c2340", accent: "#2d8a9e", surface: "#f0f7fa", text: "#0c2340", border: "#5cbdb9" },
@@ -10,6 +10,9 @@ export const PALETTES: Palette[] = [
 ];
 
 export const PALETTE_BY_ID = (id: string) => PALETTES.find(p => p.id === id) ?? PALETTES[0];
+
+export const ALL_FORMATS: TemplateFormat[] = ["format1", "format2", "format3", "format4", "format5"];
+export const MAX_FORMATS = 5;
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -107,23 +110,38 @@ export function defaultTemplate(className: string, format: TemplateFormat = "for
         },
       ];
 
+  const labelByFormat: Record<TemplateFormat, string> = {
+    format1: "Format 1",
+    format2: "Format 2",
+    format3: "Format 3",
+    format4: "Format 4",
+    format5: "Format 5",
+  };
+
   return {
     page: { size: "A4", orientation: "portrait", margin: 12 },
     branding: {
       logoUrl: "",
-      headerText: `${className} Class — Lesson Plan${format === "format2" ? " (Format 2)" : ""}`,
+      headerText: `${className} Class — Lesson Plan${format !== "format1" ? ` (${labelByFormat[format]})` : ""}`,
       freeLetterhead: false,
       logoBox: { x: 40, y: 30, width: 80, height: 80 },
       headerBox: { x: 140, y: 40, width: 560, height: 50, fontSize: 22, color: "#0c2340", bold: true, align: "left" },
       footerBox: { x: 40, y: 100, width: 660, height: 24, fontSize: 11, color: "#2d8a9e", italic: true, align: "left" },
       watermark: { text: "", opacity: 0.08, x: 200, y: 400, width: 400, height: 200, rotation: -30 },
+      headerReservePx: 0,
     },
     palette: format === "format1" ? "ocean" : "sage-cream",
     border: { size: 1, style: "solid", color: "#94a3b8" },
     letterheadFooterText: "Prepared by teacher · For internal use only",
     cards,
     freeElements: [],
+    pages: [{ id: uid(), cards, freeElements: [] }],
+    displayName: labelByFormat[format],
   };
+}
+
+export function newEmptyPage(): PageContent {
+  return { id: uid(), cards: [], freeElements: [] };
 }
 
 /** Fill in any missing new fields so old saved templates still render correctly */
@@ -131,7 +149,7 @@ export function normalizeTemplate(t: any, className: string, format: TemplateFor
   if (!t || typeof t !== "object" || !Array.isArray(t.cards)) return defaultTemplate(className, format);
   const wm = t.branding?.watermark ?? {};
   const b = t.branding ?? {};
-  return {
+  const normalized: LessonPlanTemplate = {
     ...t,
     branding: {
       ...b,
@@ -139,6 +157,7 @@ export function normalizeTemplate(t: any, className: string, format: TemplateFor
       logoBox: b.logoBox ?? { x: 40, y: 30, width: 80, height: 80 },
       headerBox: b.headerBox ?? { x: 140, y: 40, width: 560, height: 50, fontSize: 22, color: "#0c2340", bold: true, align: "left" },
       footerBox: b.footerBox ?? { x: 40, y: 100, width: 660, height: 24, fontSize: 11, color: "#2d8a9e", italic: true, align: "left" },
+      headerReservePx: typeof b.headerReservePx === "number" ? b.headerReservePx : 0,
       watermark: {
         text: wm.text ?? "",
         imageUrl: wm.imageUrl ?? "",
@@ -163,7 +182,41 @@ export function normalizeTemplate(t: any, className: string, format: TemplateFor
       })),
     })),
     freeElements: Array.isArray(t.freeElements) ? t.freeElements : [],
+    displayName: typeof t.displayName === "string" && t.displayName.trim() ? t.displayName : undefined,
   } as LessonPlanTemplate;
+
+  if (Array.isArray(t.pages) && t.pages.length > 0) {
+    normalized.pages = t.pages.map((p: any) => ({
+      id: typeof p.id === "string" ? p.id : uid(),
+      cards: Array.isArray(p.cards) ? p.cards : [],
+      freeElements: Array.isArray(p.freeElements) ? p.freeElements : [],
+    }));
+  } else {
+    normalized.pages = [{ id: uid(), cards: normalized.cards, freeElements: normalized.freeElements }];
+  }
+
+  return normalized;
+}
+
+/** Pull the per-page slice as the template the canvas/editor sees. */
+export function templateForPage(t: LessonPlanTemplate, pageIdx: number): LessonPlanTemplate {
+  const pages = t.pages && t.pages.length > 0 ? t.pages : [{ id: "p0", cards: t.cards, freeElements: t.freeElements }];
+  const idx = Math.max(0, Math.min(pageIdx, pages.length - 1));
+  return { ...t, cards: pages[idx].cards, freeElements: pages[idx].freeElements ?? [] };
+}
+
+/** Write the edited per-page slice back into the multi-page template. */
+export function writePageBack(t: LessonPlanTemplate, pageIdx: number, edited: LessonPlanTemplate): LessonPlanTemplate {
+  const pages = (t.pages && t.pages.length > 0 ? t.pages : [{ id: "p0", cards: t.cards, freeElements: t.freeElements }]).map(p => ({ ...p }));
+  const idx = Math.max(0, Math.min(pageIdx, pages.length - 1));
+  pages[idx] = { ...pages[idx], cards: edited.cards, freeElements: edited.freeElements };
+  return {
+    ...edited,
+    pages,
+    // Keep top-level cards/freeElements mirroring page 0 for backward compat with any old reader.
+    cards: pages[0].cards,
+    freeElements: pages[0].freeElements,
+  };
 }
 
 export const PAGE_PX = {

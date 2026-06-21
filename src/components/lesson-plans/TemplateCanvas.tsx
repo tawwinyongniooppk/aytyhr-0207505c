@@ -14,6 +14,8 @@ interface Props {
   onFreeClick?: (id: string) => void;
   /** Live drag column resize: colIdx is the LEFT column of the pair. Adjacent column compensates. */
   onColWidthChange?: (cardId: string, leftColIdx: number, newLeftPct: number) => void;
+  /** Live drag row resize: returns the new pixel height for the given row. */
+  onRowHeightChange?: (cardId: string, rowId: string, newHeightPx: number) => void;
   /** Visual scale of the canvas (for converting drag pixel delta back to model space). */
   scale?: number;
   /** Show dashed page-break lines if content exceeds one page height. */
@@ -26,6 +28,7 @@ interface Props {
   onCardDragEnd?: () => void;
   onCardReorder?: (fromId: string, toId: string | null) => void;
 }
+
 
 function renderPrefix(cell: Cell, indexInRow: number) {
   switch (cell.prefix) {
@@ -177,9 +180,10 @@ function ColumnResizeOverlay({
 }
 
 export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function TemplateCanvas(
-  { template, editable, selectedCellId, onCellClick, onCellChange, onColWidthChange, scale = 1, showPageBreaks, className, renderOverlay, dragCardId, onCardDragStart, onCardDragEnd, onCardReorder },
+  { template, editable, selectedCellId, onCellClick, onCellChange, onColWidthChange, onRowHeightChange, scale = 1, showPageBreaks, className, renderOverlay, dragCardId, onCardDragStart, onCardDragEnd, onCardReorder },
   ref,
 ) {
+
   const palette = PALETTE_BY_ID(template.palette);
   const pageDims = useMemo(() => {
     const base = PAGE_PX[template.page.size];
@@ -214,7 +218,25 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
   const totalHeight = Math.max(pageDims.height, contentH + marginTop + marginBottom + 40);
   const pageCount = Math.max(1, Math.ceil(totalHeight / pageDims.height));
 
-  const renderCell = (cardId: string, rowId: string, cell: Cell, indexInRow: number, colWidthPct: number, rowHeight?: number) => {
+  const startRowDrag = (cardId: string, rowId: string, e: React.MouseEvent, startH: number) => {
+    if (!onRowHeightChange) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.clientY;
+    const onMove = (ev: MouseEvent) => {
+      const dy = (ev.clientY - startY) / (scale || 1);
+      const newH = Math.max(20, Math.min(400, startH + dy));
+      onRowHeightChange(cardId, rowId, newH);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  const renderCell = (cardId: string, rowId: string, cell: Cell, indexInRow: number, colWidthPct: number, rowHeight: number | undefined, isFirstCellInRow: boolean, isLastRow: boolean) => {
     const fontSize = Math.max(cell.fontSize ?? 12, cell.minFontSize ?? 12);
     const baseStyle: React.CSSProperties = {
       fontSize,
@@ -234,9 +256,28 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
       minHeight: 28,
       height: rowHeight,
       outline: selectedCellId === cell.id ? `2px solid ${palette.accent}` : undefined,
+      position: "relative",
     };
 
     const prefix = renderPrefix(cell, indexInRow);
+    const resizeHandle = editable && onRowHeightChange && !isLastRow ? (
+      <div
+        onMouseDown={(e) => startRowDrag(cardId, rowId, e, (rowHeight ?? 32))}
+        title="Drag to resize row"
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: -4,
+          height: 8,
+          cursor: "row-resize",
+          zIndex: 5,
+          background: "transparent",
+        }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(59,130,246,0.25)"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+      />
+    ) : null;
 
     if (editable && !cell.locked) {
       if (cell.options && cell.options.length > 0) {
@@ -251,6 +292,7 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
               <option value="">— Select —</option>
               {cell.options.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
+            {resizeHandle}
           </td>
         );
       }
@@ -288,6 +330,7 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
               }
             }}
           />
+          {resizeHandle}
         </td>
       );
     }
@@ -296,9 +339,11 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
       <td key={cell.id} colSpan={cell.colSpan} style={baseStyle} onClick={() => onCellClick?.(cardId, rowId, cell.id)}>
         {prefix}
         {cell.value || (editable ? "" : <span style={{ opacity: 0.35 }}>{cell.locked ? "" : "—"}</span>)}
+        {resizeHandle}
       </td>
     );
   };
+
 
   const renderTableBlock = (card: typeof template.cards[number]) => {
     const cols = Math.max(1, card.columns);
@@ -342,12 +387,16 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
               {colWidths.map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
             </colgroup>
             <tbody>
-              {card.rows.map(row => (
-                <tr key={row.id} style={{ height: row.height }}>
-                  {row.cells.map((cell, idx) => renderCell(card.id, row.id, cell, idx, colWidths[idx] ?? 100 / cols, row.height))}
-                </tr>
-              ))}
+              {card.rows.map((row, rowIdx) => {
+                const isLast = rowIdx === card.rows.length - 1;
+                return (
+                  <tr key={row.id} style={{ height: row.height }}>
+                    {row.cells.map((cell, idx) => renderCell(card.id, row.id, cell, idx, colWidths[idx] ?? 100 / cols, row.height, idx === 0, isLast))}
+                  </tr>
+                );
+              })}
             </tbody>
+
           </table>
           {editable && onColWidthChange && cols >= 2 && (
             <ColumnResizeOverlay

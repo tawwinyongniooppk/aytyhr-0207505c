@@ -1,5 +1,5 @@
 export type ClassName = "Beginner" | "Junior" | "Senior";
-export type TemplateFormat = "format1" | "format2";
+export type TemplateFormat = "format1" | "format2" | "format3" | "format4" | "format5";
 
 export interface CellStyle {
   fontFamily?: string;
@@ -21,13 +21,13 @@ export interface Cell extends CellStyle {
   locked: boolean;
   colSpan?: number;
   prefix?: CellPrefix;
-  options?: string[]; // dropdown choices for staff
+  options?: string[];
 }
 
 export interface Row {
   id: string;
   cells: Cell[];
-  height?: number; // px, optional
+  height?: number;
 }
 
 export interface Card {
@@ -37,12 +37,11 @@ export interface Card {
   borderColor?: string;
   columns: number;
   rows: Row[];
-  colWidths?: number[]; // percentage values summing ~100, length == columns
-  /** Free placement on the page. When set, the table is positioned absolutely and is no longer part of the auto stack. */
+  colWidths?: number[];
   free?: boolean;
   x?: number;
   y?: number;
-  width?: number; // px
+  width?: number;
 }
 
 export type PageSize = "A4" | "Legal";
@@ -52,11 +51,11 @@ export interface Watermark {
   text?: string;
   imageUrl?: string;
   opacity: number;
-  x?: number; // px from top-left
+  x?: number;
   y?: number;
-  width?: number; // px
-  height?: number; // px
-  rotation?: number; // deg
+  width?: number;
+  height?: number;
+  rotation?: number;
 }
 
 export interface TextBox {
@@ -83,12 +82,13 @@ export interface LogoBox {
 export interface Branding {
   logoUrl?: string;
   headerText?: string;
-  /** When true, logo + header + footer are placed at custom positions via the boxes below. */
   freeLetterhead?: boolean;
   logoBox?: LogoBox;
   headerBox?: TextBox;
   footerBox?: TextBox;
   watermark: Watermark;
+  /** Reserve space (px) at top of every page for header — content starts below this. */
+  headerReservePx?: number;
 }
 
 export interface PageSettings {
@@ -130,7 +130,6 @@ export interface FreeElement {
   height: number;
   rotation?: number;
   zIndex?: number;
-  // text
   text?: string;
   fontFamily?: string;
   fontSize?: number;
@@ -139,15 +138,18 @@ export interface FreeElement {
   italic?: boolean;
   underline?: boolean;
   align?: "left" | "center" | "right";
-  // image
   imageUrl?: string;
-  // shape
   shape?: ShapeKind;
   bgColor?: string;
   borderColor?: string;
   borderWidth?: number;
-  // icon
   icon?: IconKind;
+}
+
+export interface PageContent {
+  id: string;
+  cards: Card[];
+  freeElements?: FreeElement[];
 }
 
 export interface LessonPlanTemplate {
@@ -158,4 +160,8 @@ export interface LessonPlanTemplate {
   letterheadFooterText: string;
   cards: Card[];
   freeElements?: FreeElement[];
+  /** Multi-page support. When set, cards/freeElements are derived from pages[currentPageIdx]. */
+  pages?: PageContent[];
+  /** Editor-facing label for the format tab (e.g. "Daily Plan"). */
+  displayName?: string;
 }
