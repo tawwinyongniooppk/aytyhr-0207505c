@@ -1,29 +1,79 @@
+## ၁။ Lesson Plans Template Editor Rework
 
-## Root cause (why တီချယ်မွန် / တီချယ်သင်း က Deadline မရောက်ခင် All Done ဖြစ်နေသလဲ)
+### A. "Card" → "Table" rename
+- `TemplateEditor.tsx` ထဲမှာ "Card 1, Card 2, Card 3" sidebar label နှင့် dialog/heading များကို **Table 1, Table 2, Table 3** အဖြစ် ပြောင်းမည်။
+- Add Row / Delete Last Row / Add Column / Delete Last Column buttons အတိုင်း ထားမည်။
 
-`supabase/functions/auto-weekly-task-credit/index.ts` က **checkpoint window (Week 2 = Day 4–10)** ထဲမှာ assignment ရှိ/မရှိပဲ စစ်တယ်။
+### B. Excel-style drag-resize (slider/% ဖျက်)
+- ယခု `Slider` (Inner column widths %) နှင့် numeric row height inputs များကို ဖျက်မည်။
+- `TemplateCanvas.tsx` (preview pane) ထဲမှာ — Excel ပုံစံ **drag handle** ထည့်မည်။
+  - Column border ပေါ်တွင် mouse-down → ဘယ်/ညာ drag လုပ်လို့ column width ပြောင်းနိုင်မည် (px).
+  - Row border ပေါ်တွင် mouse-down → အပေါ်/အောက် drag လုပ်လို့ row height ပြောင်းနိုင်မည် (px).
+  - Drag အပြီး state ကို template JSON ထဲကို save (colWidths %, row.height px).
+- **Margin guard**: total column widths သည် page content area (= page width − marginLeft − marginRight) ထက် မကျော်စေရ။ Row stack height သည် content height ထက် မကျော်စေရ — ကျော်လျှင် drag ကို clamp လုပ်မည်။
 
-- တီချယ်မွန် / တီချယ်သင်း တို့မှာ **biweekly task "IEP format" [2026‑06‑02 → 2026‑06‑14]** ရှိနေတယ်။ စတင်ရက် `06‑02` က Week 1 (Day 1–3) window အပြင်က ဖြစ်နေလို့ Week 2 sweep က "missing" လို့ ထင်ပြီး auto‑approved assignment + 2,500 MMK bonus row ထည့်ပေးခဲ့တယ်။
-- ဒါကြောင့် သူတို့ရဲ့ **deadline 06‑14 မရောက်ခင်** Week 2 credit တစ်ခု ပိုသွားပြီး လကုန် 5 unit / cap 4 ဖြစ်လာနိုင်တယ်။
-- Manual `handleApprove` (AdminTaskDashboard) ကလည်း deadline မရောက်ခင် approve လုပ်တာနဲ့ bonus row ချက်ချင်း ထည့်လိုက်တယ် — "submit/approve early but credit only at deadline" rule နဲ့ မကိုက်ဘူး။
+### C. Format tab rename + Add new format (Max 5 per class)
+- ယခု hardcoded `["format1", "format2"]` ကို dynamic list အဖြစ် ပြောင်းမည်။
+- Tab right-click သို့မဟုတ် double-click → **rename** (Excel sheet tab ပုံစံ).
+- `+ Add Format` button (max 5 per class) — Format 3, 4, 5 ထပ်ထည့်နိုင်မည်။
+- Tab name များကို DB column အသစ်တစ်ခုဖြင့် သိမ်းမည် (`display_name` text, default "Format N").
 
-## Fix Plan
+### D. Multi-page support per format
+- Template JSON schema ထဲကို `pages: PageContent[]` array ထည့်မည် (backward compatible — `cards` ရှိရင် pages[0] အဖြစ် migrate).
+- Page တစ်ခုစီတွင် မိမိ cards/freeElements/header reserve ရှိမည်။
+- **Header reserve**: page top တွင် logo + headerText အတွက် နေရာချန်ထားမည် (`branding.headerReservePx`, default 120px) — cards များသည် ဒီအောက်ကမှ စမည်။
+- Editor toolbar ထဲ **+ Add Page** button၊ Page tabs (Page 1, Page 2, …) navigation, page delete button။
+- Beginner/Junior/Senior + IT Manager တိုင်းအတွက် အလုပ်လုပ်မည်။
 
-### 1. `auto-weekly-task-credit` ကို deadline‑aware ပြန်ရေး
-ဖိုင်: `supabase/functions/auto-weekly-task-credit/index.ts`
+### Files to edit
+- `src/lib/lessonPlanTypes.ts` — `pages`, `headerReservePx`, format display_name types
+- `src/lib/lessonPlanDefaults.ts` — pages[] migration, normalizeTemplate
+- `src/pages/LessonPlansEditor.tsx` — dynamic formats, rename UI, +Add Format/Page
+- `src/components/lesson-plans/TemplateEditor.tsx` — Table rename, page nav, drag-resize wiring, header reserve UI
+- `src/components/lesson-plans/TemplateCanvas.tsx` — drag handles for col/row, margin clamping, header reserve rendering
+- `src/pages/MyTimetablePage.tsx` — pages[] rendering for staff view (read-only)
+- `src/lib/exportPdf.ts` — multi-page PDF export with header reserve
+- DB migration — `lesson_plan_templates` table: add `display_name text`, schema doc only (template_json holds pages[]); no breaking change
 
-- Window တွင်း assignment ရှိ/မရှိ စစ်တာအစား, **staff တစ်ယောက်ချင်းအတွက် "active commitment"** ရှိမရှိ စစ်မယ်။ Active commitment = `calendar_events` (event_type='task') တစ်ခုခု ရှိပြီး `start_date <= window.end` **AND** `end_date >= window.end` (i.e. deadline က ဒီ checkpoint ထက် နောက်/တူ).
-- အဲဒီ active commitment ရှိရင် ထို staff ကို **skip** — biweekly task က Week 1 မှာ စပြီး Week 2 checkpoint မှာ မပြီးသေးတာ ဖြစ်လို့။
-- `tasks` table မှာလည်း `due_date >= window.end` ရှိရင် skip။
-- "Missing" = (a) window တွင်း OR (b) ဒီ checkpoint အပြီးထိ active deadline လုံးဝ မရှိသူ ပဲ။ ထို staff အတွက်သာ 1 unit auto‑credit ပေး။
-- Bonus row မှာ `deadline_date = win.end` ဆက်သုံး၊ `unit_count = 1`၊ `Math.round(monthlyBonus/4)` ဆက်သုံး (rule မပြောင်း)။
+---
 
-### 2. `task-deadline-sweep` ကို "single source of truth" အဖြစ် ပြုပြင်
-ဖိုင်: `supabase/functions/task-deadline-sweep/index.ts`
+## ၂။ Notification Audit Report
 
-ပြောင်းရမည့်အချက်များ — daily 23:55 MMT run တိုင်းမှာ:
-- **(A) Tasks** — `due_date = today` **AND** `submission_status = 'submitted'` ဆိုသူကိုသာ approve + credit (လက်ရှိအတိုင်း ထား)။
-- **(B) Calendar assignments** — `event.end_date = today` **AND** assignment status `submitted` ဆိုသူကိုသာ approve + credit (လက်ရှိ behavior မှန်)။
-- **(C/D) Overdue** — deadline ကျော်လို့ `not_started/in_progress/not_submitted/rejected` ဖြစ်နေသူကို `overdue` + 0 MMK row (လက်ရှိအတိုင်း)။
-- **အသစ်ထည့်ရန် (F): Early‑approved deferred credit** — `tasks.submission_status = 'approved'` **AND** `due_date = today` **AND** ထို `task_id` အတွက် `bonus_transactions` row မရှိသေး → credit row ထည့်ပေး။ Calendar assignments မှာလည်း `assignment_id` ပြန်စစ်ပြီး တူညီသော deferred‑credit logic ထည့်။
-- (E) End‑of‑window auto all‑done — biweekly task ရ
+Project တစ်ခုလုံးကို scan လုပ်ပြီး FCM Push + In-App Notification ပို့သော နေရာအားလုံးကို ဖော်ထုတ်မည်။
+
+Scan locations:
+- `supabase/functions/*/index.ts` (edge functions — task-deadline-sweep, auto-checkout, auto-submit-missed-leave, monthly-reset, send-push, etc.)
+- `src/**/*.{ts,tsx}` တွင် `sendPush`, `notifyAdmins`, `supabase.functions.invoke("send-push")`, in-app `toast({...})` notification trigger နှင့် `notifications` table writes
+- DB triggers (`supabase--read_query` ဖြင့် pg_trigger စစ်မည်)
+
+Output format (per notification):
+| Field | Detail |
+|---|---|
+| Notification Name | … |
+| Trigger Function/Event | … |
+| Watched Table | … |
+| Target Role(s) | Admin / Assistant / Staff / All |
+| Title | … |
+| Body | … |
+| Image | Yes / No |
+| FCM Used | Yes / No (In-App only) |
+| Source File | path |
+| Source Function | name |
+| Flow | trigger → table → role |
+
+**Delivery**:
+1. Chat ထဲမှာ မြန်မာ summary + table
+2. `/mnt/documents/NOTIFICATION_AUDIT.md` artifact (download/preview)
+
+---
+
+## အကောင်အထည်ဖော်မည့်အစီအစဉ်
+
+1. DB migration (`display_name` column) → approval စောင့်
+2. Type/Default updates (lessonPlanTypes, lessonPlanDefaults — backward-compatible normalize)
+3. Editor UI rework (LessonPlansEditor, TemplateEditor, TemplateCanvas)
+4. Staff view + PDF export update
+5. Project-wide notification scan → audit report write
+6. မြန်မာဘာသာဖြင့် Report
+
+မိမိ logic များ (attendance, salary, leave, tasks) ကို မထိစေပါ — Lesson Plans editor + audit report သာ။
