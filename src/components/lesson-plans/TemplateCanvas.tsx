@@ -387,12 +387,16 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
               {colWidths.map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
             </colgroup>
             <tbody>
-              {card.rows.map(row => (
-                <tr key={row.id} style={{ height: row.height }}>
-                  {row.cells.map((cell, idx) => renderCell(card.id, row.id, cell, idx, colWidths[idx] ?? 100 / cols, row.height))}
-                </tr>
-              ))}
+              {card.rows.map((row, rowIdx) => {
+                const isLast = rowIdx === card.rows.length - 1;
+                return (
+                  <tr key={row.id} style={{ height: row.height }}>
+                    {row.cells.map((cell, idx) => renderCell(card.id, row.id, cell, idx, colWidths[idx] ?? 100 / cols, row.height, idx === 0, isLast))}
+                  </tr>
+                );
+              })}
             </tbody>
+
           </table>
           {editable && onColWidthChange && cols >= 2 && (
             <ColumnResizeOverlay
