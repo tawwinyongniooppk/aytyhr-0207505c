@@ -14,6 +14,8 @@ interface Props {
   onFreeClick?: (id: string) => void;
   /** Live drag column resize: colIdx is the LEFT column of the pair. Adjacent column compensates. */
   onColWidthChange?: (cardId: string, leftColIdx: number, newLeftPct: number) => void;
+  /** Live drag row resize: returns the new pixel height for the given row. */
+  onRowHeightChange?: (cardId: string, rowId: string, newHeightPx: number) => void;
   /** Visual scale of the canvas (for converting drag pixel delta back to model space). */
   scale?: number;
   /** Show dashed page-break lines if content exceeds one page height. */
@@ -26,6 +28,7 @@ interface Props {
   onCardDragEnd?: () => void;
   onCardReorder?: (fromId: string, toId: string | null) => void;
 }
+
 
 function renderPrefix(cell: Cell, indexInRow: number) {
   switch (cell.prefix) {
