@@ -27,7 +27,7 @@ export default function LessonPlansEditor() {
   });
   const [active, setActive] = useState<ClassName>("Beginner");
   const [activeFormat, setActiveFormat] = useState<Record<ClassName, TemplateFormat>>({ Beginner: "format1", Junior: "format1", Senior: "format1" });
-  const [pageIdxByKey, setPageIdxByKey] = useState<Record<Key, number>>({});
+  const [pageIdxByKey, setPageIdxByKey] = useState<Partial<Record<Key, number>>>({});
   const [renamingKey, setRenamingKey] = useState<Key | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
