@@ -509,20 +509,10 @@ export function TemplateEditor({ value, onChange }: Props) {
                   Tip: Preview ပေါ်တွင် inner column borders များကို Excel ပုံစံ drag လုပ်၍ resize နိုင်ပါသည် (ထိပ်ဆုံး/နောက်ဆုံး အစွန်းကော်လံများ မပြောင်းပါ)။
                 </p>
               )}
-              {/* Inner row heights (skip first/last) */}
-              {card.rows.length > 2 && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Inner row heights (px)</Label>
-                  {card.rows.map((r, i) => (
-                    i > 0 && i < card.rows.length - 1 ? (
-                      <div key={r.id} className="flex items-center gap-2">
-                        <span className="text-[10px] w-12">Row {i + 1}</span>
-                        <Input type="number" min={20} max={300} value={r.height ?? 32}
-                          onChange={e => updateRowHeight(card.id, r.id, Number(e.target.value) || 32)} className="h-7 text-xs" />
-                      </div>
-                    ) : null
-                  ))}
-                </div>
+              {card.rows.length >= 2 && (
+                <p className="text-[10px] text-muted-foreground">
+                  Tip: Row တစ်ခု၏ အောက်ဘက် border ကို drag လုပ်၍ height ကို Excel ပုံစံ ပြောင်းနိုင်ပါသည် (နောက်ဆုံး row မထိပါ)။
+                </p>
               )}
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={() => addRow(card.id)}><Plus className="h-3 w-3 mr-1" />Row</Button>
@@ -532,6 +522,7 @@ export function TemplateEditor({ value, onChange }: Props) {
                   </Button>
                 )}
               </div>
+
               <div className="flex items-center justify-between pt-2 border-t">
                 <Label className="text-xs">Free placement on page</Label>
                 <Switch checked={!!card.free} onCheckedChange={v => toggleCardFree(card.id, v)} />
@@ -736,11 +727,13 @@ export function TemplateEditor({ value, onChange }: Props) {
               onCellClick={onSelectCell}
               onCellChange={onCellChange}
               onColWidthChange={updateColWidth}
+              onRowHeightChange={updateRowHeight}
               dragCardId={dragCardId}
               onCardDragStart={setDragCardId}
               onCardDragEnd={() => setDragCardId(null)}
               onCardReorder={reorderCards}
               renderOverlay={(page) => (
+
                 <>
                   {/* Watermark interactive */}
                   {(value.branding.watermark.text || value.branding.watermark.imageUrl) && (
