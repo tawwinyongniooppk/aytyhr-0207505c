@@ -1,12 +1,13 @@
 project_id = "bbopyxeqlymtndtomiwx"
 
-# Reject unauthenticated probes at the gateway so the isolate does not boot
-# on every random scan. Cron jobs send the anon apikey/JWT so they keep working.
+# Cron-invoked functions authenticate internally via CRON_SECRET (or service-role).
+# verify_jwt must be false so the gateway does not reject the Bearer <CRON_SECRET>
+# header (it is not a JWT). Anonymous probes are rejected inside the function.
 [functions.auto-submit-missed-leave]
-verify_jwt = true
+verify_jwt = false
 
 [functions.auto-checkout]
-verify_jwt = true
+verify_jwt = false
 
 [functions.auto-weekly-task-credit]
 verify_jwt = false
@@ -15,4 +16,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.monthly-reset]
-verify_jwt = true
+verify_jwt = false
