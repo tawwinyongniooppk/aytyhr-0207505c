@@ -724,6 +724,33 @@ export type Database = {
         }
         Relationships: []
       }
+      yearly_bonus_progress: {
+        Row: {
+          all_done_units: number
+          assigned_units: number
+          cycle_start_year: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          all_done_units?: number
+          assigned_units?: number
+          cycle_start_year: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          all_done_units?: number
+          assigned_units?: number
+          cycle_start_year?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -841,6 +868,14 @@ export type Database = {
       purge_old_task_logs: { Args: never; Returns: undefined }
       refresh_auto_checkout_schedule: { Args: never; Returns: undefined }
       reset_leave_balances_yearly: { Args: never; Returns: undefined }
+      reset_yearly_bonus_progress: {
+        Args: { p_cycle_start_year: number }
+        Returns: undefined
+      }
+      rollup_yearly_bonus_progress: {
+        Args: { p_month: string }
+        Returns: undefined
+      }
       seed_monthly_salaries: { Args: { p_month: string }; Returns: number }
     }
     Enums: {

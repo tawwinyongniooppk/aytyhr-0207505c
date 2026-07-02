@@ -73,7 +73,12 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
       const { year, month, day } = getMMTDateParts(new Date());
       const todayStr = `${year}-${month}-${day}`;
 
-      const [tasksRes, assignRes] = await Promise.all([
+      // Cycle-start-year: matches server rollup (June-1 boundary).
+      const y = Number(year);
+      const m = Number(month);
+      const cycleStartYear = m >= 6 ? y : y - 1;
+
+      const [tasksRes, assignRes, progressRes] = await Promise.all([
         supabase
           .from("tasks")
           .select("id, submission_status, created_at, due_date")
@@ -86,19 +91,30 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
             "id, submission_status, approved_at, calendar_events!inner(start_date, end_date, event_type)",
           )
           .eq("user_id", user.id),
+        supabase
+          .from("yearly_bonus_progress")
+          .select("assigned_units, all_done_units")
+          .eq("user_id", user.id)
+          .eq("cycle_start_year", cycleStartYear)
+          .maybeSingle(),
       ]);
 
       if (cancelled) return;
 
-      let assignedUnits = 0;
-      let doneUnits = 0;
+      // Persisted units from previous months in this cycle (rolled up during monthly reset).
+      let assignedUnits = Number((progressRes.data as any)?.assigned_units ?? 0);
+      let doneUnits = Number((progressRes.data as any)?.all_done_units ?? 0);
+
+      // Only add live counts for the CURRENT MMT month — previous months are
+      // already captured in yearly_bonus_progress (rolled up during monthly reset).
+      const liveStart = `${year}-${month}-01`;
 
       const tasks = (tasksRes.data as any[]) || [];
       for (const t of tasks) {
-        // Each standalone task = 1 unit
         if (t.submission_status === "rejected") continue;
+        const createdStr = String(t.created_at).slice(0, 10);
+        if (createdStr < liveStart) continue;
         assignedUnits += 1;
-        // Bonus only credits AFTER the deadline checkpoint passes (matches Status Monitor).
         const dueStr: string | null = t.due_date ? String(t.due_date).slice(0, 10) : null;
         const deadlinePassed = dueStr ? dueStr < todayStr : true;
         if (t.submission_status === "approved" && deadlinePassed) doneUnits += 1;
@@ -108,7 +124,7 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
       for (const r of assigns) {
         const ev = r.calendar_events;
         if (!ev || ev.event_type !== "task") continue;
-        if (ev.start_date < period.start || ev.start_date >= period.end) continue;
+        if (ev.start_date < liveStart || ev.start_date >= period.end) continue;
         if (r.submission_status === "rejected") continue;
         const u = unitsForSpan(ev.start_date, ev.end_date);
         assignedUnits += u;
@@ -117,6 +133,7 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
           doneUnits += u;
         }
       }
+
 
       setAssigned(assignedUnits);
       setDone(doneUnits);
