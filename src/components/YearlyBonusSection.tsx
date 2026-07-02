@@ -105,12 +105,26 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
       let assignedUnits = Number((progressRes.data as any)?.assigned_units ?? 0);
       let doneUnits = Number((progressRes.data as any)?.all_done_units ?? 0);
 
+      // Only add live counts for the CURRENT MMT month — previous months are
+      // already captured in yearly_bonus_progress (rolled up during monthly reset).
+      const liveStart = `${year}-${month}-01`;
+
+      const tasks = (tasksRes.data as any[]) || [];
+      for (const t of tasks) {
+        if (t.submission_status === "rejected") continue;
+        const createdStr = String(t.created_at).slice(0, 10);
+        if (createdStr < liveStart) continue;
+        assignedUnits += 1;
+        const dueStr: string | null = t.due_date ? String(t.due_date).slice(0, 10) : null;
+        const deadlinePassed = dueStr ? dueStr < todayStr : true;
+        if (t.submission_status === "approved" && deadlinePassed) doneUnits += 1;
+      }
 
       const assigns = (assignRes.data as any[]) || [];
       for (const r of assigns) {
         const ev = r.calendar_events;
         if (!ev || ev.event_type !== "task") continue;
-        if (ev.start_date < period.start || ev.start_date >= period.end) continue;
+        if (ev.start_date < liveStart || ev.start_date >= period.end) continue;
         if (r.submission_status === "rejected") continue;
         const u = unitsForSpan(ev.start_date, ev.end_date);
         assignedUnits += u;
@@ -119,6 +133,7 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
           doneUnits += u;
         }
       }
+
 
       setAssigned(assignedUnits);
       setDone(doneUnits);
