@@ -478,7 +478,11 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
 
       {/* Free-positioned tables (static render — interactive Rnd wrappers come via renderOverlay) */}
       {freeCards.map(card => (
-        <div key={card.id} style={{ position: "absolute", left: card.x ?? 0, top: card.y ?? 0, width: card.width ?? 400, zIndex: 3 }}>
+        <div
+          key={card.id}
+          data-free-card-id={card.id}
+          style={{ position: "absolute", left: card.x ?? 0, top: card.y ?? 0, width: card.width ?? 400, zIndex: 3 }}
+        >
           {renderTableBlock(card)}
         </div>
       ))}
