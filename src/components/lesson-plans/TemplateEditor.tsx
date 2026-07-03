@@ -928,6 +928,39 @@ export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPa
               )}
             />
           </div>
+
+          {/* Page strip below the current page — Word/PowerPoint style "add new page below" */}
+          {typeof pageCount === "number" && pageCount > 0 && onAddPage && onSelectPage && (
+            <div className="mt-4 pt-4 border-t border-dashed">
+              <div className="flex items-center gap-2 flex-wrap">
+                {Array.from({ length: pageCount }, (_, i) => (
+                  <div key={i} className="flex items-center gap-0.5">
+                    <Button
+                      size="sm"
+                      variant={i === (pageIdx ?? 0) ? "default" : "outline"}
+                      onClick={() => onSelectPage(i)}
+                    >
+                      Page {i + 1}
+                    </Button>
+                    {pageCount > 1 && onDeletePage && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => onDeletePage(i)}
+                        title="Delete page"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <Button onClick={onAddPage} variant="outline" className="w-full mt-3 border-dashed">
+                <Plus className="h-4 w-4 mr-2" /> Add new page below
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
