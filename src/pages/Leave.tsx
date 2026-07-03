@@ -125,13 +125,10 @@ export default function Leave() {
       const all = allRes.data as any[];
       const userIds = [...new Set(all.map((r: any) => r.user_id))];
       if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", userIds);
-
+        const { data: profiles } = await (supabase.rpc("list_staff_directory") as any);
         const nameMap: Record<string, string> = {};
-        (profiles as any[])?.forEach((p: any) => (nameMap[p.id] = p.full_name));
+        (profiles as any[])?.filter((p: any) => userIds.includes(p.id))
+          .forEach((p: any) => (nameMap[p.id] = p.full_name));
 
         setAllRequests(
           (all as unknown as LeaveRequest[]).map((r) => ({
