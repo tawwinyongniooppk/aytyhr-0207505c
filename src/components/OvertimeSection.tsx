@@ -90,7 +90,9 @@ export function OvertimeSection() {
       ? supabase.from("overtime_requests").select("*").order("created_at", { ascending: false })
       : Promise.resolve({ data: [] as any[] });
     const staffP = canManage
-      ? supabase.from("profiles").select("id, full_name, role").in("role", ["staff", "assistant"])
+      ? (supabase.rpc("list_staff_directory") as any).then((r: any) => ({
+          data: (r.data as any[] | null)?.filter((p) => p.role === "staff" || p.role === "assistant") ?? [],
+        }))
       : Promise.resolve({ data: [] as any[] });
 
     const [my, all, staff] = await Promise.all([myP, allP, staffP]);
