@@ -104,8 +104,8 @@ export function OvertimeSection() {
       const uids = [...new Set(rows.map((r) => r.user_id))];
       let nameMap: Record<string, string> = {};
       if (uids.length) {
-        const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", uids);
-        (profs as any[])?.forEach((p) => (nameMap[p.id] = p.full_name));
+        const { data: profs } = await (supabase.rpc("list_staff_directory") as any);
+        (profs as any[])?.filter((p) => uids.includes(p.id)).forEach((p) => (nameMap[p.id] = p.full_name));
       }
       setAllItems(rows.map((r) => ({ ...r, profile_name: nameMap[r.user_id] || "Unknown" })));
     }
