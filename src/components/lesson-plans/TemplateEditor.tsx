@@ -33,8 +33,32 @@ export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPa
   const [optionsDraft, setOptionsDraft] = useState<string>("");
   const [dragCardId, setDragCardId] = useState<string | null>(null);
   const [cardHeights, setCardHeights] = useState<Record<string, number>>({});
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const PREVIEW_SCALE = 0.78;
+
+  // Observe rendered free-card heights so the interactive Rnd outline matches the actual table.
+  useLayoutEffect(() => {
+    const root = previewContainerRef.current;
+    if (!root) return;
+    const measureAll = () => {
+      const next: Record<string, number> = {};
+      root.querySelectorAll<HTMLElement>("[data-free-card-id]").forEach((el) => {
+        const id = el.getAttribute("data-free-card-id");
+        if (!id) return;
+        next[id] = Math.max(40, el.offsetHeight);
+      });
+      setCardHeights((prev) => {
+        const changed = Object.keys(next).some((k) => prev[k] !== next[k]) || Object.keys(prev).length !== Object.keys(next).length;
+        return changed ? next : prev;
+      });
+    };
+    measureAll();
+    const ro = new ResizeObserver(measureAll);
+    root.querySelectorAll<HTMLElement>("[data-free-card-id]").forEach((el) => ro.observe(el));
+    return () => ro.disconnect();
+  }, [value.cards]);
+
 
   // Page dimensions & margins for clamping free-card positions inside the printable area.
   const pageDims = useMemo(() => {
