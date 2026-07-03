@@ -773,10 +773,10 @@ export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPa
           <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground">
               Live preview · {value.page.size} {value.page.orientation === "portrait" ? "Portrait" : "Landscape"} ·
-              Click cell to edit · Drag any inner column border to resize · Drag a table block to reorder on the page.
+              Click cell to edit · Drag table directly to move · Drag left/right edge to resize (Margin အတွင်း၌သာ ရွှေ့နိုင်ပါသည်)။
             </p>
           </div>
-          <div style={{ transform: `scale(${PREVIEW_SCALE})`, transformOrigin: "top left" }}>
+          <div ref={previewContainerRef} style={{ transform: `scale(${PREVIEW_SCALE})`, transformOrigin: "top left" }}>
             <TemplateCanvas
               template={value}
               editable
