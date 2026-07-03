@@ -588,17 +588,11 @@ export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPa
                 )}
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t">
-                <Label className="text-xs">Free placement on page</Label>
-                <Switch checked={!!card.free} onCheckedChange={v => toggleCardFree(card.id, v)} />
-              </div>
-              {card.free && (
-                <div className="grid grid-cols-3 gap-2">
-                  <div><Label className="text-[10px]">X</Label><Input type="number" value={card.x ?? 0} onChange={e => updateCardBox(card.id, { x: Number(e.target.value) || 0 })} className="h-7 text-xs" /></div>
-                  <div><Label className="text-[10px]">Y</Label><Input type="number" value={card.y ?? 0} onChange={e => updateCardBox(card.id, { y: Number(e.target.value) || 0 })} className="h-7 text-xs" /></div>
-                  <div><Label className="text-[10px]">Width</Label><Input type="number" value={card.width ?? 600} onChange={e => updateCardBox(card.id, { width: Number(e.target.value) || 600 })} className="h-7 text-xs" /></div>
-                </div>
-              )}
+              <p className="text-[10px] text-muted-foreground pt-2 border-t">
+                Preview ပေါ်တွင် table ကို တိုက်ရိုက် drag/resize လုပ်နိုင်ပါသည် (Margin area အတွင်း၌သာ ရွှေ့နိုင်ပါသည်)။
+              </p>
+
+
 
             </CardContent>
           </Card>
