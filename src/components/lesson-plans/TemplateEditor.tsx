@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, useLayoutEffect } from "react";
 import { Rnd } from "react-rnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,22 +12,49 @@ import { Bold, Italic, Underline, Plus, Trash2, Lock, Unlock, Type, Image as Ima
 import { TemplateCanvas } from "./TemplateCanvas";
 import { ImageUpload } from "./ImageUpload";
 import type { LessonPlanTemplate, Cell, FreeElement, FreeElementType } from "@/lib/lessonPlanTypes";
-import { PALETTES } from "@/lib/lessonPlanDefaults";
+import { PALETTES, PAGE_PX } from "@/lib/lessonPlanDefaults";
 
 interface Props {
   value: LessonPlanTemplate;
   onChange: (v: LessonPlanTemplate) => void;
+  /** Multi-page context (optional). When provided, a page strip renders under the preview. */
+  pageIdx?: number;
+  pageCount?: number;
+  onSelectPage?: (idx: number) => void;
+  onAddPage?: () => void;
+  onDeletePage?: (idx: number) => void;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-export function TemplateEditor({ value, onChange }: Props) {
+export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPage, onAddPage, onDeletePage }: Props) {
   const [selected, setSelected] = useState<{ cardId: string; rowId: string; cellId: string } | null>(null);
   const [selectedFreeId, setSelectedFreeId] = useState<string | null>(null);
   const [optionsDraft, setOptionsDraft] = useState<string>("");
   const [dragCardId, setDragCardId] = useState<string | null>(null);
+  const [cardHeights, setCardHeights] = useState<Record<string, number>>({});
 
   const PREVIEW_SCALE = 0.78;
+
+  // Page dimensions & margins for clamping free-card positions inside the printable area.
+  const pageDims = useMemo(() => {
+    const base = PAGE_PX[value.page.size];
+    return value.page.orientation === "portrait" ? { width: base.width, height: base.height } : { width: base.height, height: base.width };
+  }, [value.page.size, value.page.orientation]);
+  const mmToPx = (mm: number) => (mm / 25.4) * 96;
+  const marginTop = mmToPx(value.page.marginTop ?? value.page.margin);
+  const marginRight = mmToPx(value.page.marginRight ?? value.page.margin);
+  const marginBottom = mmToPx(value.page.marginBottom ?? value.page.margin);
+  const marginLeft = mmToPx(value.page.marginLeft ?? value.page.margin);
+  const contentMaxX = pageDims.width - marginRight;
+  const contentMaxY = pageDims.height - marginBottom;
+  const clampCard = (x: number, y: number, w: number, hint = 40) => {
+    const width = Math.max(120, Math.min(w, pageDims.width - marginLeft - marginRight));
+    const clampedX = Math.max(marginLeft, Math.min(x, contentMaxX - width));
+    const clampedY = Math.max(marginTop, Math.min(y, Math.max(marginTop, contentMaxY - hint)));
+    return { x: clampedX, y: clampedY, width };
+  };
+
 
   const reorderCards = (fromId: string, toId: string | null) => {
     if (fromId === toId) return;
