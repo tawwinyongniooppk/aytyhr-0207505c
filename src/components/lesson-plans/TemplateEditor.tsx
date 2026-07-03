@@ -175,6 +175,10 @@ export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPa
   };
 
   const addCard = () => {
+    // Cards are now always free-placed (PowerPoint style). Stagger new tables inside the margin area.
+    const offset = value.cards.length * 40;
+    const initX = Math.min(marginLeft + 20 + offset, contentMaxX - 400);
+    const initY = Math.min(marginTop + 40 + offset, contentMaxY - 100);
     onChange({
       ...value,
       cards: [
@@ -184,6 +188,10 @@ export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPa
           title: `Table ${value.cards.length + 1}`,
           columns: 2,
           colWidths: [50, 50],
+          free: true,
+          x: initX,
+          y: initY,
+          width: Math.min(600, pageDims.width - marginLeft - marginRight),
           rows: [
             { id: uid(), cells: [
               { id: uid(), value: "Heading", locked: true, bold: true, bgColor: "#f1f5f9", fontSize: 12, minFontSize: 12, align: "left", prefix: "none" },
