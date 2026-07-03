@@ -175,12 +175,9 @@ export function OvertimeSection() {
       let minutes = 0;
 
       if (decision === "approved") {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("overtime_rate_per_minute")
-          .eq("id", item.user_id)
-          .maybeSingle();
-        const rate = (prof as any)?.overtime_rate_per_minute ?? 200;
+        const { data: rates } = await (supabase.rpc("get_user_rates", { p_user_id: item.user_id }) as any);
+        const rateRow = Array.isArray(rates) ? rates[0] : rates;
+        const rate = (rateRow as any)?.overtime_rate_per_minute ?? 200;
         minutes = diffMinutes(item.start_at, item.end_at);
         amount = minutes * rate;
         updates = { ...updates, minutes, rate_per_minute: rate, amount };
