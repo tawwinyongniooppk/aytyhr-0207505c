@@ -108,7 +108,9 @@ export default function Leave() {
       : Promise.resolve({ data: [] as any[] });
 
     const staffPromise = canManage
-      ? supabase.from("profiles").select("id, full_name, role").in("role", ["staff", "assistant"]).then(r => r)
+      ? (supabase.rpc("list_staff_directory") as any).then((r: any) => ({
+          data: (r.data as any[] | null)?.filter((p) => p.role === "staff" || p.role === "assistant") ?? [],
+        }))
       : Promise.resolve({ data: [] as any[] });
 
     const [myRes, allRes, staffRes] = await Promise.all([myPromise, allPromise, staffPromise]);
