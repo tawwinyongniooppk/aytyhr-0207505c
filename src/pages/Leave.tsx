@@ -348,14 +348,11 @@ export default function Leave() {
           const [sh, sm] = selectedRequest.start_time.slice(0, 5).split(":").map(Number);
           const [eh, em] = selectedRequest.end_time.slice(0, 5).split(":").map(Number);
           const minutes = Math.max(0, eh * 60 + em - (sh * 60 + sm));
-          const { data: prof } = await (supabase as any)
-            .from("profiles")
-            .select("partial_leave_deduction_per_minute, deduction_rate_per_minute, full_name")
-            .eq("id", selectedRequest.user_id)
-            .maybeSingle();
+          const { data: rates } = await (supabase.rpc("get_user_rates", { p_user_id: selectedRequest.user_id }) as any);
+          const rateRow = Array.isArray(rates) ? rates[0] : rates;
           const rate =
-            Number(prof?.partial_leave_deduction_per_minute) ||
-            Number(prof?.deduction_rate_per_minute) ||
+            Number((rateRow as any)?.partial_leave_deduction_per_minute) ||
+            Number((rateRow as any)?.deduction_rate_per_minute) ||
             200;
           const amount = minutes * rate;
           if (amount > 0) {
