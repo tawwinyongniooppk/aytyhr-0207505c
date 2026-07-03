@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, useLayoutEffect } from "react";
 import { Rnd } from "react-rnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,22 +12,73 @@ import { Bold, Italic, Underline, Plus, Trash2, Lock, Unlock, Type, Image as Ima
 import { TemplateCanvas } from "./TemplateCanvas";
 import { ImageUpload } from "./ImageUpload";
 import type { LessonPlanTemplate, Cell, FreeElement, FreeElementType } from "@/lib/lessonPlanTypes";
-import { PALETTES } from "@/lib/lessonPlanDefaults";
+import { PALETTES, PAGE_PX } from "@/lib/lessonPlanDefaults";
 
 interface Props {
   value: LessonPlanTemplate;
   onChange: (v: LessonPlanTemplate) => void;
+  /** Multi-page context (optional). When provided, a page strip renders under the preview. */
+  pageIdx?: number;
+  pageCount?: number;
+  onSelectPage?: (idx: number) => void;
+  onAddPage?: () => void;
+  onDeletePage?: (idx: number) => void;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-export function TemplateEditor({ value, onChange }: Props) {
+export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPage, onAddPage, onDeletePage }: Props) {
   const [selected, setSelected] = useState<{ cardId: string; rowId: string; cellId: string } | null>(null);
   const [selectedFreeId, setSelectedFreeId] = useState<string | null>(null);
   const [optionsDraft, setOptionsDraft] = useState<string>("");
   const [dragCardId, setDragCardId] = useState<string | null>(null);
+  const [cardHeights, setCardHeights] = useState<Record<string, number>>({});
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const PREVIEW_SCALE = 0.78;
+
+  // Observe rendered free-card heights so the interactive Rnd outline matches the actual table.
+  useLayoutEffect(() => {
+    const root = previewContainerRef.current;
+    if (!root) return;
+    const measureAll = () => {
+      const next: Record<string, number> = {};
+      root.querySelectorAll<HTMLElement>("[data-free-card-id]").forEach((el) => {
+        const id = el.getAttribute("data-free-card-id");
+        if (!id) return;
+        next[id] = Math.max(40, el.offsetHeight);
+      });
+      setCardHeights((prev) => {
+        const changed = Object.keys(next).some((k) => prev[k] !== next[k]) || Object.keys(prev).length !== Object.keys(next).length;
+        return changed ? next : prev;
+      });
+    };
+    measureAll();
+    const ro = new ResizeObserver(measureAll);
+    root.querySelectorAll<HTMLElement>("[data-free-card-id]").forEach((el) => ro.observe(el));
+    return () => ro.disconnect();
+  }, [value.cards]);
+
+
+  // Page dimensions & margins for clamping free-card positions inside the printable area.
+  const pageDims = useMemo(() => {
+    const base = PAGE_PX[value.page.size];
+    return value.page.orientation === "portrait" ? { width: base.width, height: base.height } : { width: base.height, height: base.width };
+  }, [value.page.size, value.page.orientation]);
+  const mmToPx = (mm: number) => (mm / 25.4) * 96;
+  const marginTop = mmToPx(value.page.marginTop ?? value.page.margin);
+  const marginRight = mmToPx(value.page.marginRight ?? value.page.margin);
+  const marginBottom = mmToPx(value.page.marginBottom ?? value.page.margin);
+  const marginLeft = mmToPx(value.page.marginLeft ?? value.page.margin);
+  const contentMaxX = pageDims.width - marginRight;
+  const contentMaxY = pageDims.height - marginBottom;
+  const clampCard = (x: number, y: number, w: number, hint = 40) => {
+    const width = Math.max(120, Math.min(w, pageDims.width - marginLeft - marginRight));
+    const clampedX = Math.max(marginLeft, Math.min(x, contentMaxX - width));
+    const clampedY = Math.max(marginTop, Math.min(y, Math.max(marginTop, contentMaxY - hint)));
+    return { x: clampedX, y: clampedY, width };
+  };
+
 
   const reorderCards = (fromId: string, toId: string | null) => {
     if (fromId === toId) return;
@@ -148,6 +199,10 @@ export function TemplateEditor({ value, onChange }: Props) {
   };
 
   const addCard = () => {
+    // Cards are now always free-placed (PowerPoint style). Stagger new tables inside the margin area.
+    const offset = value.cards.length * 40;
+    const initX = Math.min(marginLeft + 20 + offset, contentMaxX - 400);
+    const initY = Math.min(marginTop + 40 + offset, contentMaxY - 100);
     onChange({
       ...value,
       cards: [
@@ -157,6 +212,10 @@ export function TemplateEditor({ value, onChange }: Props) {
           title: `Table ${value.cards.length + 1}`,
           columns: 2,
           colWidths: [50, 50],
+          free: true,
+          x: initX,
+          y: initY,
+          width: Math.min(600, pageDims.width - marginLeft - marginRight),
           rows: [
             { id: uid(), cells: [
               { id: uid(), value: "Heading", locked: true, bold: true, bgColor: "#f1f5f9", fontSize: 12, minFontSize: 12, align: "left", prefix: "none" },
@@ -223,8 +282,38 @@ export function TemplateEditor({ value, onChange }: Props) {
     });
   };
   const updateCardBox = (cardId: string, patch: { x?: number; y?: number; width?: number }) => {
-    onChange({ ...value, cards: value.cards.map(c => c.id === cardId ? { ...c, ...patch } : c) });
+    onChange({
+      ...value,
+      cards: value.cards.map(c => {
+        if (c.id !== cardId) return c;
+        const next = { ...c, ...patch };
+        const clamped = clampCard(next.x ?? marginLeft, next.y ?? marginTop, next.width ?? 400, cardHeights[c.id] ?? 60);
+        return { ...next, x: clamped.x, y: clamped.y, width: clamped.width };
+      }),
+    });
   };
+
+  // Auto-migrate legacy in-flow cards to free-placed layout so every table can be moved directly.
+  const migrationDoneRef = useRef<string | null>(null);
+  useEffect(() => {
+    const sig = value.cards.map(c => c.id).join("|");
+    const needsMigration = value.cards.some(c => !c.free);
+    if (!needsMigration || migrationDoneRef.current === sig) return;
+    migrationDoneRef.current = sig;
+    let y = marginTop + 20;
+    const migrated = value.cards.map((c) => {
+      if (c.free) return c;
+      const initX = marginLeft + 10;
+      const width = Math.min(c.width ?? pageDims.width - marginLeft - marginRight - 20, pageDims.width - marginLeft - marginRight);
+      const cardY = Math.min(y, contentMaxY - 60);
+      y = cardY + 220; // estimate; measured heights update later
+      return { ...c, free: true, x: initX, y: cardY, width };
+    });
+    onChange({ ...value, cards: migrated });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.cards.map(c => c.id).join("|")]);
+
+
 
 
   // Sync options draft when selecting cell
@@ -523,17 +612,11 @@ export function TemplateEditor({ value, onChange }: Props) {
                 )}
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t">
-                <Label className="text-xs">Free placement on page</Label>
-                <Switch checked={!!card.free} onCheckedChange={v => toggleCardFree(card.id, v)} />
-              </div>
-              {card.free && (
-                <div className="grid grid-cols-3 gap-2">
-                  <div><Label className="text-[10px]">X</Label><Input type="number" value={card.x ?? 0} onChange={e => updateCardBox(card.id, { x: Number(e.target.value) || 0 })} className="h-7 text-xs" /></div>
-                  <div><Label className="text-[10px]">Y</Label><Input type="number" value={card.y ?? 0} onChange={e => updateCardBox(card.id, { y: Number(e.target.value) || 0 })} className="h-7 text-xs" /></div>
-                  <div><Label className="text-[10px]">Width</Label><Input type="number" value={card.width ?? 600} onChange={e => updateCardBox(card.id, { width: Number(e.target.value) || 600 })} className="h-7 text-xs" /></div>
-                </div>
-              )}
+              <p className="text-[10px] text-muted-foreground pt-2 border-t">
+                Preview ပေါ်တွင် table ကို တိုက်ရိုက် drag/resize လုပ်နိုင်ပါသည် (Margin area အတွင်း၌သာ ရွှေ့နိုင်ပါသည်)။
+              </p>
+
+
 
             </CardContent>
           </Card>
@@ -714,10 +797,10 @@ export function TemplateEditor({ value, onChange }: Props) {
           <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground">
               Live preview · {value.page.size} {value.page.orientation === "portrait" ? "Portrait" : "Landscape"} ·
-              Click cell to edit · Drag any inner column border to resize · Drag a table block to reorder on the page.
+              Click cell to edit · Drag table directly to move · Drag left/right edge to resize (Margin အတွင်း၌သာ ရွှေ့နိုင်ပါသည်)။
             </p>
           </div>
-          <div style={{ transform: `scale(${PREVIEW_SCALE})`, transformOrigin: "top left" }}>
+          <div ref={previewContainerRef} style={{ transform: `scale(${PREVIEW_SCALE})`, transformOrigin: "top left" }}>
             <TemplateCanvas
               template={value}
               editable
@@ -785,21 +868,25 @@ export function TemplateEditor({ value, onChange }: Props) {
                       <div className="w-full h-full" />
                     </Rnd>
                   )}
-                  {/* Free-positioned tables interactive */}
-                  {value.cards.filter(c => c.free).map(card => (
-                    <Rnd
-                      key={`free-${card.id}`}
-                      bounds="parent"
-                      size={{ width: card.width ?? 600, height: Math.max(40, (card.rows.length * 36) + 40) }}
-                      position={{ x: card.x ?? 0, y: card.y ?? 0 }}
-                      enableResizing={{ left: true, right: true, top: false, bottom: false, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false }}
-                      onDragStop={(_, d) => updateCardBox(card.id, { x: d.x, y: d.y })}
-                      onResizeStop={(_, __, ref, ___, pos) => updateCardBox(card.id, { width: parseInt(ref.style.width), x: pos.x, y: pos.y })}
-                      style={{ zIndex: 15, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
-                    >
-                      <div className="w-full h-full" />
-                    </Rnd>
-                  ))}
+                  {/* Free-positioned tables interactive — Rnd wraps the actual rendered table so its outline matches. */}
+                  {value.cards.filter(c => c.free).map(card => {
+                    const measured = cardHeights[card.id] ?? Math.max(40, (card.rows.length * 32) + 32);
+                    return (
+                      <Rnd
+                        key={`free-${card.id}`}
+                        bounds="parent"
+                        size={{ width: card.width ?? 600, height: measured }}
+                        position={{ x: card.x ?? marginLeft, y: card.y ?? marginTop }}
+                        enableResizing={{ left: true, right: true, top: false, bottom: false, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false }}
+                        onDragStop={(_, d) => updateCardBox(card.id, { x: d.x, y: d.y })}
+                        onResizeStop={(_, __, ref, ___, pos) => updateCardBox(card.id, { width: parseInt(ref.style.width), x: pos.x, y: pos.y })}
+                        style={{ zIndex: 15, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
+                      >
+                        <div className="w-full h-full" />
+                      </Rnd>
+                    );
+                  })}
+
 
                   {/* Free elements interactive */}
                   {(value.freeElements ?? []).map(el => (
@@ -841,6 +928,39 @@ export function TemplateEditor({ value, onChange }: Props) {
               )}
             />
           </div>
+
+          {/* Page strip below the current page — Word/PowerPoint style "add new page below" */}
+          {typeof pageCount === "number" && pageCount > 0 && onAddPage && onSelectPage && (
+            <div className="mt-4 pt-4 border-t border-dashed">
+              <div className="flex items-center gap-2 flex-wrap">
+                {Array.from({ length: pageCount }, (_, i) => (
+                  <div key={i} className="flex items-center gap-0.5">
+                    <Button
+                      size="sm"
+                      variant={i === (pageIdx ?? 0) ? "default" : "outline"}
+                      onClick={() => onSelectPage(i)}
+                    >
+                      Page {i + 1}
+                    </Button>
+                    {pageCount > 1 && onDeletePage && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => onDeletePage(i)}
+                        title="Delete page"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <Button onClick={onAddPage} variant="outline" className="w-full mt-3 border-dashed">
+                <Plus className="h-4 w-4 mr-2" /> Add new page below
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
