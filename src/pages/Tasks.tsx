@@ -105,11 +105,10 @@ export default function Tasks() {
     isFetchingRef.current = true;
     setLoading(true);
     try {
-      const profilesPromise = supabase
-        .from("profiles")
-        .select("id, full_name, role, sequence")
-        .order("sequence", { ascending: true })
-        .order("full_name", { ascending: true });
+      const profilesPromise = (supabase.rpc("list_staff_directory") as any).then((r: any) => ({
+        data: (r.data as any[] | null) ?? [],
+        error: r.error,
+      }));
 
       if (isStaff) {
         const [tasksRes, profilesRes, assRes] = await Promise.all([
