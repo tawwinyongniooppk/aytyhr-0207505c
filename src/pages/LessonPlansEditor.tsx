@@ -86,9 +86,6 @@ export default function LessonPlansEditor() {
     }
   };
 
-  const reset = (cls: ClassName, fmt: TemplateFormat) => {
-    setTemplates(prev => ({ ...prev, [k(cls, fmt)]: defaultTemplate(cls, fmt) }));
-  };
 
   const addFormat = (cls: ClassName) => {
     const existing = formatsByClass[cls];
