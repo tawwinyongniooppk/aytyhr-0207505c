@@ -228,13 +228,9 @@ export default function CalendarPage() {
       // Admin can assign tasks to Staff and Assistant Admin.
       // Assistant Admin can assign only to Staff.
       const roles = isAssistant ? ["staff"] : ["staff", "assistant"];
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, full_name, role, sequence, work_schedule")
-        .in("role", roles)
-        .order("sequence", { ascending: true })
-        .order("full_name", { ascending: true });
-      setStaffList((data as StaffProfile[]) || []);
+      const { data } = await (supabase.rpc("list_staff_directory") as any);
+      const filtered = ((data as any[]) || []).filter((p) => roles.includes(p.role));
+      setStaffList((filtered as StaffProfile[]) || []);
     } catch { /* ignore */ }
   }
 
