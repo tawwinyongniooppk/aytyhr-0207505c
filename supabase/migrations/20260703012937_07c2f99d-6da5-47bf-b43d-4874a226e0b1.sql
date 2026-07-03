@@ -1,0 +1,2 @@
+INSERT INTO public.leave_manual_deductions (user_id, title, reason, days, created_by, created_at)
+VALUES ('f6cc6df6-6fe2-495d-8a96-893962a94be9', 'ဖခင်နေမကောင်းပါသဖြင့်', 'ဖခင်နေမကောင်းပါသဖြင့်', 1, '3e71763b-0d06-46c5-a75d-c5feb003d2cf', '2026-06-15 10:00:00+06:30');
