@@ -844,21 +844,25 @@ export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPa
                       <div className="w-full h-full" />
                     </Rnd>
                   )}
-                  {/* Free-positioned tables interactive */}
-                  {value.cards.filter(c => c.free).map(card => (
-                    <Rnd
-                      key={`free-${card.id}`}
-                      bounds="parent"
-                      size={{ width: card.width ?? 600, height: Math.max(40, (card.rows.length * 36) + 40) }}
-                      position={{ x: card.x ?? 0, y: card.y ?? 0 }}
-                      enableResizing={{ left: true, right: true, top: false, bottom: false, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false }}
-                      onDragStop={(_, d) => updateCardBox(card.id, { x: d.x, y: d.y })}
-                      onResizeStop={(_, __, ref, ___, pos) => updateCardBox(card.id, { width: parseInt(ref.style.width), x: pos.x, y: pos.y })}
-                      style={{ zIndex: 15, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
-                    >
-                      <div className="w-full h-full" />
-                    </Rnd>
-                  ))}
+                  {/* Free-positioned tables interactive — Rnd wraps the actual rendered table so its outline matches. */}
+                  {value.cards.filter(c => c.free).map(card => {
+                    const measured = cardHeights[card.id] ?? Math.max(40, (card.rows.length * 32) + 32);
+                    return (
+                      <Rnd
+                        key={`free-${card.id}`}
+                        bounds="parent"
+                        size={{ width: card.width ?? 600, height: measured }}
+                        position={{ x: card.x ?? marginLeft, y: card.y ?? marginTop }}
+                        enableResizing={{ left: true, right: true, top: false, bottom: false, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false }}
+                        onDragStop={(_, d) => updateCardBox(card.id, { x: d.x, y: d.y })}
+                        onResizeStop={(_, __, ref, ___, pos) => updateCardBox(card.id, { width: parseInt(ref.style.width), x: pos.x, y: pos.y })}
+                        style={{ zIndex: 15, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
+                      >
+                        <div className="w-full h-full" />
+                      </Rnd>
+                    );
+                  })}
+
 
                   {/* Free elements interactive */}
                   {(value.freeElements ?? []).map(el => (
