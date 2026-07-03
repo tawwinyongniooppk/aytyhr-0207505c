@@ -258,8 +258,38 @@ export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPa
     });
   };
   const updateCardBox = (cardId: string, patch: { x?: number; y?: number; width?: number }) => {
-    onChange({ ...value, cards: value.cards.map(c => c.id === cardId ? { ...c, ...patch } : c) });
+    onChange({
+      ...value,
+      cards: value.cards.map(c => {
+        if (c.id !== cardId) return c;
+        const next = { ...c, ...patch };
+        const clamped = clampCard(next.x ?? marginLeft, next.y ?? marginTop, next.width ?? 400, cardHeights[c.id] ?? 60);
+        return { ...next, x: clamped.x, y: clamped.y, width: clamped.width };
+      }),
+    });
   };
+
+  // Auto-migrate legacy in-flow cards to free-placed layout so every table can be moved directly.
+  const migrationDoneRef = useRef<string | null>(null);
+  useEffect(() => {
+    const sig = value.cards.map(c => c.id).join("|");
+    const needsMigration = value.cards.some(c => !c.free);
+    if (!needsMigration || migrationDoneRef.current === sig) return;
+    migrationDoneRef.current = sig;
+    let y = marginTop + 20;
+    const migrated = value.cards.map((c) => {
+      if (c.free) return c;
+      const initX = marginLeft + 10;
+      const width = Math.min(c.width ?? pageDims.width - marginLeft - marginRight - 20, pageDims.width - marginLeft - marginRight);
+      const cardY = Math.min(y, contentMaxY - 60);
+      y = cardY + 220; // estimate; measured heights update later
+      return { ...c, free: true, x: initX, y: cardY, width };
+    });
+    onChange({ ...value, cards: migrated });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.cards.map(c => c.id).join("|")]);
+
+
 
 
   // Sync options draft when selecting cell
