@@ -108,7 +108,9 @@ export default function Leave() {
       : Promise.resolve({ data: [] as any[] });
 
     const staffPromise = canManage
-      ? supabase.from("profiles").select("id, full_name, role").in("role", ["staff", "assistant"]).then(r => r)
+      ? (supabase.rpc("list_staff_directory") as any).then((r: any) => ({
+          data: (r.data as any[] | null)?.filter((p) => p.role === "staff" || p.role === "assistant") ?? [],
+        }))
       : Promise.resolve({ data: [] as any[] });
 
     const [myRes, allRes, staffRes] = await Promise.all([myPromise, allPromise, staffPromise]);
@@ -123,13 +125,10 @@ export default function Leave() {
       const all = allRes.data as any[];
       const userIds = [...new Set(all.map((r: any) => r.user_id))];
       if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", userIds);
-
+        const { data: profiles } = await (supabase.rpc("list_staff_directory") as any);
         const nameMap: Record<string, string> = {};
-        (profiles as any[])?.forEach((p: any) => (nameMap[p.id] = p.full_name));
+        (profiles as any[])?.filter((p: any) => userIds.includes(p.id))
+          .forEach((p: any) => (nameMap[p.id] = p.full_name));
 
         setAllRequests(
           (all as unknown as LeaveRequest[]).map((r) => ({
@@ -349,14 +348,11 @@ export default function Leave() {
           const [sh, sm] = selectedRequest.start_time.slice(0, 5).split(":").map(Number);
           const [eh, em] = selectedRequest.end_time.slice(0, 5).split(":").map(Number);
           const minutes = Math.max(0, eh * 60 + em - (sh * 60 + sm));
-          const { data: prof } = await (supabase as any)
-            .from("profiles")
-            .select("partial_leave_deduction_per_minute, deduction_rate_per_minute, full_name")
-            .eq("id", selectedRequest.user_id)
-            .maybeSingle();
+          const { data: rates } = await (supabase.rpc("get_user_rates", { p_user_id: selectedRequest.user_id }) as any);
+          const rateRow = Array.isArray(rates) ? rates[0] : rates;
           const rate =
-            Number(prof?.partial_leave_deduction_per_minute) ||
-            Number(prof?.deduction_rate_per_minute) ||
+            Number((rateRow as any)?.partial_leave_deduction_per_minute) ||
+            Number((rateRow as any)?.deduction_rate_per_minute) ||
             200;
           const amount = minutes * rate;
           if (amount > 0) {

@@ -851,7 +851,18 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_user_rates: {
+        Args: { p_user_id: string }
+        Returns: {
+          deduction_rate_per_minute: number
+          early_deduction_per_minute: number
+          late_deduction_per_minute: number
+          overtime_rate_per_minute: number
+          partial_leave_deduction_per_minute: number
+        }[]
+      }
       is_admin_or_assistant: { Args: never; Returns: boolean }
+      is_admin_or_it_manager: { Args: never; Returns: boolean }
       is_it_manager: { Args: never; Returns: boolean }
       is_privileged_user: { Args: never; Returns: boolean }
       list_public_profiles: {
@@ -860,6 +871,22 @@ export type Database = {
           full_name: string
           id: string
           role: string
+        }[]
+      }
+      list_staff_directory: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          check_in_time: string
+          check_out_time: string
+          class: string
+          full_name: string
+          id: string
+          join_date: string
+          role: string
+          sequence: number
+          work_day: string
+          work_schedule: Json
         }[]
       }
       monthly_reset_for: { Args: { p_month: string }; Returns: undefined }

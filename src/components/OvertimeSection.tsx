@@ -90,7 +90,9 @@ export function OvertimeSection() {
       ? supabase.from("overtime_requests").select("*").order("created_at", { ascending: false })
       : Promise.resolve({ data: [] as any[] });
     const staffP = canManage
-      ? supabase.from("profiles").select("id, full_name, role").in("role", ["staff", "assistant"])
+      ? (supabase.rpc("list_staff_directory") as any).then((r: any) => ({
+          data: (r.data as any[] | null)?.filter((p) => p.role === "staff" || p.role === "assistant") ?? [],
+        }))
       : Promise.resolve({ data: [] as any[] });
 
     const [my, all, staff] = await Promise.all([myP, allP, staffP]);
@@ -102,8 +104,8 @@ export function OvertimeSection() {
       const uids = [...new Set(rows.map((r) => r.user_id))];
       let nameMap: Record<string, string> = {};
       if (uids.length) {
-        const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", uids);
-        (profs as any[])?.forEach((p) => (nameMap[p.id] = p.full_name));
+        const { data: profs } = await (supabase.rpc("list_staff_directory") as any);
+        (profs as any[])?.filter((p) => uids.includes(p.id)).forEach((p) => (nameMap[p.id] = p.full_name));
       }
       setAllItems(rows.map((r) => ({ ...r, profile_name: nameMap[r.user_id] || "Unknown" })));
     }
@@ -173,12 +175,9 @@ export function OvertimeSection() {
       let minutes = 0;
 
       if (decision === "approved") {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("overtime_rate_per_minute")
-          .eq("id", item.user_id)
-          .maybeSingle();
-        const rate = (prof as any)?.overtime_rate_per_minute ?? 200;
+        const { data: rates } = await (supabase.rpc("get_user_rates", { p_user_id: item.user_id }) as any);
+        const rateRow = Array.isArray(rates) ? rates[0] : rates;
+        const rate = (rateRow as any)?.overtime_rate_per_minute ?? 200;
         minutes = diffMinutes(item.start_at, item.end_at);
         amount = minutes * rate;
         updates = { ...updates, minutes, rate_per_minute: rate, amount };

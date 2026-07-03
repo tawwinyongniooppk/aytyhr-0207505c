@@ -150,11 +150,9 @@ export default function CalendarPage() {
       // Any staff (or assistant) marked off on a weekday => the calendar cell
       // for that weekday gets the light-red Off Day highlight.
       if (!isStaff) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("full_name, work_schedule, role")
-          .in("role", ["staff", "assistant"]);
-        const rows = (data || []) as Array<{ full_name: string; work_schedule: any }>;
+        const { data } = await (supabase.rpc("list_staff_directory") as any);
+        const rows = ((data || []) as Array<{ full_name: string; work_schedule: any; role: string }>)
+          .filter((r) => r.role === "staff" || r.role === "assistant");
         const byDay: Record<string, string[]> = {};
         const merged: Record<string, { active: boolean }> = {};
         for (const day of WEEKDAY_NAMES) {
@@ -230,13 +228,9 @@ export default function CalendarPage() {
       // Admin can assign tasks to Staff and Assistant Admin.
       // Assistant Admin can assign only to Staff.
       const roles = isAssistant ? ["staff"] : ["staff", "assistant"];
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, full_name, role, sequence, work_schedule")
-        .in("role", roles)
-        .order("sequence", { ascending: true })
-        .order("full_name", { ascending: true });
-      setStaffList((data as StaffProfile[]) || []);
+      const { data } = await (supabase.rpc("list_staff_directory") as any);
+      const filtered = ((data as any[]) || []).filter((p) => roles.includes(p.role));
+      setStaffList((filtered as StaffProfile[]) || []);
     } catch { /* ignore */ }
   }
 
