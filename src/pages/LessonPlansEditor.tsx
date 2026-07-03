@@ -249,44 +249,22 @@ export default function LessonPlansEditor() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  {Array.from({ length: pageCount }, (_, i) => (
-                    <div key={i} className="flex items-center gap-0.5">
-                      <Button
-                        size="sm"
-                        variant={i === pageIdx ? "default" : "outline"}
-                        onClick={() => setPageIdxByKey(prev => ({ ...prev, [key]: i }))}
-                      >
-                        Page {i + 1}
-                      </Button>
-                      {pageCount > 1 && (
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removePage(c, fmt, i)} title="Delete page">
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button size="sm" variant="outline" onClick={() => addPage(c, fmt)}>
-                    <Plus className="h-3 w-3 mr-1" /> Add Page
-                  </Button>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => reset(c, fmt)}>
-                    <RotateCcw className="h-4 w-4 mr-1" /> Reset to default
-                  </Button>
-                  <Button size="sm" onClick={() => save(c, fmt)} disabled={saving === key}>
-                    {saving === key ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-                    Save {c} — {templates[key]?.displayName ?? fmt}
-                  </Button>
-                </div>
+              <div className="flex items-center justify-end">
+                <Button size="sm" onClick={() => save(c, fmt)} disabled={saving === key}>
+                  {saving === key ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                  Save {c} — {templates[key]?.displayName ?? fmt}
+                </Button>
               </div>
 
               {t && (
                 <TemplateEditor
                   value={templateForPage(t, pageIdx)}
                   onChange={(edited) => setTemplates(prev => ({ ...prev, [key]: writePageBack(t, pageIdx, edited) }))}
+                  pageIdx={pageIdx}
+                  pageCount={pageCount}
+                  onSelectPage={(idx) => setPageIdxByKey(prev => ({ ...prev, [key]: idx }))}
+                  onAddPage={() => addPage(c, fmt)}
+                  onDeletePage={(idx) => removePage(c, fmt, idx)}
                 />
               )}
             </TabsContent>
