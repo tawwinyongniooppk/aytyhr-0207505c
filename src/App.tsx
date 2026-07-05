@@ -43,7 +43,15 @@ const MyIdPage = lazyRetry(() => import("@/pages/MyIdPage"));
 const MyTimetablePage = lazyRetry(() => import("@/pages/MyTimetablePage"));
 const LessonPlansEditor = lazyRetry(() => import("@/pages/LessonPlansEditor"));
 const CarouselManagement = lazyRetry(() => import("@/pages/CarouselManagement"));
+const NotificationCentre = lazyRetry(() => import("@/pages/NotificationCentre"));
 const NotFound = lazyRetry(() => import("@/pages/NotFound"));
+
+function ItManagerGuard({ children }: { children: React.ReactNode }) {
+  const { isItManager, loading } = useProfile();
+  if (loading) return <PageLoader />;
+  if (!isItManager) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
