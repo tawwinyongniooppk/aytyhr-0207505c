@@ -102,6 +102,7 @@ const App = () => (
                   <Route path="/my-timetable" element={<MyTimetablePage />} />
                   <Route path="/lesson-plans-editor" element={<LessonPlansEditor />} />
                   <Route path="/carousel-management" element={<CarouselManagement />} />
+                  <Route path="/notification-centre" element={<ItManagerGuard><NotificationCentre /></ItManagerGuard>} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
