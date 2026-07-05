@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
-import { LayoutDashboard, Clock, Wallet, ClipboardList, LogOut, FileText, UserPlus, Users, CalendarDays, Coins, Settings, Menu, BadgeCheck, BookOpen, GalleryHorizontal } from "lucide-react";
+import { LayoutDashboard, Clock, Wallet, ClipboardList, LogOut, FileText, UserPlus, Users, CalendarDays, Coins, Settings, Menu, BadgeCheck, BookOpen, GalleryHorizontal, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,6 +28,7 @@ const allNavItems: any[] = [
   { to: "/manage-accounts", icon: UserPlus, label: "Accounts", fullLabel: "Accounts", itManagerOnly: true },
   { to: "/lesson-plans-editor", icon: BookOpen, label: "Templates", fullLabel: "Lesson Plans Templates", itManagerOnly: true },
   { to: "/carousel-management", icon: GalleryHorizontal, label: "Carousel", fullLabel: "Carousel Slider", itManagerOnly: true },
+  { to: "/notification-centre", icon: Bell, label: "Notify", fullLabel: "Notification Centre", itManagerOnly: true },
 ];
 
 export function BottomNav() {

@@ -1,79 +1,113 @@
-## ၁။ Lesson Plans Template Editor Rework
 
-### A. "Card" → "Table" rename
-- `TemplateEditor.tsx` ထဲမှာ "Card 1, Card 2, Card 3" sidebar label နှင့် dialog/heading များကို **Table 1, Table 2, Table 3** အဖြစ် ပြောင်းမည်။
-- Add Row / Delete Last Row / Add Column / Delete Last Column buttons အတိုင်း ထားမည်။
+# Notification Centre (IT Manager)
 
-### B. Excel-style drag-resize (slider/% ဖျက်)
-- ယခု `Slider` (Inner column widths %) နှင့် numeric row height inputs များကို ဖျက်မည်။
-- `TemplateCanvas.tsx` (preview pane) ထဲမှာ — Excel ပုံစံ **drag handle** ထည့်မည်။
-  - Column border ပေါ်တွင် mouse-down → ဘယ်/ညာ drag လုပ်လို့ column width ပြောင်းနိုင်မည် (px).
-  - Row border ပေါ်တွင် mouse-down → အပေါ်/အောက် drag လုပ်လို့ row height ပြောင်းနိုင်မည် (px).
-  - Drag အပြီး state ကို template JSON ထဲကို save (colWidths %, row.height px).
-- **Margin guard**: total column widths သည် page content area (= page width − marginLeft − marginRight) ထက် မကျော်စေရ။ Row stack height သည် content height ထက် မကျော်စေရ — ကျော်လျှင် drag ကို clamp လုပ်မည်။
+A single new page for the IT Manager to compose, preview, schedule, and manage push notifications sent through the existing FCM pipeline (`fcm_tokens` + `send-push` edge function).
 
-### C. Format tab rename + Add new format (Max 5 per class)
-- ယခု hardcoded `["format1", "format2"]` ကို dynamic list အဖြစ် ပြောင်းမည်။
-- Tab right-click သို့မဟုတ် double-click → **rename** (Excel sheet tab ပုံစံ).
-- `+ Add Format` button (max 5 per class) — Format 3, 4, 5 ထပ်ထည့်နိုင်မည်။
-- Tab name များကို DB column အသစ်တစ်ခုဖြင့် သိမ်းမည် (`display_name` text, default "Format N").
+## Navigation
+- New menu item **Notification Centre** (bell icon) in `DesktopSidebar` and `BottomNav`, visible only when `role === 'it_manager'`.
+- Route: `/notification-centre` in `src/App.tsx`, lazy-loaded, wrapped in an IT-Manager guard (redirect others to `/dashboard`).
 
-### D. Multi-page support per format
-- Template JSON schema ထဲကို `pages: PageContent[]` array ထည့်မည် (backward compatible — `cards` ရှိရင် pages[0] အဖြစ် migrate).
-- Page တစ်ခုစီတွင် မိမိ cards/freeElements/header reserve ရှိမည်။
-- **Header reserve**: page top တွင် logo + headerText အတွက် နေရာချန်ထားမည် (`branding.headerReservePx`, default 120px) — cards များသည် ဒီအောက်ကမှ စမည်။
-- Editor toolbar ထဲ **+ Add Page** button၊ Page tabs (Page 1, Page 2, …) navigation, page delete button။
-- Beginner/Junior/Senior + IT Manager တိုင်းအတွက် အလုပ်လုပ်မည်။
+## Audience clarification
+This is a staff PWA — there are no "Parents". Target Audience options will be: **All Users**, **Admins & Assistants**, **Staff only**, **IT Managers**, and **Specific Users** (multi-select from the staff directory). Tell me if you want a different set.
 
-### Files to edit
-- `src/lib/lessonPlanTypes.ts` — `pages`, `headerReservePx`, format display_name types
-- `src/lib/lessonPlanDefaults.ts` — pages[] migration, normalizeTemplate
-- `src/pages/LessonPlansEditor.tsx` — dynamic formats, rename UI, +Add Format/Page
-- `src/components/lesson-plans/TemplateEditor.tsx` — Table rename, page nav, drag-resize wiring, header reserve UI
-- `src/components/lesson-plans/TemplateCanvas.tsx` — drag handles for col/row, margin clamping, header reserve rendering
-- `src/pages/MyTimetablePage.tsx` — pages[] rendering for staff view (read-only)
-- `src/lib/exportPdf.ts` — multi-page PDF export with header reserve
-- DB migration — `lesson_plan_templates` table: add `display_name text`, schema doc only (template_json holds pages[]); no breaking change
+## Page layout
 
----
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ Notification Centre                                          │
+├───────────────────────────────┬──────────────────────────────┤
+│ 1. Composer                   │ 2. Live Preview              │
+│   Title / Body                │   [Mobile push banner mock]  │
+│   Banner image (upload/URL)   │   [Desktop toast mock]       │
+│   App icon selector           │   Layout: Minimal | Compact  │
+│   Layout template toggle      │           | Image-focused    │
+│                               │                              │
+│ 3. On-Click Action            │                              │
+│   ○ Internal route (select)   │                              │
+│   ○ External URL              │                              │
+│                               │                              │
+│ 4. Delivery                   │                              │
+│   ○ Send now  ○ Schedule      │                              │
+│   Date + Time pickers (MMT)   │                              │
+│   Audience selector           │                              │
+│                               │                              │
+│ [ Save as Draft ] [ Send / Schedule ]                        │
+├──────────────────────────────────────────────────────────────┤
+│ 5. Templates / Drafts / Scheduled / Sent                     │
+│  Title · Audience · Status · Scheduled at · Actions          │
+│  Status badge: Draft / Scheduled / Sent / Failed             │
+│  Actions: Edit · Duplicate · Delete · Send now               │
+└──────────────────────────────────────────────────────────────┘
+```
 
-## ၂။ Notification Audit Report
+## Data model
 
-Project တစ်ခုလုံးကို scan လုပ်ပြီး FCM Push + In-App Notification ပို့သော နေရာအားလုံးကို ဖော်ထုတ်မည်။
+New table `public.notifications` (IT-Manager-only via RLS + trigger):
 
-Scan locations:
-- `supabase/functions/*/index.ts` (edge functions — task-deadline-sweep, auto-checkout, auto-submit-missed-leave, monthly-reset, send-push, etc.)
-- `src/**/*.{ts,tsx}` တွင် `sendPush`, `notifyAdmins`, `supabase.functions.invoke("send-push")`, in-app `toast({...})` notification trigger နှင့် `notifications` table writes
-- DB triggers (`supabase--read_query` ဖြင့် pg_trigger စစ်မည်)
+- `title` text, `body` text
+- `banner_url` text nullable, `icon_key` text (small enum: default, alert, calendar, salary, task, leave)
+- `layout` text: `minimal | compact | image_focused`
+- `action_type` text: `internal | external | none`
+- `action_target` text (route or URL)
+- `audience` text: `all | admins | staff | it_managers | specific`
+- `audience_user_ids` uuid[] (used when `audience='specific'`)
+- `status` text: `draft | scheduled | sent | failed`
+- `scheduled_at` timestamptz nullable
+- `sent_at` timestamptz nullable, `sent_count` int, `failed_count` int, `last_error` text
+- `created_by` uuid (auth.uid), timestamps
 
-Output format (per notification):
-| Field | Detail |
-|---|---|
-| Notification Name | … |
-| Trigger Function/Event | … |
-| Watched Table | … |
-| Target Role(s) | Admin / Assistant / Staff / All |
-| Title | … |
-| Body | … |
-| Image | Yes / No |
-| FCM Used | Yes / No (In-App only) |
-| Source File | path |
-| Source Function | name |
-| Flow | trigger → table → role |
+RLS: only `it_manager` can select/insert/update/delete. GRANTs for `authenticated` + `service_role`. Enable Realtime so the table auto-refreshes.
 
-**Delivery**:
-1. Chat ထဲမှာ မြန်မာ summary + table
-2. `/mnt/documents/NOTIFICATION_AUDIT.md` artifact (download/preview)
+## Backend
 
----
+- **Storage bucket** `notification-banners` (public read, IT-Manager write) for banner uploads.
+- **Edge function `dispatch-notification`** (verify caller = IT Manager, or CRON_SECRET for scheduled sweeps):
+  - Loads the notification row, resolves target user IDs from `audience`, pulls FCM tokens, fans out through the existing `send-push` helper.
+  - Attaches `data.action_type`, `data.action_target`, `data.notification_id` to the FCM payload.
+  - Updates `status`, `sent_at`, `sent_count`, `failed_count`, `last_error`.
+- **Edge function `notification-scheduler`** run every 5 minutes by `pg_cron`: picks up rows with `status='scheduled' AND scheduled_at <= now()` and calls the dispatcher.
+- All times stored as UTC, displayed/edited in Asia/Yangon.
 
-## အကောင်အထည်ဖော်မည့်အစီအစဉ်
+## Click-through routing
 
-1. DB migration (`display_name` column) → approval စောင့်
-2. Type/Default updates (lessonPlanTypes, lessonPlanDefaults — backward-compatible normalize)
-3. Editor UI rework (LessonPlansEditor, TemplateEditor, TemplateCanvas)
-4. Staff view + PDF export update
-5. Project-wide notification scan → audit report write
-6. မြန်မာဘာသာဖြင့် Report
+- `public/firebase-messaging-sw.js` `notificationclick` handler: read `data.action_type` + `data.action_target`. Internal → `clients.openWindow(origin + target)`. External → open the URL directly. `none` → focus the app.
+- Foreground handler in `src/hooks/useNotifications.tsx` does the same when the user taps the in-app toast.
 
-မိမိ logic များ (attendance, salary, leave, tasks) ကို မထိစေပါ — Lesson Plans editor + audit report သာ။
+## Composer UX
+
+- All form state in a single `useState` object; disabled Send button until title/body/audience are valid (zod schema).
+- Icon selector: 6 preset lucide icons rendered as buttons; the picked `icon_key` maps to an image in the preview and to a small icon URL in the push payload.
+- Banner: drag-and-drop upload to the bucket **or** paste URL; preview updates live.
+- Layout toggle changes preview only (Minimal = title + body, Compact = + small icon, Image-focused = large banner on top).
+- Live preview: two side-by-side cards styled to look like an Android push banner and a desktop toast, using existing semantic tokens (`bg-card`, `text-foreground`, shadow tokens) — no hard-coded colors.
+
+## Templates / drafts table
+
+- Same `notifications` table filtered by `status`.
+- Tabs: **All · Drafts · Scheduled · Sent**.
+- Row actions: **Edit** (load into composer), **Duplicate**, **Delete** (confirm), **Send now** (only for Draft/Scheduled — flips status and invokes dispatcher).
+- Sent rows show `sent_count / (sent_count + failed_count)` and `last_error` on hover.
+
+## Files
+
+New:
+- `src/pages/NotificationCentre.tsx`
+- `src/components/notifications/NotificationComposer.tsx`
+- `src/components/notifications/NotificationPreview.tsx`
+- `src/components/notifications/NotificationsTable.tsx`
+- `supabase/functions/dispatch-notification/index.ts`
+- `supabase/functions/notification-scheduler/index.ts`
+
+Edited:
+- `src/App.tsx` — route + IT-Manager guard
+- `src/components/layout/DesktopSidebar.tsx`, `BottomNav.tsx` — menu entry
+- `public/firebase-messaging-sw.js` — click routing
+- `src/hooks/useNotifications.tsx` — foreground click routing
+
+Migration: `notifications` table + RLS + GRANTs + storage bucket + policies.
+`supabase--insert` (not migration) is used to register the `pg_cron` schedule so the anon key stays out of the migration.
+
+## Out of scope (ask if you want them)
+- Rich text / markdown in body
+- A/B testing or per-user personalization tokens
+- Analytics on open/click rates
