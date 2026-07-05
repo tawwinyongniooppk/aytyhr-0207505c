@@ -442,6 +442,72 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          action_target: string | null
+          action_type: string
+          audience: string
+          audience_user_ids: string[]
+          banner_url: string | null
+          body: string
+          created_at: string
+          created_by: string
+          failed_count: number
+          icon_key: string
+          id: string
+          last_error: string | null
+          layout: string
+          scheduled_at: string | null
+          sent_at: string | null
+          sent_count: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_target?: string | null
+          action_type?: string
+          audience?: string
+          audience_user_ids?: string[]
+          banner_url?: string | null
+          body: string
+          created_at?: string
+          created_by: string
+          failed_count?: number
+          icon_key?: string
+          id?: string
+          last_error?: string | null
+          layout?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sent_count?: number
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_target?: string | null
+          action_type?: string
+          audience?: string
+          audience_user_ids?: string[]
+          banner_url?: string | null
+          body?: string
+          created_at?: string
+          created_by?: string
+          failed_count?: number
+          icon_key?: string
+          id?: string
+          last_error?: string | null
+          layout?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sent_count?: number
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       overtime_requests: {
         Row: {
           amount: number
