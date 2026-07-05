@@ -144,7 +144,22 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
     }
   };
 
-  const buildPayload = (statusOverride?: "draft" | "scheduled"): Record<string, unknown> | null => {
+  type NotifPayload = {
+    title: string;
+    body: string;
+    banner_url: string | null;
+    icon_key: NotifIconKey;
+    layout: NotifLayout;
+    action_type: "none" | "internal" | "external";
+    action_target: string | null;
+    audience: "all" | "admins" | "staff" | "it_managers" | "specific";
+    audience_user_ids: string[];
+    status: "draft" | "scheduled" | "sent" | "failed";
+    scheduled_at: string | null;
+    created_by: string;
+  };
+
+  const buildPayload = (statusOverride?: "draft" | "scheduled"): NotifPayload | null => {
     const parsed = composerSchema.safeParse({
       title, body, audience, action_type: actionType,
       action_target: actionTarget || null,
@@ -186,13 +201,13 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
     };
   };
 
-  const persist = async (payload: Record<string, unknown>): Promise<string | null> => {
+  const persist = async (payload: NotifPayload): Promise<string | null> => {
     if (editingRow) {
       const { error } = await supabase.from("notifications").update(payload).eq("id", editingRow.id);
       if (error) { toast.error(error.message); return null; }
       return editingRow.id;
     }
-    const { data, error } = await supabase.from("notifications").insert(payload as unknown as never).select("id").single();
+    const { data, error } = await supabase.from("notifications").insert(payload).select("id").single();
     if (error) { toast.error(error.message); return null; }
     return (data as { id: string }).id;
   };
