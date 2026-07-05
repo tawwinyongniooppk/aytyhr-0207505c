@@ -192,7 +192,7 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
       if (error) { toast.error(error.message); return null; }
       return editingRow.id;
     }
-    const { data, error } = await supabase.from("notifications").insert(payload as never).select("id").single();
+    const { data, error } = await supabase.from("notifications").insert(payload as unknown as never).select("id").single();
     if (error) { toast.error(error.message); return null; }
     return (data as { id: string }).id;
   };
