@@ -82,7 +82,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           const title = payload.notification?.title || payload.data?.title || "Notification";
           const body = payload.notification?.body || payload.data?.body || "";
           const url = payload.data?.url || "/";
-          toast(title, { description: body });
+          toast(title, {
+            description: body,
+            action: url && url !== "/" ? {
+              label: "Open",
+              onClick: () => {
+                if (/^https?:\/\//i.test(url)) window.open(url, "_blank", "noopener");
+                else window.location.assign(url);
+              },
+            } : undefined,
+          });
           showForegroundNotification(title, body, url);
           try {
             const nav: any = navigator;
