@@ -15,7 +15,7 @@ const adminOnlyRoutes = ["/dashboard", "/staff", "/settings", "/calendar"];
 const salaryRoutes = ["/salary"];
 const staffOnlyRoutes = ["/attendance", "/my-id", "/my-timetable"];
 const staffOrAssistantRoutes = ["/salary"];
-const itManagerOnlyRoutes = ["/manage-accounts", "/lesson-plans-editor", "/carousel-management"];
+const itManagerOnlyRoutes = ["/manage-accounts", "/lesson-plans-editor", "/carousel-management", "/notification-centre"];
 
 export function AppLayout() {
   const { user, loading, signOut } = useAuth();
