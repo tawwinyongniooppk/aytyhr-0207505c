@@ -106,13 +106,12 @@ Deno.serve(async (req) => {
     const paid = (approved ?? []).filter((r: any) => (r.payment_type ?? "paid") === "paid");
     const types = paid.map((r: any) => r.type);
     const hasLeave = types.includes("leave");
-    const hasLateExcuse = types.includes("late_excuse");
     const hasPartialLeave = types.includes("partial_leave");
 
-    // Paid Full Leave or Late Excuse waive the late-minute deduction.
-    // Partial Leave only covers its declared time window — it does NOT excuse a late morning check-in.
-    const lateExcused = hasLeave || hasLateExcuse;
-    const lateMin = lateExcused ? 0 : (att.late_minutes ?? 0);
+    // Check-in lateness is independent from Full, Half, Partial, and late-excuse
+    // leave records. The insert trigger has already applied the fixed +3 grace
+    // and capped automatic per-minute charging at the +30 boundary.
+    const lateMin = att.late_minutes ?? 0;
     const earlyMin = hasLeave || hasPartialLeave ? 0 : computedEarly;
     const deduction = (lateMin * lateRate) + (earlyMin * earlyRate);
 
