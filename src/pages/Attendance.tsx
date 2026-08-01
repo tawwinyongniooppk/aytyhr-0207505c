@@ -83,6 +83,8 @@ const DEFAULT_SETTINGS: Settings = {
 // Myanmar Standard Time (UTC+6:30) — use server-independent time math so
 // device-clock timezone bugs cannot produce wrong late/early minutes.
 const YANGON_OFFSET_MIN = 6 * 60 + 30;
+const CHECK_IN_GRACE_MINUTES = 3;
+const AUTO_LATE_WINDOW_END_MINUTES = 30;
 
 function yangonNowMinutes(): number {
   const d = new Date();
@@ -171,6 +173,7 @@ export default function Attendance() {
   const [lastDeduction, setLastDeduction] = useState(0);
   const [userRole, setUserRole] = useState<string>("staff");
   const [fullName, setFullName] = useState<string>("");
+  const [staffLateRate, setStaffLateRate] = useState<number>(200);
   const [staffWorkDay, setStaffWorkDay] = useState<string>("");
   const [staffCheckInTime, setStaffCheckInTime] = useState<string>("");
   const [staffCheckOutTime, setStaffCheckOutTime] = useState<string>("");
@@ -450,6 +453,7 @@ export default function Attendance() {
         const rp = ratesRes.data as any;
         const legacyRate = Number(rp?.deduction_rate_per_minute) || 200;
         const lateRate = Number(rp?.late_deduction_per_minute) || legacyRate;
+        setStaffLateRate(lateRate);
         const earlyRate = Number(rp?.early_deduction_per_minute) || legacyRate;
         const leaveByDate = new Map<string, Set<string>>();
         for (const l of ((leavesRes.data as any[]) || [])) {
@@ -461,9 +465,8 @@ export default function Attendance() {
         let attAuto = 0;
         for (const a of ((monthAttRes.data as any[]) || [])) {
           const ex = leaveByDate.get(a.date) ?? new Set<string>();
-          const lateExc = ex.has("leave") || ex.has("late_excuse");
           const earlyExc = ex.has("leave") || ex.has("partial_leave");
-          if (!lateExc) attAuto += (a.late_minutes ?? 0) * lateRate;
+          attAuto += (a.late_minutes ?? 0) * lateRate;
           if (!earlyExc) attAuto += (a.early_minutes ?? 0) * earlyRate;
         }
         const smdRows = ((smdRes as any).data as any[] | null) ?? [];
@@ -577,9 +580,8 @@ export default function Attendance() {
       let attAuto = 0;
       for (const a of ((monthAttRes.data as any[]) || [])) {
         const ex = leaveByDate.get(a.date) ?? new Set<string>();
-        const lateExc = ex.has("leave") || ex.has("late_excuse");
         const earlyExc = ex.has("leave") || ex.has("partial_leave");
-        if (!lateExc) attAuto += (a.late_minutes ?? 0) * lateRate;
+        attAuto += (a.late_minutes ?? 0) * lateRate;
         if (!earlyExc) attAuto += (a.early_minutes ?? 0) * earlyRate;
       }
       const smdRows = ((smdRes as any).data as any[] | null) ?? [];
@@ -616,9 +618,9 @@ export default function Attendance() {
       : isSpecialDay && staffCheckInTime
         ? staffCheckInTime
         : settings.start_time;
-  // Morning Half-Leave approved → check-in expectation shifts to 12:00 PM (MMT).
-  // Check-out expectation stays as Admin/Assistant configured.
-  const expectedCheckInTime = hasMorningHalfLeaveToday ? "12:00" : baseExpectedCheckInTime;
+  // Check-in timing is independent from every Leave type. Only the saved
+  // staff schedule determines the expected check-in time.
+  const expectedCheckInTime = baseExpectedCheckInTime;
   const baseExpectedCheckOutTime =
     todaySchedule && todaySchedule.active !== false && todaySchedule.check_out
       ? todaySchedule.check_out
@@ -637,7 +639,7 @@ export default function Attendance() {
   // Morning Half-Leave (pending or approved) → afternoon shift check-in window
   // opens at MMT 11:30 AM (staff must check in between 11:30 AM and 12:00 PM).
   // Before 11:30 AM the box stays locked.
-  const morningHalfLocked = hasMorningHalfLeaveToday && !record?.check_in_time && currentYangonMinutes < halfOpenMinutes;
+  const morningHalfLocked = false;
   // Afternoon Half-Leave (pending or approved) → after 12:00 PM MMT, BOTH
   // check-in and check-out are locked (the working window has ended).
   const afternoonHalfLocked = hasAfternoonHalfLeaveToday && currentYangonMinutes >= noonMinutes;
@@ -740,12 +742,9 @@ export default function Attendance() {
         effectiveStartTime,
       });
 
-      // Morning Half-Leave shifts the expected check-in to 12:00 PM and the
-      // staff is NOT penalised for the morning portion, so the late-minute
-      // counter must be suppressed entirely (it would otherwise re-introduce
-      // the 200ks/min deduction that the user explicitly does not want).
-      const lateMin = (isWorkingDay && !hasMorningHalfLeaveToday)
-        ? calcLateMinutes(effectiveStartTime, settings.grace_period_minutes)
+      const rawLateMinutes = Math.max(0, yangonNowMinutes() - hhmmToMinutes(effectiveStartTime));
+      const lateMin = isWorkingDay
+        ? Math.max(0, Math.min(rawLateMinutes, AUTO_LATE_WINDOW_END_MINUTES) - CHECK_IN_GRACE_MINUTES)
         : 0;
       const today = getMMTTodayISO();
       const locationStatus = getLocationStatusLabel();
@@ -782,14 +781,22 @@ export default function Attendance() {
             actualLateMin > 0 ? `Checked in (${actualLateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}`,
         });
 
-        notifyAdmins(
-          "Staff checked in",
-          `${fullName || "Staff"} checked in${actualLateMin > 0 ? ` (${actualLateMin} min late · -${(actualLateMin * settings.deduction_rate_per_minute).toLocaleString()} Ks)` : " on time"}`,
-          "/attendance",
-        );
+        if (rawLateMinutes > AUTO_LATE_WINDOW_END_MINUTES) {
+          notifyAdmins(
+            "Manual deduction required",
+            `${fullName || "Staff"} သည် Check in ကို သတ်မှတ်ပေးထားသည့် အချိန်ထက် ${rawLateMinutes} မိနစ် နောက်ကျပြီးမှ လုပ်ပါသဖြင့် Admin မှ သင့်တော်သော Deduction Amount တခု သတ်မှတ်ပေးပါ။`,
+            "/staff",
+          );
+        } else {
+          notifyAdmins(
+            "Staff checked in",
+            `${fullName || "Staff"} checked in${actualLateMin > 0 ? ` (${actualLateMin} charged min · -${(actualLateMin * staffLateRate).toLocaleString()} Ks)` : " on time"}`,
+            "/attendance",
+          );
+        }
 
         // Show salary notification after check-in
-        const estimatedDeduction = actualLateMin * settings.deduction_rate_per_minute;
+        const estimatedDeduction = actualLateMin * staffLateRate;
         const finalSal = await computeFinalSalary();
         showSalaryNotification(finalSal, estimatedDeduction);
 
@@ -798,7 +805,7 @@ export default function Attendance() {
           sendPush({
             user_ids: [user.id],
             title: "Late Entry Deduction",
-            body: `${actualLateMin} min × ${settings.deduction_rate_per_minute.toLocaleString()} Ks = -${estimatedDeduction.toLocaleString()} Ks`,
+            body: `${actualLateMin} min × ${staffLateRate.toLocaleString()} Ks = -${estimatedDeduction.toLocaleString()} Ks`,
             url: "/salary",
           });
         }
@@ -1205,6 +1212,11 @@ export default function Attendance() {
               Check Out
             </Button>
           </div>
+          {!isOffToday && (
+            <p className="text-xs text-muted-foreground">
+              Expected check-in {formatTime12h(expectedCheckInTime)} · Grace time {CHECK_IN_GRACE_MINUTES} minutes · Late/minute deduction applies from minute 4 through minute 30.
+            </p>
+          )}
           {dayEnded && !isOffToday && (
             <p className="text-xs text-muted-foreground">
               ဒီနေ့အတွက် အလုပ်ချိန် ပြီးဆုံးသွားပါပြီ။ နောက်နေ့ Check in / Check out Box သည် မြန်မာစံတော်ချိန် ည ၁၂ နာရီ ကျော်မှ ပြန်ပွင့်ပါမည်။
@@ -1213,11 +1225,6 @@ export default function Attendance() {
           {isOffToday && (
             <p className="text-xs text-destructive">
               ဒီနေ့က ပိတ်ရက်ဖြစ်လို့ Check in / Check out ပိတ်ထားပါတယ်
-            </p>
-          )}
-          {morningHalfLocked && (
-            <p className="text-xs text-warning">
-              Morning Half-Leave ဖြစ်နေပါသည်။ Check in expected time ကို MMT 12:00 PM သို့ ပြောင်းထားပြီး Check in box သည် MMT 11:30 AM မှ စ၍ ပွင့်ပါမည်။ MMT 11:30 AM နှင့် 12:00 PM အတွင်း Check in လုပ်ပါ။
             </p>
           )}
           {hasAfternoonHalfLeaveToday && !hasFullLeaveToday && (

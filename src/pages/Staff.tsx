@@ -43,6 +43,7 @@ interface StaffProfile {
 }
 
 const WORK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const CHECK_IN_GRACE_MINUTES = 3;
 
 const defaultSchedule = (): WeekSchedule => {
   const sched: WeekSchedule = {} as WeekSchedule;
@@ -148,8 +149,6 @@ export default function Staff() {
     const firstActive = WORK_DAYS.find((d) => schedule[d]?.active) || "Monday";
     const legacyDay = schedule[firstActive] || { active: true, check_in: "09:00", check_out: "16:00" };
     const updateData: any = {
-      phone: form.phone,
-      emergency_phone: form.emergency_phone,
       join_date: form.join_date || null,
       check_in_time: legacyDay.check_in,
       check_out_time: legacyDay.check_out,
@@ -158,6 +157,8 @@ export default function Staff() {
     };
     // Only admin can update salary settings
     if (isAdminRole) {
+      // Contact details are owner-only. Do not send stale/masked contact values
+      // when an Admin or Assistant is saving attendance settings.
       updateData.base_salary = Number(form.base_salary) || 300000;
       updateData.late_deduction_per_minute = Math.max(0, Number(form.late_rate) || 0);
       updateData.early_deduction_per_minute = Math.max(0, Number(form.early_rate) || 0);
@@ -227,7 +228,6 @@ export default function Staff() {
         m.id === editId
           ? {
               ...m,
-              phone: updateData.phone,
               join_date: updateData.join_date,
               check_in_time: updateData.check_in_time,
               check_out_time: updateData.check_out_time,
@@ -507,6 +507,9 @@ export default function Staff() {
                               onChange={(e) => setSchedule({ ...schedule, [d]: { ...day, check_out: e.target.value } })}
                             />
                           </div>
+                          <p className="col-span-2 text-xs text-muted-foreground">
+                            Grace time: {CHECK_IN_GRACE_MINUTES} minutes after expected check-in. Late/minute deduction starts from minute 4 and stops at minute 30.
+                          </p>
                         </div>
                       )}
                     </div>
@@ -575,20 +578,21 @@ export default function Staff() {
               </section>
             )}
 
-            {/* 6. Emergency Contact */}
-            <section className="rounded-lg border border-border p-3 space-y-3">
+            {/* 6. Emergency Contact — profile owner only */}
+            <section className="rounded-lg border border-border p-3 space-y-3 opacity-70">
               <header className="flex items-center gap-2">
                 <span className="h-5 w-5 rounded-full bg-destructive/10 text-destructive text-[11px] font-bold flex items-center justify-center">6</span>
                 <p className="text-xs font-semibold text-destructive uppercase tracking-wide">Emergency Contact</p>
               </header>
               <div>
                 <Label>Phone</Label>
-                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Primary phone" />
+                <Input value={form.phone} disabled readOnly placeholder="Primary phone" />
               </div>
               <div>
                 <Label>Emergency Phone</Label>
-                <Input value={form.emergency_phone} onChange={(e) => setForm({ ...form, emergency_phone: e.target.value })} placeholder="Emergency contact number" />
+                <Input value={form.emergency_phone} disabled readOnly placeholder="Emergency contact number" />
               </div>
+              <p className="text-xs text-muted-foreground">Contact numbers can only be changed by the profile owner.</p>
             </section>
 
             <Button onClick={handleSave} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">

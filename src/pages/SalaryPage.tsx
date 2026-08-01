@@ -281,10 +281,8 @@ export default function SalaryPage() {
     let total = 0;
     for (const a of attendanceRows) {
       const excuses = leaveByDate.get(a.date) ?? new Set<string>();
-      // Partial Leave covers only its declared window — it does NOT excuse a late morning check-in.
-      const lateExcused = excuses.has("leave") || excuses.has("late_excuse");
       const earlyExcused = excuses.has("leave") || excuses.has("partial_leave");
-      if (!lateExcused) total += (a.late_minutes ?? 0) * rates.late;
+      total += (a.late_minutes ?? 0) * rates.late;
       if (!earlyExcused) total += (a.early_minutes ?? 0) * rates.early;
     }
     return total;
@@ -360,9 +358,8 @@ export default function SalaryPage() {
       const earlyMin = a.early_minutes ?? 0;
       if (lateMin === 0 && earlyMin === 0) continue;
       const excuses = leaveByDate.get(a.date) ?? new Set<string>();
-      const lateExcused = excuses.has("leave") || excuses.has("late_excuse");
       const earlyExcused = excuses.has("leave") || excuses.has("partial_leave");
-      const effLate = lateExcused ? 0 : lateMin;
+      const effLate = lateMin;
       const effEarly = earlyExcused ? 0 : earlyMin;
       const dayNum = Number(a.date.slice(8, 10));
       if (effLate > 0) {

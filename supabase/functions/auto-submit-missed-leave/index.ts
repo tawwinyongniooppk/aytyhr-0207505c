@@ -1,22 +1,6 @@
-// Attendance sweep cron — runs exactly 2× in the morning (MMT 8:30, 9:00)
-// and conditionally at MMT 12:00.
-//
-//   A) Morning runs (8:30, 9:00 MMT):
-//      For each staff whose expected check-in + 30 min == now, and who has
-//      not checked in, auto-submit a pending Morning Half-Leave request.
-//      The expected check-in then shifts to 12:00 PM MMT for the rest of
-//      the day. Per-minute late deductions during the 30-min grace are
-//      handled by the normal check-in flow (apply-attendance-deduction).
-//
-//   B) Noon run (12:00 MMT):
-//      ONLY processes staff who already have a Morning Half-Leave today
-//      (auto-submitted OR self-submitted + approved). If they still have
-//      not checked in by 12:00, an Afternoon Half-Leave is auto-submitted.
-//      If no morning-half exists for any user today, the function exits
-//      immediately to keep invocations cheap.
-//
-// Off-day staff and holiday-assigned staff are always skipped.
-// Check-out / forgot-to-check-out is handled by `auto-checkout` at 15:45.
+// Retired attendance sweep. Check-in timing no longer creates or changes
+// Half Leave / Full Leave records. Kept as an authenticated no-op so an old
+// in-flight cron request cannot submit leave after the rule was removed.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -73,6 +57,10 @@ Deno.serve(async (req) => {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  return new Response(JSON.stringify({ ok: true, processed: 0, retired: true }), {
+    status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
