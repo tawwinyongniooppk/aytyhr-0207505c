@@ -651,12 +651,13 @@ export default function Attendance() {
   const endOfWorkDayMinutes = hhmmToMinutes(expectedCheckOutTime) + 30;
   const dayEnded = currentYangonMinutes >= endOfWorkDayMinutes;
 
-  const isOffToday = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
+  // Leave records never block or alter check-in. Only an explicit schedule
+  // off-day or a school holiday closes attendance.
+  const isOffToday = !isWorkingDay || isHolidayToday;
   const canCheckIn = (() => {
     if (isOffToday) return false;
     if (dayEnded) return false;
     if (morningHalfLocked) return false;
-    if (afternoonHalfLocked) return false;
     if (record?.check_in_time) return false;
     if (!schoolConfigured) return true;
     if (location.isInside === true) return true;
@@ -785,7 +786,7 @@ export default function Attendance() {
           notifyAdmins(
             "Manual deduction required",
             `${fullName || "Staff"} သည် Check in ကို သတ်မှတ်ပေးထားသည့် အချိန်ထက် ${rawLateMinutes} မိနစ် နောက်ကျပြီးမှ လုပ်ပါသဖြင့် Admin မှ သင့်တော်သော Deduction Amount တခု သတ်မှတ်ပေးပါ။`,
-            "/staff",
+            "/leave",
           );
         } else {
           notifyAdmins(
@@ -962,8 +963,8 @@ export default function Attendance() {
         if (dayEnded) return null;
         if (checkedIn) return null;
         const displayName = fullName || "မင်္ဂလာပါ";
-        const isOffOrLeave = !isWorkingDay || isHolidayToday || hasFullLeaveToday;
-        if (isOffOrLeave) {
+        const isOffDayOrHoliday = !isWorkingDay || isHolidayToday;
+        if (isOffDayOrHoliday) {
           return (
             <Card className="border-l-4 border-l-destructive border border-border bg-destructive/5 shadow-none">
               <CardContent className="p-4 text-sm leading-relaxed">
