@@ -29,14 +29,18 @@ function mmtToday(): { y: number; m: number; d: number; iso: string; monthStart:
   };
 }
 
-// Given today's day-of-month, derive [windowStart, windowEnd] (inclusive ISO dates).
+// Assignment slots are the ONLY days admins hand out tasks:
+//   Week 1 → 1-3, Week 2 → 8-10, Week 3 → 15-17, Week 4 → 22-24.
+// The checkpoint runs at 23:59 MMT of the slot's last day (3/10/17/24) and the
+// window is the slot itself — NOT the contiguous gap days in between. Using the
+// old contiguous ranges (4-10, 11-17, 18-24) made a task that merely *ended* on a
+// gap day (e.g. deadline Jul 14) look like it covered the next slot.
 function weekWindow(day: number, year: number, month: number) {
   const pad = (n: number) => String(n).padStart(2, "0");
   const mk = (d: number) => `${year}-${pad(month)}-${pad(d)}`;
-  // Checkpoint covers (prevCheckpoint+1 .. day). Day 3 → [1..3]; 10 → [4..10]; 17 → [11..17]; 24 → [18..24].
-  if (day >= 24) return { start: mk(18), end: mk(24), label: "Week 4" };
-  if (day >= 17) return { start: mk(11), end: mk(17), label: "Week 3" };
-  if (day >= 10) return { start: mk(4), end: mk(10), label: "Week 2" };
+  if (day >= 24) return { start: mk(22), end: mk(24), label: "Week 4" };
+  if (day >= 17) return { start: mk(15), end: mk(17), label: "Week 3" };
+  if (day >= 10) return { start: mk(8), end: mk(10), label: "Week 2" };
   if (day >= 3) return { start: mk(1), end: mk(3), label: "Week 1" };
   return null;
 }
