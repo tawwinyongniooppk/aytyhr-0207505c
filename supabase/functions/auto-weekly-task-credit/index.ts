@@ -29,14 +29,18 @@ function mmtToday(): { y: number; m: number; d: number; iso: string; monthStart:
   };
 }
 
-// Given today's day-of-month, derive [windowStart, windowEnd] (inclusive ISO dates).
+// Assignment slots are the ONLY days admins hand out tasks:
+//   Week 1 → 1-3, Week 2 → 8-10, Week 3 → 15-17, Week 4 → 22-24.
+// The checkpoint runs at 23:59 MMT of the slot's last day (3/10/17/24) and the
+// window is the slot itself — NOT the contiguous gap days in between. Using the
+// old contiguous ranges (4-10, 11-17, 18-24) made a task that merely *ended* on a
+// gap day (e.g. deadline Jul 14) look like it covered the next slot.
 function weekWindow(day: number, year: number, month: number) {
   const pad = (n: number) => String(n).padStart(2, "0");
   const mk = (d: number) => `${year}-${pad(month)}-${pad(d)}`;
-  // Checkpoint covers (prevCheckpoint+1 .. day). Day 3 → [1..3]; 10 → [4..10]; 17 → [11..17]; 24 → [18..24].
-  if (day >= 24) return { start: mk(18), end: mk(24), label: "Week 4" };
-  if (day >= 17) return { start: mk(11), end: mk(17), label: "Week 3" };
-  if (day >= 10) return { start: mk(4), end: mk(10), label: "Week 2" };
+  if (day >= 24) return { start: mk(22), end: mk(24), label: "Week 4" };
+  if (day >= 17) return { start: mk(15), end: mk(17), label: "Week 3" };
+  if (day >= 10) return { start: mk(8), end: mk(10), label: "Week 2" };
   if (day >= 3) return { start: mk(1), end: mk(3), label: "Week 1" };
   return null;
 }
@@ -103,16 +107,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3) "Covered" = staff already has an ACTIVE assigned commitment whose own
-    //    deadline reaches/passes this checkpoint's end. That includes biweekly
-    //    tasks created in a previous week-window whose deadline is still future.
-    //    We must NOT auto-credit those staff just because no NEW task fell into
-    //    this specific window — their existing deadline still owns the slot.
+    // 3) "Covered" = the staff has a task/assignment whose OWN active span
+    //    [start .. deadline] overlaps this slot. A long (biweekly) task that runs
+    //    through the slot still owns it; a short task that merely ended on a gap
+    //    day before the slot does NOT.
     const [taskRes, evRes] = await Promise.all([
       admin
         .from("tasks")
-        .select("assignee_id, due_date, created_at")
-        .or(`due_date.gte.${win.start},and(due_date.is.null,created_at.gte.${win.start}T00:00:00)`),
+        .select("assignee_id, due_date, created_at"),
       admin
         .from("calendar_events")
         .select("id, start_date, end_date, event_type")
@@ -123,12 +125,13 @@ Deno.serve(async (req) => {
 
     const coveredSet = new Set<string>();
 
-    // Tasks: any task with due_date >= win.start covers the staff for this checkpoint
-    // (it is still active or just finished within this window).
     for (const t of (taskRes.data as { assignee_id: string; due_date: string | null; created_at: string }[]) || []) {
-      const due = t.due_date ?? t.created_at.slice(0, 10);
-      if (due >= win.start) coveredSet.add(t.assignee_id);
+      const start = t.created_at.slice(0, 10);
+      const end = t.due_date ?? start;
+      // overlap test against the slot
+      if (start <= win.end && end >= win.start) coveredSet.add(t.assignee_id);
     }
+
 
     // Calendar events: include both events ending within this window and events
     // still ongoing past it (deadline > win.end) — both count as already-assigned.
