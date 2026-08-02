@@ -107,16 +107,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3) "Covered" = staff already has an ACTIVE assigned commitment whose own
-    //    deadline reaches/passes this checkpoint's end. That includes biweekly
-    //    tasks created in a previous week-window whose deadline is still future.
-    //    We must NOT auto-credit those staff just because no NEW task fell into
-    //    this specific window — their existing deadline still owns the slot.
+    // 3) "Covered" = the staff has a task/assignment whose OWN active span
+    //    [start .. deadline] overlaps this slot. A long (biweekly) task that runs
+    //    through the slot still owns it; a short task that merely ended on a gap
+    //    day before the slot does NOT.
     const [taskRes, evRes] = await Promise.all([
       admin
         .from("tasks")
-        .select("assignee_id, due_date, created_at")
-        .or(`due_date.gte.${win.start},and(due_date.is.null,created_at.gte.${win.start}T00:00:00)`),
+        .select("assignee_id, due_date, created_at"),
       admin
         .from("calendar_events")
         .select("id, start_date, end_date, event_type")
@@ -127,12 +125,13 @@ Deno.serve(async (req) => {
 
     const coveredSet = new Set<string>();
 
-    // Tasks: any task with due_date >= win.start covers the staff for this checkpoint
-    // (it is still active or just finished within this window).
     for (const t of (taskRes.data as { assignee_id: string; due_date: string | null; created_at: string }[]) || []) {
-      const due = t.due_date ?? t.created_at.slice(0, 10);
-      if (due >= win.start) coveredSet.add(t.assignee_id);
+      const start = t.created_at.slice(0, 10);
+      const end = t.due_date ?? start;
+      // overlap test against the slot
+      if (start <= win.end && end >= win.start) coveredSet.add(t.assignee_id);
     }
+
 
     // Calendar events: include both events ending within this window and events
     // still ongoing past it (deadline > win.end) — both count as already-assigned.
