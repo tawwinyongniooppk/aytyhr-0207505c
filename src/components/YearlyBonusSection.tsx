@@ -78,7 +78,7 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
       const m = Number(month);
       const cycleStartYear = m >= 6 ? y : y - 1;
 
-      const [tasksRes, assignRes, progressRes] = await Promise.all([
+      const [tasksRes, assignRes, progressRes, creditRes] = await Promise.all([
         supabase
           .from("tasks")
           .select("id, submission_status, created_at, due_date")
@@ -97,9 +97,23 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
           .eq("user_id", user.id)
           .eq("cycle_start_year", cycleStartYear)
           .maybeSingle(),
+        // Credited units — a task graduates to All Done the moment the deadline-night
+        // sweep credits its bonus, instead of waiting for the calendar day to roll over.
+        supabase
+          .from("bonus_transactions")
+          .select("task_id, assignment_id, unit_count")
+          .eq("user_id", user.id)
+          .gt("unit_count", 0),
       ]);
 
       if (cancelled) return;
+
+      const creditedTasks = new Set<string>();
+      const creditedAssignments = new Set<string>();
+      for (const b of ((creditRes as any)?.data as any[]) || []) {
+        if (b.task_id) creditedTasks.add(b.task_id);
+        if (b.assignment_id) creditedAssignments.add(b.assignment_id);
+      }
 
       // Persisted units from previous months in this cycle (rolled up during monthly reset).
       let assignedUnits = Number((progressRes.data as any)?.assigned_units ?? 0);
@@ -117,7 +131,7 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
         assignedUnits += 1;
         const dueStr: string | null = t.due_date ? String(t.due_date).slice(0, 10) : null;
         const deadlinePassed = dueStr ? dueStr < todayStr : true;
-        if (t.submission_status === "approved" && deadlinePassed) doneUnits += 1;
+        if (t.submission_status === "approved" && (deadlinePassed || creditedTasks.has(t.id))) doneUnits += 1;
       }
 
       const assigns = (assignRes.data as any[]) || [];
@@ -128,11 +142,12 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
         if (r.submission_status === "rejected") continue;
         const u = unitsForSpan(ev.start_date, ev.end_date);
         assignedUnits += u;
-        const deadlinePassed = ev.end_date < todayStr;
+        const deadlinePassed = ev.end_date < todayStr || creditedAssignments.has(r.id);
         if (r.submission_status === "approved" && !!r.approved_at && deadlinePassed) {
           doneUnits += u;
         }
       }
+
 
 
       setAssigned(assignedUnits);
