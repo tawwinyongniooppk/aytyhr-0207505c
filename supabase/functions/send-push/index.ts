@@ -84,6 +84,7 @@ Deno.serve(async (req) => {
     const url: string = String(body.url ?? "/");
     const data: Record<string, string> = body.data ?? {};
     const notificationTag = String(data.tag ?? `ayty-notif-${Date.now()}`);
+    const banner = String(data.banner ?? "");
 
     if (!userIds.length) {
       return new Response(JSON.stringify({ error: "user_ids required" }), {
@@ -199,6 +200,7 @@ Deno.serve(async (req) => {
                   requireInteraction: false,
                   tag: notificationTag,
                   renotify: true,
+                  ...(banner ? { image: banner } : {}),
                 },
                 fcm_options: { link: url },
               },
