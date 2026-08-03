@@ -970,6 +970,7 @@ export type Database = {
         Returns: undefined
       }
       seed_monthly_salaries: { Args: { p_month: string }; Returns: number }
+      verify_cron_secret: { Args: { p_candidate: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
