@@ -18,7 +18,7 @@ async function showForegroundNotification(title: string, body: string, url: stri
       icon: "/pwa-192x192.png",
       badge: "/pwa-192x192.png",
       data: { url },
-      tag: `fg-${url}-${Date.now()}`,
+      tag: `fg-${crypto.randomUUID?.() ?? Date.now()}`,
       sound: "default",
       vibrate: [200, 100, 200],
     } as NotificationOptions & { vibrate?: number[]; badge?: string; sound?: string };

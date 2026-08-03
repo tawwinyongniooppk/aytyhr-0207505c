@@ -1,8 +1,8 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, Clock, CalendarDays, ClipboardList, FileText, Settings, GraduationCap, Wallet, LogOut, UserPlus, Coins, BadgeCheck, BookOpen, GalleryHorizontal, Bell } from "lucide-react";
+import { LayoutDashboard, Users, Clock, CalendarDays, ClipboardList, FileText, Settings, GraduationCap, Wallet, UserPlus, Coins, BadgeCheck, BookOpen, GalleryHorizontal, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
-import { useAuth } from "@/hooks/useAuth";
+import { ConfirmLogoutButton } from "@/components/ConfirmLogoutButton";
 
 
 const allNavItems = [
@@ -30,7 +30,6 @@ const allNavItems = [
 
 export function DesktopSidebar() {
   const { profile, isAdmin, isAssistant, isStaff, isItManager, isNeutralClass } = useProfile();
-  const { signOut } = useAuth();
 
   const navItems = allNavItems.filter((item: any) => {
     if (item.itManagerOnly) return isItManager;
@@ -85,13 +84,7 @@ export function DesktopSidebar() {
       </nav>
 
       <div className="p-3 border-t border-sidebar-border">
-        <button
-          onClick={signOut}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-secondary-foreground/70 hover:bg-destructive/20 hover:text-destructive-foreground w-full transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Logout</span>
-        </button>
+        <ConfirmLogoutButton className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-secondary-foreground/70 hover:bg-destructive/20 hover:text-destructive-foreground w-full transition-colors" />
       </div>
     </aside>
   );

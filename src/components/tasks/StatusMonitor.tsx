@@ -50,8 +50,27 @@ export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
         if (!cancelled) setLoading(false);
       }
     }
-    load();
-    return () => { cancelled = true; };
+    void load();
+    const channel = supabase
+      .channel("task-status-monitor-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_event_assignments" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => void load())
+      .subscribe();
+    // Refetch when the tab regains focus/visibility so an auto-weekly-credit
+    // checkpoint (23:55 MMT on day 3/10/17/24) that fired while this view was
+    // already open shows up without a full page reload.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      void supabase.removeChannel(channel);
+    };
   }, []);
 
   const displayRows = rows.length > 0 ? rows : staffList.map((s) => ({ ...s, ...emptyMemberStats() }));

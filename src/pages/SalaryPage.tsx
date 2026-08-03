@@ -74,6 +74,7 @@ interface SalaryData {
   bonus: number; // monthly bonus POT (admin-configured)
   manual_deduction: number;
   deduction_reason: string;
+  last_updated: string;
 }
 
 function getMonthStart(): string {
@@ -167,7 +168,7 @@ export default function SalaryPage() {
         .from("salaries")
         // bonus = monthly POT (admin-set). Shown only in the "Monthly Bonus Plan"
         // info card; earned bonus in Final Salary is derived from approved units.
-        .select("base_salary, current_salary, total_deductions, bonus, manual_deduction, deduction_reason")
+        .select("base_salary, current_salary, total_deductions, bonus, manual_deduction, deduction_reason, last_updated")
         .eq("user_id", user!.id)
         .eq("month", monthStart)
         .maybeSingle(),
@@ -224,6 +225,7 @@ export default function SalaryPage() {
         bonus: 0,
         manual_deduction: 0,
         deduction_reason: "",
+        last_updated: new Date().toISOString(),
       });
     }
     if (mdRes.data) setManualLeaveDeductions(mdRes.data as any[]);
@@ -309,7 +311,7 @@ export default function SalaryPage() {
     if (baseSalary > 0) {
       items.push({
         id: `salary-${monthStart}`,
-        date: monthStart,
+        date: salary?.last_updated ? getMMTDateISO(salary.last_updated) : monthStart,
         type: "salary",
         description: `Base salary (${monthLabel})`,
         amount: baseSalary,
@@ -440,7 +442,7 @@ export default function SalaryPage() {
     for (const md of manualLeaveDeductions) {
       items.push({
         id: `md-${md.id}`,
-        date: (md.created_at || "").slice(0, 10),
+        date: md.created_at ? getMMTDateISO(md.created_at) : monthStart,
         type: "manual_deduction",
         description: `${md.title}${md.reason ? ` — ${md.reason}` : ""} (${md.days} day${md.days > 1 ? "s" : ""} leave)`,
         amount: 0,
@@ -456,7 +458,7 @@ export default function SalaryPage() {
 
       return a.description.localeCompare(b.description);
     });
-  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, salary?.manual_deduction, manualLeaveDeductions, manualDeductionsList, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions]);
+  }, [baseSalary, totalBonus, manualDeductionAmt, salary?.deduction_reason, salary?.manual_deduction, salary?.last_updated, manualLeaveDeductions, manualDeductionsList, attendanceRows, approvedLeaves, rates, bonusTxs, manualAdditions]);
 
 
   const currentMonth = formatMMTMonthLabel(new Date());

@@ -11,7 +11,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const authHeader = req.headers.get("Authorization") ?? "";
-  const ok = (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) || authHeader === `Bearer ${SERVICE_ROLE}`;
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const verifier = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const { data: secretMatches } = bearer && bearer !== SERVICE_ROLE
+    ? await verifier.rpc("verify_cron_secret", { p_candidate: bearer })
+    : { data: false };
+  const ok = authHeader === `Bearer ${SERVICE_ROLE}` || secretMatches === true;
   if (!ok) {
     return new Response(JSON.stringify({ error: "unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },

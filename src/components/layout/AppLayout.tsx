@@ -8,6 +8,7 @@ import { AppUpdateManager } from "@/components/AppUpdateManager";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { Loader2 } from "lucide-react";
+import { ConfirmLogoutButton } from "@/components/ConfirmLogoutButton";
 
 const dashboardDetailRoutes = ["/staff", "/attendance", "/leave", "/tasks", "/salaries-bonuses", "/calendar"];
 
@@ -18,7 +19,7 @@ const staffOrAssistantRoutes = ["/salary"];
 const itManagerOnlyRoutes = ["/manage-accounts", "/lesson-plans-editor", "/carousel-management", "/notification-centre"];
 
 export function AppLayout() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading } = useAuth();
   const { isAdmin, isAssistant, isStaff, canViewSalary, isItManager, isNeutralClass, loading: profileLoading, error: profileError } = useProfile();
   const location = useLocation();
 
@@ -37,12 +38,7 @@ export function AppLayout() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="text-center space-y-4 max-w-sm">
           <p className="text-destructive font-medium">{profileError}</p>
-          <button
-            onClick={signOut}
-            className="text-sm text-muted-foreground underline hover:text-foreground"
-          >
-            Sign out and try again
-          </button>
+          <ConfirmLogoutButton className="mx-auto flex items-center gap-2 text-sm text-muted-foreground underline hover:text-foreground" />
         </div>
       </div>
     );

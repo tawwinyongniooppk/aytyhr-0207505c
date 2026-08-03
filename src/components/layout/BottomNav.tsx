@@ -1,9 +1,9 @@
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
-import { LayoutDashboard, Clock, Wallet, ClipboardList, LogOut, FileText, UserPlus, Users, CalendarDays, Coins, Settings, Menu, BadgeCheck, BookOpen, GalleryHorizontal, Bell } from "lucide-react";
+import { LayoutDashboard, Clock, Wallet, ClipboardList, FileText, UserPlus, Users, CalendarDays, Coins, Settings, Menu, BadgeCheck, BookOpen, GalleryHorizontal, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
-import { useAuth } from "@/hooks/useAuth";
+import { ConfirmLogoutButton } from "@/components/ConfirmLogoutButton";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 
@@ -33,7 +33,6 @@ const allNavItems: any[] = [
 
 export function BottomNav() {
   const { isAdmin, isAssistant, isStaff, isItManager, isNeutralClass } = useProfile();
-  const { signOut } = useAuth();
   const [open, setOpen] = useState(false);
 
   const navItems = allNavItems.filter((item) => {
@@ -93,23 +92,11 @@ export function BottomNav() {
                   ))}
                 </nav>
                 <div className="p-3 border-t border-border">
-                  <button
-                    onClick={() => { setOpen(false); signOut(); }}
-                    className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 w-full transition-colors"
-                  >
-                    <LogOut className="h-5 w-5" />
-                    <span>Logout</span>
-                  </button>
+                  <ConfirmLogoutButton className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 w-full transition-colors" iconClassName="h-5 w-5" onConfirmed={() => setOpen(false)} />
                 </div>
               </SheetContent>
             </Sheet>
-            <button
-              onClick={signOut}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-destructive transition-colors"
-            >
-              <LogOut className="h-5 w-5" />
-              <span>Logout</span>
-            </button>
+            <ConfirmLogoutButton className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-destructive transition-colors" iconClassName="h-5 w-5" />
           </div>
         </nav>
       </>
@@ -136,13 +123,7 @@ export function BottomNav() {
             <span>{item.label}</span>
           </NavLink>
         ))}
-        <button
-          onClick={signOut}
-          className="flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-destructive transition-colors flex-1 min-w-[3rem] shrink-0"
-        >
-          <LogOut className="h-5 w-5" />
-          <span>Logout</span>
-        </button>
+        <ConfirmLogoutButton className="flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-destructive transition-colors flex-1 min-w-[3rem] shrink-0" iconClassName="h-5 w-5" />
       </div>
     </nav>
   );

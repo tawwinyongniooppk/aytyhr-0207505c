@@ -97,6 +97,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    const { error: deliveryError } = await admin.from("notification_deliveries").upsert(
+      targetIds.map((userId: string) => ({
+        notification_id: notif.id, user_id: userId, title: notif.title, body: notif.body,
+        banner_url: notif.banner_url, action_target: notif.action_target,
+      })),
+      { onConflict: "notification_id,user_id" },
+    );
+    if (deliveryError) throw deliveryError;
+
     // Build click-through URL
     let url = "/";
     if (notif.action_type === "internal" && notif.action_target) {

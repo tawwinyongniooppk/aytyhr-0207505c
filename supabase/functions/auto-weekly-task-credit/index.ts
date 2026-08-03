@@ -45,6 +45,17 @@ function weekWindow(day: number, year: number, month: number) {
   return null;
 }
 
+function previousDay(year: number, month: number, day: number) {
+  const d = new Date(Date.UTC(year, month - 1, day) - 86400000);
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+}
+
+function checkpointWindow(day: number, year: number, month: number) {
+  if ([3, 10, 17, 24].includes(day)) return weekWindow(day, year, month);
+  const prev = previousDay(year, month, day);
+  return [3, 10, 17, 24].includes(prev.day) ? weekWindow(prev.day, prev.year, prev.month) : null;
+}
+
 function parseOverrideWindow(raw: string | null, year: number, month: number) {
   if (!raw) return null;
   const normalized = raw.trim().toLowerCase();
@@ -64,11 +75,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   // Cron-only endpoint: require CRON_SECRET or service role. Anon key NOT accepted.
-  const cronSecret = Deno.env.get("CRON_SECRET");
   const authHeader = req.headers.get("Authorization") ?? "";
-  const isPrivileged =
-    (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
-    (SERVICE_ROLE && authHeader === `Bearer ${SERVICE_ROLE}`);
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const verifier = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const { data: secretMatches } = bearer && bearer !== SERVICE_ROLE
+    ? await verifier.rpc("verify_cron_secret", { p_candidate: bearer })
+    : { data: false };
+  const isPrivileged = authHeader === `Bearer ${SERVICE_ROLE}` || secretMatches === true;
   if (!isPrivileged) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -78,7 +91,7 @@ Deno.serve(async (req) => {
     const t = mmtToday();
     // x-force-window is admin-only (already gated above by isPrivileged).
     const overrideWindow = parseOverrideWindow(req.headers.get("x-force-window"), t.y, t.m);
-    const win = overrideWindow ?? weekWindow(t.d, t.y, t.m);
+    const win = overrideWindow ?? checkpointWindow(t.d, t.y, t.m);
     if (!win) {
       return new Response(JSON.stringify({ skipped: true, reason: "not a checkpoint day", day: t.d }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -185,7 +198,7 @@ Deno.serve(async (req) => {
 
     // 6) Bulk-create assignments + bonus_transactions for all missing staff
     const nowIso = new Date().toISOString();
-    const monthStart = t.monthStart;
+    const monthStart = `${win.start.slice(0, 7)}-01`;
 
     // 6a) Prefetch monthly bonus for all missing users in a single query
     const missingIds = missing.map((s) => s.id);
@@ -240,7 +253,7 @@ Deno.serve(async (req) => {
           amount: perUnit,
           unit_count: 1,
           deadline_date: win.end,
-          approved_date: t.iso,
+          approved_date: win.end,
           auto_approved: true,
           title: creditTitle,
         });
@@ -288,7 +301,7 @@ Deno.serve(async (req) => {
             amount: perUnit,
             unit_count: 1,
             deadline_date: win.end,
-            approved_date: t.iso,
+            approved_date: win.end,
             auto_approved: true,
             title: creditTitle,
           });

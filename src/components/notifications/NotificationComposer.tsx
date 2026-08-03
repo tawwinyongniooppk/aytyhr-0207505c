@@ -121,6 +121,10 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
 
   const uploadBanner = async (file: File) => {
     if (!user) return;
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error("Image is too large", { description: "Use a JPG, PNG, or WebP image up to 3 MB." });
+      return;
+    }
     setUploading(true);
     try {
       const ext = file.name.split(".").pop() || "png";
@@ -181,6 +185,10 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
     }
     if (delivery === "scheduled" && !scheduledAt) {
       toast.error("Pick a scheduled date and time");
+      return null;
+    }
+    if (layout === "image_focused" && !bannerUrl) {
+      toast.error("Image-focused layout requires a banner image");
       return null;
     }
     const scheduledIso = delivery === "scheduled" && scheduledAt ? new Date(scheduledAt).toISOString() : null;
@@ -296,9 +304,7 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
                     <img src={bannerUrl} alt="banner preview" className="w-full h-24 object-cover" />
                   </div>
                 )}
-                {!bannerUrl && (
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Optional</p>
-                )}
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Recommended 1200 × 630 px (1.91:1), max 3 MB</p>
               </div>
 
               <div>

@@ -4,6 +4,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Upload, Building2 } from "lucide-react";
+import { NotificationInbox } from "@/components/NotificationInbox";
 
 const MAX_LOGO_SIZE = 2 * 1024 * 1024;
 const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml", "image/webp"];
@@ -97,6 +98,7 @@ export function AppHeader() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <NotificationInbox />
           {isItManager && (
             <>
               <input

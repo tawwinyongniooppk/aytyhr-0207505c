@@ -63,6 +63,7 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
   const [assigned, setAssigned] = useState(0);
   const [done, setDone] = useState(0);
   const [animatedPercent, setAnimatedPercent] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -157,7 +158,36 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
     return () => {
       cancelled = true;
     };
-  }, [user, period.start, period.end]);
+  }, [user, period.start, period.end, refreshKey]);
+
+  useEffect(() => {
+    if (!user) return;
+    const refresh = () => setRefreshKey((k) => k + 1);
+    const channel = supabase
+      .channel(`yearly-bonus-live-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_event_assignments", filter: `user_id=eq.${user.id}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions", filter: `user_id=eq.${user.id}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "yearly_bonus_progress", filter: `user_id=eq.${user.id}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `assignee_id=eq.${user.id}` }, refresh)
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [user]);
+
+  // Refetch on tab focus/visibility so a checkpoint credit (23:55 MMT on
+  // day 3/10/17/24) that lands while this card is already open shows up
+  // without a full page reload — same pattern as StatusMonitor/Tasks.
+  useEffect(() => {
+    if (!user) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") setRefreshKey((k) => k + 1);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [user]);
 
   const percent = assigned > 0 ? Math.min(100, Math.round((done / assigned) * 100)) : 0;
   const qual = qualification(percent, baseSalary);
