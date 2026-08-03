@@ -32,7 +32,7 @@ function normalizePayload(json) {
     rootNotification.title || webpushNotification.title || data.title || "AYTY Smart HR";
   const body = rootNotification.body || webpushNotification.body || data.body || "";
   const url = data.url || json?.fcmOptions?.link || json?.webpush?.fcm_options?.link || "/";
-  const tag = data.tag || webpushNotification.tag || "ayty-notif";
+  const tag = data.tag || webpushNotification.tag || `ayty-notif-${Date.now()}-${Math.random()}`;
 
   return {
     title,
