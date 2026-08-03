@@ -442,6 +442,50 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_deliveries: {
+        Row: {
+          action_target: string | null
+          banner_url: string | null
+          body: string
+          created_at: string
+          id: string
+          notification_id: string
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          action_target?: string | null
+          banner_url?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          notification_id: string
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          action_target?: string | null
+          banner_url?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          notification_id?: string
+          read_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_deliveries_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           action_target: string | null
