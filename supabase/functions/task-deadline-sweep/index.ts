@@ -53,12 +53,14 @@ async function sendCreditPushes(rows: Array<{ user_id: string; amount: number; t
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const cronSecret = Deno.env.get("CRON_SECRET");
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const authHeader = req.headers.get("Authorization") ?? "";
-  const allowed =
-    (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
-    (serviceRole && authHeader === `Bearer ${serviceRole}`);
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const verifier = createClient(Deno.env.get("SUPABASE_URL")!, serviceRole!);
+  const { data: secretMatches } = bearer && bearer !== serviceRole
+    ? await verifier.rpc("verify_cron_secret", { p_candidate: bearer })
+    : { data: false };
+  const allowed = authHeader === `Bearer ${serviceRole}` || secretMatches === true;
   if (!allowed) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -129,20 +131,18 @@ Deno.serve(async (req) => {
         toCredit.forEach((t: any, i: number) => {
           const perUnit = (perUnitResults[i].data as unknown as number) || 0;
           const amount = perUnit * 1; // tasks = 1 Unit
-          if (amount > 0) {
-            bonusPayload.push({
-              user_id: t.assignee_id,
-              task_id: t.id,
-              source: "task",
-              month: ms,
-              amount,
-              unit_count: 1,
-              deadline_date: t.due_date,
-              approved_date: today,
-              auto_approved: true,
-              title: t.title,
-            });
-          }
+          bonusPayload.push({
+            user_id: t.assignee_id,
+            task_id: t.id,
+            source: "task",
+            month: ms,
+            amount,
+            unit_count: 1,
+            deadline_date: t.due_date,
+            approved_date: today,
+            auto_approved: true,
+            title: t.title,
+          });
         });
 
         if (bonusPayload.length > 0) {
@@ -215,8 +215,7 @@ Deno.serve(async (req) => {
             const unit_count = getTaskUnitCount(ev.start_date, ev.end_date);
             const perUnit = (perUnitResults[i].data as unknown as number) || 0;
             const amount = perUnit * unit_count; // perUnit = monthly_bonus / 4
-            if (amount > 0) {
-              bonusPayload.push({
+            bonusPayload.push({
                 user_id: a.user_id,
                 assignment_id: a.id,
                 source: "calendar",
@@ -227,8 +226,7 @@ Deno.serve(async (req) => {
                 approved_date: today,
                 auto_approved: true,
                 title: ev.title,
-              });
-            }
+            });
           });
 
           if (bonusPayload.length > 0) {

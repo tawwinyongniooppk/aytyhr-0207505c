@@ -83,7 +83,10 @@ Deno.serve(async (req) => {
     const message: string = String(body.body ?? "");
     const url: string = String(body.url ?? "/");
     const data: Record<string, string> = body.data ?? {};
-    const notificationTag = String(data.tag ?? `ayty-notif-${Date.now()}`);
+    // A unique tag keeps each push visible instead of replacing an older one.
+    // The notification id remains embedded for diagnostics without being used
+    // as the browser's replacement key.
+    const notificationTag = `${String(data.tag ?? "ayty-notif")}-${crypto.randomUUID()}`;
     const banner = String(data.banner ?? "");
 
     if (!userIds.length) {

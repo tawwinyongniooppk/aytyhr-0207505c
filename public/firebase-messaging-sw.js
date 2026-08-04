@@ -45,6 +45,9 @@ function normalizePayload(json) {
       requireInteraction: webpushNotification.requireInteraction ?? false,
       renotify: webpushNotification.renotify ?? true,
       tag,
+      ...(webpushNotification.image || data.banner
+        ? { image: webpushNotification.image || data.banner }
+        : {}),
       data: {
         ...data,
         url,
