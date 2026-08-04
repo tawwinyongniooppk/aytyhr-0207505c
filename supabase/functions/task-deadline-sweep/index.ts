@@ -130,20 +130,19 @@ Deno.serve(async (req) => {
         const bonusPayload: any[] = [];
         toCredit.forEach((t: any, i: number) => {
           const perUnit = (perUnitResults[i].data as unknown as number) || 0;
-            const amount = perUnit * 1; // tasks = 1 Unit
-            bonusPayload.push({
-              user_id: t.assignee_id,
-              task_id: t.id,
-              source: "task",
-              month: ms,
-              amount,
-              unit_count: 1,
-              deadline_date: t.due_date,
-              approved_date: today,
-              auto_approved: true,
-              title: t.title,
-            });
-          }
+          const amount = perUnit * 1; // tasks = 1 Unit
+          bonusPayload.push({
+            user_id: t.assignee_id,
+            task_id: t.id,
+            source: "task",
+            month: ms,
+            amount,
+            unit_count: 1,
+            deadline_date: t.due_date,
+            approved_date: today,
+            auto_approved: true,
+            title: t.title,
+          });
         });
 
         if (bonusPayload.length > 0) {
