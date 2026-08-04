@@ -121,6 +121,10 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
 
   const uploadBanner = async (file: File) => {
     if (!user) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Unsupported image type", { description: "Use a JPG, PNG, or WebP image." });
+      return;
+    }
     if (file.size > 3 * 1024 * 1024) {
       toast.error("Image is too large", { description: "Use a JPG, PNG, or WebP image up to 3 MB." });
       return;
@@ -287,7 +291,7 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
                 <Label>Banner Image</Label>
                 <div className="flex gap-2 mt-1.5">
                   <Input placeholder="Paste image URL…" value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} />
-                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => {
+                   <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => {
                     const f = e.target.files?.[0]; if (f) void uploadBanner(f); e.target.value = "";
                   }} />
                   <Button type="button" variant="outline" size="icon" disabled={uploading} onClick={() => fileRef.current?.click()} title="Upload image">
@@ -443,7 +447,7 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
               <div>
                 <Label>Scheduled Date & Time (local)</Label>
                 <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
-                <p className="text-xs text-muted-foreground mt-1">Notifications are checked every 5 minutes.</p>
+                 <p className="text-xs text-muted-foreground mt-1">Notifications are checked every minute.</p>
               </div>
             )}
           </CardContent>

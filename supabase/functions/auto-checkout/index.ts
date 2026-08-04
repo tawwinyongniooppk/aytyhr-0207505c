@@ -67,12 +67,14 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   // Cron-only: require CRON_SECRET or service-role. The public anon key is NOT accepted.
-  const cronSecret = Deno.env.get("CRON_SECRET");
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const authHeader = req.headers.get("Authorization") ?? "";
-  const allowed =
-    (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
-    (serviceRole && authHeader === `Bearer ${serviceRole}`);
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const verifier = createClient(Deno.env.get("SUPABASE_URL")!, serviceRole!);
+  const { data: secretMatches } = bearer && bearer !== serviceRole
+    ? await verifier.rpc("verify_cron_secret", { p_candidate: bearer })
+    : { data: false };
+  const allowed = authHeader === `Bearer ${serviceRole}` || secretMatches === true;
   if (!allowed) {
     console.warn("[auto-checkout] 401 — invalid/missing CRON_SECRET");
     return new Response(JSON.stringify({ error: "Unauthorized" }), {

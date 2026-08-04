@@ -311,7 +311,7 @@ export default function SalaryPage() {
     if (baseSalary > 0) {
       items.push({
         id: `salary-${monthStart}`,
-        date: salary?.last_updated ? getMMTDateISO(salary.last_updated) : monthStart,
+        date: monthStart,
         type: "salary",
         description: `Base salary (${monthLabel})`,
         amount: baseSalary,

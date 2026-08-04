@@ -166,11 +166,17 @@ Deno.serve(async (req) => {
       .select("id, title")
       .eq("title", creditTitle)
       .maybeSingle();
-    if (existing) {
-      return new Response(
-        JSON.stringify({ skipped: true, reason: "already credited this window", title: creditTitle }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+
+    // Never let the system-generated event make a staff member look manually
+    // covered during a retry/catch-up run.
+    if (existing?.id) {
+      const { data: priorAutoAssignments } = await admin
+        .from("calendar_event_assignments")
+        .select("user_id")
+        .eq("event_id", existing.id);
+      for (const row of (priorAutoAssignments as { user_id: string }[]) || []) {
+        coveredSet.delete(row.user_id);
+      }
     }
 
     const missing = staffList.filter((s) => !coveredSet.has(s.id));
@@ -181,20 +187,24 @@ Deno.serve(async (req) => {
     }
 
     // 5) Create one shared system calendar event for this window
-    const { data: ev, error: evErr } = await admin
-      .from("calendar_events")
-      .insert({
-        title: creditTitle,
-        description: "System-generated auto-credit because no manual task was assigned in this week window.",
-        start_date: win.start,
-        end_date: win.end,
-        event_type: "task",
-        visibility: "private",
-        created_by: systemCreator,
-      })
-      .select("id")
-      .single();
-    if (evErr || !ev) throw evErr ?? new Error("event insert failed");
+    let ev = existing as { id: string } | null;
+    if (!ev) {
+      const { data: createdEvent, error: evErr } = await admin
+        .from("calendar_events")
+        .insert({
+          title: creditTitle,
+          description: "System-generated auto-credit because no manual task was assigned in this week window.",
+          start_date: win.start,
+          end_date: win.end,
+          event_type: "task",
+          visibility: "private",
+          created_by: systemCreator,
+        })
+        .select("id")
+        .single();
+      if (evErr || !createdEvent) throw evErr ?? new Error("event insert failed");
+      ev = createdEvent;
+    }
 
     // 6) Bulk-create assignments + bonus_transactions for all missing staff
     const nowIso = new Date().toISOString();
@@ -213,7 +223,14 @@ Deno.serve(async (req) => {
     }
 
     // 6b) Build assignments payload and bulk insert
-    const assignmentsPayload = missing.map((s) => ({
+    const { data: existingAssignments } = await admin
+      .from("calendar_event_assignments")
+      .select("id, user_id")
+      .eq("event_id", ev.id);
+    const existingByUser = new Map(
+      (((existingAssignments as { id: string; user_id: string }[]) || [])).map((row) => [row.user_id, row.id]),
+    );
+    const assignmentsPayload = missing.filter((s) => !existingByUser.has(s.id)).map((s) => ({
       event_id: ev.id,
       user_id: s.id,
       submission_status: "approved",
@@ -230,11 +247,14 @@ Deno.serve(async (req) => {
     if (bulkAssErr) throw bulkAssErr;
 
     const assByUser = new Map<string, string>();
+    for (const [userId, assignmentId] of existingByUser) assByUser.set(userId, assignmentId);
     for (const a of (insertedAssignments as { id: string; user_id: string }[]) || []) {
       assByUser.set(a.user_id, a.id);
     }
 
-    // 6c) Build bonus_transactions payload (only users with perUnit > 0) and bulk insert
+    // 6c) Build a ledger transaction for every credited unit. A zero bonus pot
+    // still needs a unit_count=1 row so Status Monitor, Yearly Bonus, and
+    // Transaction History agree immediately.
     const bonusPayload: Record<string, unknown>[] = [];
     const perUnitByUser = new Map<string, number>();
     for (const s of missing) {
@@ -244,7 +264,7 @@ Deno.serve(async (req) => {
       const perUnit = totalBonus > 0 ? Math.round(totalBonus / 4) : 0;
       perUnitByUser.set(s.id, perUnit);
       const assignmentId = assByUser.get(s.id);
-      if (perUnit > 0 && assignmentId) {
+      if (assignmentId) {
         bonusPayload.push({
           user_id: s.id,
           assignment_id: assignmentId,
@@ -292,7 +312,6 @@ Deno.serve(async (req) => {
         for (const a of missingRows) {
           const totalBonus = bonusByUser.get(a.user_id) ?? 0;
           const perUnit = totalBonus > 0 ? Math.round(totalBonus / 4) : 0;
-          if (perUnit <= 0) continue;
           const { error: fixErr } = await admin.from("bonus_transactions").insert({
             user_id: a.user_id,
             assignment_id: a.id,
@@ -310,7 +329,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const credited = insertedAssignments?.length ?? 0;
+    const credited = missing.length;
 
     // 6d) Push notifications (fire-and-forget, in parallel)
     await Promise.allSettled(
