@@ -607,6 +607,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           base_salary: number
+          bonus_amount: number
           check_in_time: string
           check_out_time: string
           class: string
@@ -629,6 +630,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           base_salary?: number
+          bonus_amount?: number
           check_in_time?: string
           check_out_time?: string
           class?: string
@@ -651,6 +653,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           base_salary?: number
+          bonus_amount?: number
           check_in_time?: string
           check_out_time?: string
           class?: string
@@ -872,6 +875,7 @@ export type Database = {
         Returns: {
           avatar_url: string | null
           base_salary: number
+          bonus_amount: number
           check_in_time: string
           check_out_time: string
           class: string
@@ -920,6 +924,7 @@ export type Database = {
         Returns: {
           avatar_url: string | null
           base_salary: number
+          bonus_amount: number
           check_in_time: string
           check_out_time: string
           class: string
