@@ -1,0 +1,7 @@
+# AYTY Smart HR
+
+> Internal staff management app for Aye Yait Tharyar: attendance check-in/out, leave requests, task scheduling, and salary and bonus tracking.
+
+## Pages
+
+- [Home](/): Sign-in entry point for AYTY Smart HR. All other pages require a staff account.
