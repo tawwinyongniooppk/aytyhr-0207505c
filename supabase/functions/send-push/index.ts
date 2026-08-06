@@ -150,12 +150,12 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: tokens, error } = await admin
       .from("fcm_tokens")
-      .select("token")
+      .select("token, user_id")
       .in("user_id", userIds);
     if (error) throw error;
     console.log("[send-push] token lookup", { userIds, tokenCount: tokens?.length ?? 0 });
     if (!tokens?.length) {
-      return new Response(JSON.stringify({ ok: false, sent: 0, failed: 0, error: "no_registered_tokens" }), {
+      return new Response(JSON.stringify({ ok: false, sent: 0, failed: 0, recipients: 0, error: "no_registered_tokens" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -165,8 +165,10 @@ Deno.serve(async (req) => {
     const endpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
 
     const stale: string[] = [];
+    const reached = new Set<string>();
     let sent = 0;
     let failed = 0;
+
 
     await Promise.all(
       tokens.map(async (row) => {
