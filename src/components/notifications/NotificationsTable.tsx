@@ -146,7 +146,9 @@ export function NotificationsTable({ onEdit, refreshToken }: Props) {
                         <div className="text-xs text-muted-foreground line-clamp-1">{row.body}</div>
                         {row.status === "sent" && (
                           <div className="text-[11px] text-muted-foreground mt-0.5">
-                            Delivered: {row.sent_count} · Failed: {row.failed_count}
+                            Reached: {row.sent_count} user{row.sent_count === 1 ? "" : "s"}
+                            {row.failed_count > 0 ? ` · Failed: ${row.failed_count}` : ""}
+
                             {row.last_error ? ` · ${row.last_error}` : ""}
                           </div>
                         )}

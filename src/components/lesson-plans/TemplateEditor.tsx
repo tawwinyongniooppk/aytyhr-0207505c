@@ -797,7 +797,7 @@ export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPa
           <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground">
               Live preview · {value.page.size} {value.page.orientation === "portrait" ? "Portrait" : "Landscape"} ·
-              Click cell to edit · Drag table directly to move · Drag left/right edge to resize (Margin အတွင်း၌သာ ရွှေ့နိုင်ပါသည်)။
+              Click cell to edit · Table အပေါ်ရှိ <strong>Move</strong> handle ကို ဖိဆွဲ၍ ရွှေ့ပါ · ဘေးနှစ်ဖက် bar ဖြင့် အကျယ်ချိန်ပါ (Margin အတွင်း၌သာ ရွှေ့နိုင်ပါသည်)။
             </p>
           </div>
           <div ref={previewContainerRef} style={{ transform: `scale(${PREVIEW_SCALE})`, transformOrigin: "top left" }}>
@@ -878,12 +878,28 @@ export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPa
                         size={{ width: card.width ?? 600, height: measured }}
                         position={{ x: card.x ?? marginLeft, y: card.y ?? marginTop }}
                         enableResizing={{ left: true, right: true, top: false, bottom: false, topLeft: false, topRight: false, bottomLeft: false, bottomRight: false }}
+                        dragHandleClassName="lp-drag-handle"
                         onDragStop={(_, d) => updateCardBox(card.id, { x: d.x, y: d.y })}
                         onResizeStop={(_, __, ref, ___, pos) => updateCardBox(card.id, { width: parseInt(ref.style.width), x: pos.x, y: pos.y })}
-                        style={{ zIndex: 15, outline: "1px dashed hsl(var(--primary) / 0.5)" }}
+                        resizeHandleStyles={{
+                          left: { pointerEvents: "auto", width: 10, left: -5, cursor: "ew-resize", background: "hsl(var(--primary) / 0.12)" },
+                          right: { pointerEvents: "auto", width: 10, right: -5, cursor: "ew-resize", background: "hsl(var(--primary) / 0.12)" },
+                        }}
+                        style={{ zIndex: 15, outline: "1px dashed hsl(var(--primary) / 0.35)", pointerEvents: "none" }}
                       >
-                        <div className="w-full h-full" />
+                        {/* Body stays click-through so cells underneath stay editable;
+                            only the grip handle and the side resize bars capture the mouse. */}
+                        <div className="w-full h-full relative" style={{ pointerEvents: "none" }}>
+                          <div
+                            className="lp-drag-handle absolute -top-5 left-0 flex items-center gap-1 rounded-t-md bg-primary px-2 py-0.5 text-[10px] text-primary-foreground shadow-sm"
+                            style={{ pointerEvents: "auto", cursor: "move" }}
+                            title="ဒီနေရာကို ဖိဆွဲ၍ Table ကို ရွှေ့ပါ"
+                          >
+                            <GripVertical className="h-3 w-3" /> Move
+                          </div>
+                        </div>
                       </Rnd>
+
                     );
                   })}
 

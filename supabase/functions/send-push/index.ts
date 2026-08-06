@@ -150,12 +150,12 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: tokens, error } = await admin
       .from("fcm_tokens")
-      .select("token")
+      .select("token, user_id")
       .in("user_id", userIds);
     if (error) throw error;
     console.log("[send-push] token lookup", { userIds, tokenCount: tokens?.length ?? 0 });
     if (!tokens?.length) {
-      return new Response(JSON.stringify({ ok: false, sent: 0, failed: 0, error: "no_registered_tokens" }), {
+      return new Response(JSON.stringify({ ok: false, sent: 0, failed: 0, recipients: 0, error: "no_registered_tokens" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -165,8 +165,10 @@ Deno.serve(async (req) => {
     const endpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
 
     const stale: string[] = [];
+    const reached = new Set<string>();
     let sent = 0;
     let failed = 0;
+
 
     await Promise.all(
       tokens.map(async (row) => {
@@ -214,12 +216,16 @@ Deno.serve(async (req) => {
         });
         if (res.ok) {
           sent++;
+          reached.add(row.user_id as string);
         } else {
-          failed++;
           const txt = await res.text();
-          console.error("[send-push] FCM send failed", { status: res.status, token: row.token.slice(0, 16), body: txt });
-          if (res.status === 404 || res.status === 400 || /UNREGISTERED|INVALID_ARGUMENT/i.test(txt)) {
-            stale.push(row.token);
+          console.error("[send-push] FCM send failed", { status: res.status, token: String(row.token).slice(0, 16), body: txt });
+          if (res.status === 404 || res.status === 400 || /UNREGISTERED|INVALID_ARGUMENT|NOT_FOUND/i.test(txt)) {
+            // Dead device token (app removed / browser data cleared).
+            // It is pruned here, so it is not reported as a delivery failure.
+            stale.push(row.token as string);
+          } else {
+            failed++;
           }
         }
       }),
@@ -229,9 +235,11 @@ Deno.serve(async (req) => {
       await admin.from("fcm_tokens").delete().in("token", stale);
     }
 
-    return new Response(JSON.stringify({ ok: sent > 0, sent, failed, pruned: stale.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ok: sent > 0, sent, failed, pruned: stale.length, recipients: reached.size }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+
   } catch (e) {
     console.error("[send-push]", e);
     return new Response(JSON.stringify({ error: String(e?.message ?? e) }), {
