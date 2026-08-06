@@ -139,8 +139,11 @@ Deno.serve(async (req) => {
       }),
     });
     const pushJson = await pushRes.json().catch(() => ({}));
-    const sentCount = Number(pushJson.sent ?? 0);
+    // Count distinct users reached, not raw device tokens, so multi-device
+    // staff are not double counted and pruned dead tokens are not "failures".
+    const sentCount = Number(pushJson.recipients ?? pushJson.sent ?? 0);
     const failedCount = Number(pushJson.failed ?? 0);
+
     const lastError = pushJson.error ? String(pushJson.error) : null;
 
     const finalStatus = sentCount > 0 ? "sent" : "failed";
