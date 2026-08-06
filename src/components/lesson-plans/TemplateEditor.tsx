@@ -797,7 +797,7 @@ export function TemplateEditor({ value, onChange, pageIdx, pageCount, onSelectPa
           <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground">
               Live preview · {value.page.size} {value.page.orientation === "portrait" ? "Portrait" : "Landscape"} ·
-              Click cell to edit · Drag table directly to move · Drag left/right edge to resize (Margin အတွင်း၌သာ ရွှေ့နိုင်ပါသည်)။
+              Click cell to edit · Table အပေါ်ရှိ <strong>Move</strong> handle ကို ဖိဆွဲ၍ ရွှေ့ပါ · ဘေးနှစ်ဖက် bar ဖြင့် အကျယ်ချိန်ပါ (Margin အတွင်း၌သာ ရွှေ့နိုင်ပါသည်)။
             </p>
           </div>
           <div ref={previewContainerRef} style={{ transform: `scale(${PREVIEW_SCALE})`, transformOrigin: "top left" }}>
