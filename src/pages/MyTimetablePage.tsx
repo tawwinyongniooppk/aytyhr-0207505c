@@ -1,27 +1,29 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, CalendarDays, Download, Mail, FileText } from "lucide-react";
+import { Loader2, CalendarDays, Download, Mail, Plus, Save, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { toast } from "@/components/ui/use-toast";
 import { TemplateCanvas } from "@/components/lesson-plans/TemplateCanvas";
-import { SatisfactionModal } from "@/components/lesson-plans/SatisfactionModal";
 import { defaultTemplate, normalizeTemplate, ALL_FORMATS, templateForPage, writePageBack } from "@/lib/lessonPlanDefaults";
 import { exportPagesToPdf } from "@/lib/exportPdf";
 import { canOpenGmailCompose } from "@/lib/uaSupport";
 import type { LessonPlanTemplate, TemplateFormat } from "@/lib/lessonPlanTypes";
 import { formatMMTDate, getMMTDateParts } from "@/lib/mmt";
 
-function clearUnlocked(t: LessonPlanTemplate): LessonPlanTemplate {
-  const wipeCards = (cards: any[]) => cards.map(c => ({
+function wipeCards(cards: any[]) {
+  return cards.map(c => ({
     ...c,
     rows: c.rows.map((r: any) => ({
       ...r,
-      cells: r.cells.map((cell: any) => cell.locked ? cell : { ...cell, value: "" }),
+      cells: r.cells.map((cell: any) => (cell.locked ? cell : { ...cell, value: "" })),
     })),
   }));
+}
+
+function clearUnlocked(t: LessonPlanTemplate): LessonPlanTemplate {
   return {
     ...t,
     cards: wipeCards(t.cards),
@@ -29,20 +31,36 @@ function clearUnlocked(t: LessonPlanTemplate): LessonPlanTemplate {
   };
 }
 
+/** Deep clone of the blank first page — used by "New Page". */
+function blankPageFrom(t: LessonPlanTemplate) {
+  const base = t.pages?.[0] ?? { id: "p0", cards: t.cards, freeElements: t.freeElements };
+  const clone = JSON.parse(JSON.stringify(base));
+  return {
+    ...clone,
+    id: `p${Math.random().toString(36).slice(2, 8)}`,
+    cards: wipeCards(clone.cards ?? []),
+  };
+}
+
+const draftKey = (uid: string, cls: string, fmt: string) => `lp-draft:${uid}:${cls}:${fmt}`;
+
 export default function MyTimetablePage() {
   const { profile } = useProfile();
   const [loading, setLoading] = useState(true);
+  /** Pristine copies straight from the database (used by Reset). */
+  const [baseTemplates, setBaseTemplates] = useState<Partial<Record<TemplateFormat, LessonPlanTemplate>>>({});
   const [templates, setTemplates] = useState<Partial<Record<TemplateFormat, LessonPlanTemplate>>>({});
   const [format, setFormat] = useState<TemplateFormat>("format1");
-  const [pageIdx, setPageIdx] = useState(0);
   const [exporting, setExporting] = useState(false);
-  const [askSatisfaction, setAskSatisfaction] = useState(false);
-  const pageRefs = useRef<HTMLDivElement[]>([]);
+  const pageRefs = useRef<Record<number, HTMLDivElement>>({});
 
   const cls = profile?.class && ["Beginner", "Junior", "Senior"].includes(profile.class) ? profile.class : null;
   const fullTemplate = templates[format] ?? null;
   const pageCount = fullTemplate?.pages?.length ?? 1;
-  const viewTemplate = fullTemplate ? templateForPage(fullTemplate, pageIdx) : null;
+  const pageViews = useMemo(
+    () => (fullTemplate ? Array.from({ length: pageCount }, (_, i) => templateForPage(fullTemplate, i)) : []),
+    [fullTemplate, pageCount],
+  );
 
   useEffect(() => {
     if (!cls) { setLoading(false); return; }
@@ -62,39 +80,74 @@ export default function MyTimetablePage() {
         if (!ALL_FORMATS.includes(f)) return;
         next[f] = normalizeTemplate(row.template_json, cls, f);
       });
-      // Always provide format1 default if nothing exists yet.
       if (!next.format1) next.format1 = defaultTemplate(cls, "format1");
-      setTemplates(next);
-      const firstAvailable = ALL_FORMATS.find(f => next[f]) ?? "format1";
-      setFormat(firstAvailable);
-      setPageIdx(0);
+      setBaseTemplates(next);
+
+      // Restore any locally saved draft for this staff member.
+      const withDrafts: Partial<Record<TemplateFormat, LessonPlanTemplate>> = { ...next };
+      const uid = profile?.id;
+      if (uid) {
+        (Object.keys(next) as TemplateFormat[]).forEach(f => {
+          try {
+            const raw = localStorage.getItem(draftKey(uid, cls, f));
+            if (raw) withDrafts[f] = JSON.parse(raw) as LessonPlanTemplate;
+          } catch { /* ignore corrupted draft */ }
+        });
+      }
+      setTemplates(withDrafts);
+      setFormat(ALL_FORMATS.find(f => withDrafts[f]) ?? "format1");
       setLoading(false);
     })();
-  }, [cls]);
+  }, [cls, profile?.id]);
 
-  useEffect(() => { setPageIdx(0); pageRefs.current = []; }, [format]);
+  useEffect(() => { pageRefs.current = {}; }, [format]);
 
-  const setView = (edited: LessonPlanTemplate) => {
+  const setPage = (idx: number, edited: LessonPlanTemplate) => {
     if (!fullTemplate) return;
-    setTemplates(prev => ({ ...prev, [format]: writePageBack(fullTemplate, pageIdx, edited) }));
+    setTemplates(prev => ({ ...prev, [format]: writePageBack(fullTemplate, idx, edited) }));
+  };
+
+  const addPage = () => {
+    if (!fullTemplate) return;
+    const pages = fullTemplate.pages ?? [{ id: "p0", cards: fullTemplate.cards, freeElements: fullTemplate.freeElements }];
+    setTemplates(prev => ({ ...prev, [format]: { ...fullTemplate, pages: [...pages, blankPageFrom(fullTemplate)] } }));
+  };
+
+  const removePage = (idx: number) => {
+    if (!fullTemplate?.pages || fullTemplate.pages.length <= 1) return;
+    if (!confirm(`Page ${idx + 1} ကို ဖျက်မှာ သေချာပါသလား?`)) return;
+    const pages = fullTemplate.pages.filter((_, i) => i !== idx);
+    setTemplates(prev => ({ ...prev, [format]: { ...fullTemplate, pages, cards: pages[0].cards, freeElements: pages[0].freeElements } }));
+  };
+
+  const saveDraft = () => {
+    if (!fullTemplate || !profile?.id || !cls) return;
+    try {
+      localStorage.setItem(draftKey(profile.id, cls, format), JSON.stringify(fullTemplate));
+      toast({ title: "Saved", description: "ဖြည့်ထားသော အချက်အလက်များကို သိမ်းပြီးပါပြီ။" });
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e?.message ?? "Storage full", variant: "destructive" });
+    }
+  };
+
+  const resetDraft = () => {
+    if (!fullTemplate || !cls) return;
+    if (!confirm("ဖြည့်ထားသော အချက်အလက်များ အားလုံး ပျက်သွားပါမည်။ သေချာပါသလား?")) return;
+    const base = baseTemplates[format] ?? fullTemplate;
+    setTemplates(prev => ({ ...prev, [format]: clearUnlocked(base) }));
+    if (profile?.id) localStorage.removeItem(draftKey(profile.id, cls, format));
+    toast({ title: "Reset", description: "ဖြည့်ထားသော စာများကို ဖျက်ပေးပြီးပါပြီ။" });
   };
 
   const doExport = async (alsoReport: boolean) => {
     if (!fullTemplate) return;
     setExporting(true);
     try {
-      // Render every page (current page in the DOM; others rendered via temporary nodes).
-      // Simpler: page through state and capture each canvas. We rely on the live pageRefs by switching pages.
       const elements: HTMLElement[] = [];
       for (let i = 0; i < pageCount; i++) {
-        if (i !== pageIdx) setPageIdx(i);
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        const el = pageRefs.current[0];
+        const el = pageRefs.current[i];
         if (el) elements.push(el);
       }
-      // restore visible page
-      setPageIdx(0);
-
       const { year, month, day } = getMMTDateParts(new Date());
       const filename = `LessonPlan_${cls}_${format}_${year}-${month}-${day}.pdf`;
       await exportPagesToPdf(elements, fullTemplate.page.size, fullTemplate.page.orientation, filename);
@@ -104,18 +157,11 @@ export default function MyTimetablePage() {
         const body = encodeURIComponent(`Dear Admin,\n\nPlease find my lesson plan attached (file: ${filename}).\n\nBest regards,\n${profile?.full_name ?? ""}`);
         window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`, "_blank");
       }
-      setAskSatisfaction(true);
     } catch (e: any) {
       toast({ title: "Export failed", description: e?.message ?? "Unknown error", variant: "destructive" });
     } finally {
       setExporting(false);
     }
-  };
-
-  const onSatisfied = () => {
-    if (fullTemplate) setTemplates(prev => ({ ...prev, [format]: clearUnlocked(fullTemplate) }));
-    setAskSatisfaction(false);
-    toast({ title: "ပြီးပါပြီ", description: "ဖြည့်ထားသော စာများကို ဖျက်ပေးပြီးပါပြီ။" });
   };
 
   if (loading) {
@@ -151,6 +197,12 @@ export default function MyTimetablePage() {
             <CalendarDays className="h-5 w-5 text-primary" /> My Timetable & Lesson Plans — {cls}
           </CardTitle>
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={saveDraft}>
+              <Save className="h-4 w-4 mr-1" /> Save
+            </Button>
+            <Button variant="outline" onClick={resetDraft}>
+              <RotateCcw className="h-4 w-4 mr-1" /> Reset
+            </Button>
             <Button onClick={() => doExport(false)} disabled={exporting}>
               {exporting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
               Export & Download
@@ -171,49 +223,51 @@ export default function MyTimetablePage() {
               ))}
             </TabsList>
           </Tabs>
-          {pageCount > 1 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              {Array.from({ length: pageCount }, (_, i) => (
-                <Button key={i} size="sm" variant={i === pageIdx ? "default" : "outline"} onClick={() => setPageIdx(i)}>
-                  Page {i + 1}
-                </Button>
-              ))}
-            </div>
-          )}
           <p className="text-xs text-muted-foreground">
-            IT Manager သတ်မှတ်ထားသော အကွက်များတွင် စာရိုက်ထည့်ပါ။ Page များ ရှိပါက အပေါ်က Page tab လေးတွေ ဖြင့် ပြောင်းကြည့်နိုင်ပါသည်။
+            IT Manager သတ်မှတ်ထားသော အကွက်များတွင် စာရိုက်ထည့်ပါ။ စာမျက်နှာ ပြည့်သွားပါက အောက်ဆုံးရှိ <strong>+ New Page</strong> ကို နှိပ်၍ ပုံစံတူ စာမျက်နှာ ထပ်ထည့်နိုင်ပါသည်။ <strong>Save</strong> နှိပ်ထားပါက ဖြည့်ထားသည်များ ဆက်လက် တည်ရှိပြီး <strong>Reset</strong> နှိပ်မှသာ ပျက်သွားပါမည်။
           </p>
         </CardContent>
       </Card>
 
-      {viewTemplate && (
-        <div className="overflow-auto bg-muted/30 rounded-lg p-4">
-          <TemplateCanvas
-            ref={(el) => { if (el) pageRefs.current[0] = el; }}
-            template={viewTemplate}
-            editable
-            onCellChange={(cardId, rowId, cellId, value) => {
-              setView({
-                ...viewTemplate,
-                cards: viewTemplate.cards.map(c => c.id !== cardId ? c : {
-                  ...c,
-                  rows: c.rows.map(r => r.id !== rowId ? r : {
-                    ...r,
-                    cells: r.cells.map(cell => cell.id !== cellId ? cell : { ...cell, value }),
-                  }),
-                }),
-              });
-            }}
-          />
-        </div>
-      )}
+      <div className="space-y-6">
+        {pageViews.map((view, idx) => (
+          <div key={idx} className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Page {idx + 1} / {pageCount}</span>
+              {pageCount > 1 && (
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removePage(idx)}>
+                  Delete Page {idx + 1}
+                </Button>
+              )}
+            </div>
+            <div className="overflow-auto bg-muted/30 rounded-lg p-4">
+              <TemplateCanvas
+                ref={(el) => { if (el) pageRefs.current[idx] = el; }}
+                template={view}
+                editable
+                onCellChange={(cardId, rowId, cellId, value) => {
+                  setPage(idx, {
+                    ...view,
+                    cards: view.cards.map(c => c.id !== cardId ? c : {
+                      ...c,
+                      rows: c.rows.map(r => r.id !== rowId ? r : {
+                        ...r,
+                        cells: r.cells.map(cell => cell.id !== cellId ? cell : { ...cell, value }),
+                      }),
+                    }),
+                  });
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
 
-      <SatisfactionModal
-        open={askSatisfaction}
-        onOk={onSatisfied}
-        onRetry={() => setAskSatisfaction(false)}
-      />
+      <div className="flex justify-center pb-8">
+        <Button variant="outline" onClick={addPage}>
+          <Plus className="h-4 w-4 mr-1" /> New Page
+        </Button>
+      </div>
     </div>
   );
 }
