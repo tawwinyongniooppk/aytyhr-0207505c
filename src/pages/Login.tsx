@@ -8,6 +8,8 @@ import { GraduationCap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { withNetworkRetry, isNetworkError, NETWORK_ERROR_MESSAGE } from "@/lib/netRetry";
+
 
 export default function Login() {
   const navigate = useNavigate();
@@ -39,18 +41,31 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      let msg = error.message;
-      if (msg.includes("Invalid login credentials")) {
-        msg = "Invalid email or password. Please check and try again.";
+    try {
+      const { error } = await withNetworkRetry(() =>
+        supabase.auth.signInWithPassword({ email, password })
+      );
+      if (error) {
+        let msg = error.message;
+        if (msg.includes("Invalid login credentials")) {
+          msg = "Invalid email or password. Please check and try again.";
+        } else if (isNetworkError(error)) {
+          msg = NETWORK_ERROR_MESSAGE;
+        }
+        toast({ title: "Sign in failed", description: msg, variant: "destructive" });
+      } else {
+        navigate("/", { replace: true });
       }
-      toast({ title: "Sign in failed", description: msg, variant: "destructive" });
-    } else {
-      navigate("/", { replace: true });
+    } catch (err: any) {
+      toast({
+        title: "Sign in failed",
+        description: isNetworkError(err) ? NETWORK_ERROR_MESSAGE : err?.message ?? "Unexpected error.",
+        variant: "destructive",
+      });
     }
     setLoading(false);
   };
+
 
   if (authLoading) return null;
 
