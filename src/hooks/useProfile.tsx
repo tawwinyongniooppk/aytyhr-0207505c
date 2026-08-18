@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import { withNetworkRetry, isNetworkError, NETWORK_ERROR_MESSAGE } from "@/lib/netRetry";
+
 
 interface Profile {
   id: string;
