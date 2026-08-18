@@ -37,14 +37,15 @@ export function useProfile() {
     async function load() {
       try {
         setError(null);
-        const { data, error: fetchError } = await supabase
-          .rpc("get_profile_full", { p_id: user!.id });
+        const { data, error: fetchError } = await withNetworkRetry(() =>
+          supabase.rpc("get_profile_full", { p_id: user!.id })
+        );
 
         if (cancelled) return;
 
         const row = Array.isArray(data) ? data[0] : data;
         if (fetchError) {
-          setError("Failed to load profile. Please try again.");
+          setError(isNetworkError(fetchError) ? NETWORK_ERROR_MESSAGE : "Failed to load profile. Please try again.");
           setProfile(null);
         } else if (!row) {
           setError("No profile found for this account. Contact an administrator.");
@@ -52,12 +53,13 @@ export function useProfile() {
         } else {
           setProfile(row as Profile);
         }
-      } catch {
-        if (!cancelled) setError("Unexpected error loading profile.");
+      } catch (err) {
+        if (!cancelled) setError(isNetworkError(err) ? NETWORK_ERROR_MESSAGE : "Unexpected error loading profile.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
+
 
     load();
     return () => { cancelled = true; };
