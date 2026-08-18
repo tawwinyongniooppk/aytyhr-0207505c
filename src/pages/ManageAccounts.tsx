@@ -62,13 +62,22 @@ export default function ManageAccounts() {
   const loadAccounts = async () => {
     setLoadingAccounts(true);
     try {
-      const { data } = await supabase.rpc("admin_list_profiles");
+      const { data, error } = await withNetworkRetry(
+        async () => await supabase.rpc("admin_list_profiles")
+      );
+      if (error) throw error;
       if (data) setAccounts(data as unknown as Account[]);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      toast({
+        title: "Failed to load accounts",
+        description: isNetworkError(e) ? NETWORK_ERROR_MESSAGE : e?.message ?? "Please try again.",
+        variant: "destructive",
+      });
     }
     setLoadingAccounts(false);
   };
+
 
   const handleCreate = async () => {
     const emailErr = validateEmailPrefix(createForm.emailPrefix);
