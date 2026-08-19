@@ -66,8 +66,6 @@ export default function Login() {
   };
 
 
-  if (authLoading) return null;
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm border border-border shadow-none">
@@ -98,8 +96,8 @@ export default function Login() {
               <Label>Password</Label>
               <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
             </div>
-            <Button type="submit" disabled={loading} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 active:animate-press">
-              {loading ? "Please wait..." : "Sign In"}
+            <Button type="submit" disabled={loading || authLoading} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 active:animate-press">
+              {loading ? "Please wait..." : authLoading ? "Checking session..." : "Sign In"}
             </Button>
           </form>
 
