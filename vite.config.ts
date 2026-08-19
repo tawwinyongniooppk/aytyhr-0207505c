@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
-      registerType: "prompt",
+      registerType: "autoUpdate",
       injectRegister: null,
       filename: "sw.js",
       devOptions: { enabled: false },
@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         cleanupOutdatedCaches: true,
         clientsClaim: true,
-        skipWaiting: false,
+        skipWaiting: true,
         navigateFallbackDenylist: [/^\/~oauth/, /^\/firebase-messaging-sw\.js$/],
         runtimeCaching: [
           {

@@ -92,6 +92,14 @@ export async function registerPwa() {
       immediate: true,
       onNeedRefresh() {
         updateAvailable = true;
+        // Login is a critical entry point. Do not leave signed-out users on an
+        // old auth bundle with no update control available to them.
+        if (window.location.pathname === "/login") {
+          window.setTimeout(() => {
+            void applyUpdate();
+          }, 0);
+          return;
+        }
         listeners.forEach((cb) => {
           try {
             cb();
@@ -102,6 +110,7 @@ export async function registerPwa() {
       },
       onRegisteredSW(_swUrl, registration) {
         if (!registration) return;
+        registration.update().catch(() => {});
         // Poll for updates every 30 minutes while the tab is alive.
         setInterval(() => {
           registration.update().catch(() => {});
