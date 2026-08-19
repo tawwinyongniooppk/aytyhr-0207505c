@@ -52,11 +52,19 @@ async function saveSession(payload: TokenResponse) {
     return { error: new Error("The sign-in server returned an incomplete session.") };
   }
 
-  const { error } = await supabase.auth.setSession({
-    access_token: payload.access_token,
-    refresh_token: payload.refresh_token,
-  });
-  return { error };
+  const sessionResult = await Promise.race([
+    supabase.auth.setSession({
+      access_token: payload.access_token,
+      refresh_token: payload.refresh_token,
+    }),
+    new Promise<{ error: Error }>((resolve) => {
+      window.setTimeout(
+        () => resolve({ error: new Error("Could not save the sign-in session on this device. Please try again.") }),
+        8_000,
+      );
+    }),
+  ]);
+  return { error: sessionResult.error };
 }
 
 /**
