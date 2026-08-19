@@ -39,12 +39,13 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
 
     try {
       const { error } = await withNetworkRetry(() =>
         supabase.auth.signInWithPassword({ email, password })
-      );
+      , { retries: 1, attemptTimeoutMs: 12_000 });
       if (error) {
         let msg = error.message;
         if (msg.includes("Invalid login credentials")) {
@@ -62,8 +63,9 @@ export default function Login() {
         description: isNetworkError(err) ? NETWORK_ERROR_MESSAGE : err?.message ?? "Unexpected error.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
 
