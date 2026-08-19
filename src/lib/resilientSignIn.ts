@@ -59,12 +59,15 @@ async function saveSession(payload: TokenResponse) {
     return { error: new Error("The sign-in server returned an incomplete session."), kind: "server" as const };
   }
 
-  const sessionResult = await Promise.race([
+  const sessionResult: ResilientSignInResult = await Promise.race<ResilientSignInResult>([
     supabase.auth.setSession({
       access_token: payload.access_token,
       refresh_token: payload.refresh_token,
-    }),
-    new Promise<{ error: Error }>((resolve) => {
+    }).then(({ error }) => ({
+      error,
+      kind: error ? "session_storage" as const : undefined,
+    })),
+    new Promise<ResilientSignInResult>((resolve) => {
       window.setTimeout(
         () => resolve({ error: new Error("This device could not save the login session. Close other AYTY tabs and try again."), kind: "session_storage" as const }),
         3_000,
@@ -72,10 +75,7 @@ async function saveSession(payload: TokenResponse) {
     }),
   ]);
   if (sessionResult.error) {
-    return {
-      error: sessionResult.error,
-      kind: "kind" in sessionResult ? sessionResult.kind : "session_storage" as const,
-    };
+    return { error: sessionResult.error, kind: sessionResult.kind ?? "session_storage" };
   }
   return { error: null };
 }
