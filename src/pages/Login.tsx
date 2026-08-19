@@ -8,7 +8,6 @@ import { GraduationCap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { isNetworkError, NETWORK_ERROR_MESSAGE } from "@/lib/netRetry";
 import { resilientPasswordSignIn } from "@/lib/resilientSignIn";
 
 
@@ -44,13 +43,11 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { error } = await resilientPasswordSignIn(email, password);
+      const { error, kind } = await resilientPasswordSignIn(email, password);
       if (error) {
         let msg = error.message;
-        if (msg.includes("Invalid login credentials")) {
+        if (kind === "credentials") {
           msg = "Invalid email or password. Please check and try again.";
-        } else if (isNetworkError(error)) {
-          msg = NETWORK_ERROR_MESSAGE;
         }
         toast({ title: "Sign in failed", description: msg, variant: "destructive" });
       } else {
@@ -60,7 +57,7 @@ export default function Login() {
       const message = err instanceof Error ? err.message : "Unexpected error.";
       toast({
         title: "Sign in failed",
-        description: isNetworkError(err) ? NETWORK_ERROR_MESSAGE : message,
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -68,8 +65,6 @@ export default function Login() {
     }
   };
 
-
-  if (authLoading) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -101,8 +96,8 @@ export default function Login() {
               <Label>Password</Label>
               <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
             </div>
-            <Button type="submit" disabled={loading} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 active:animate-press">
-              {loading ? "Please wait..." : "Sign In"}
+            <Button type="submit" disabled={loading || authLoading} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90 active:animate-press">
+              {loading ? "Please wait..." : authLoading ? "Checking session..." : "Sign In"}
             </Button>
           </form>
 

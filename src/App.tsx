@@ -10,6 +10,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Suspense, lazy } from "react";
 import { Loader2 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
+import { AppUpdateManager } from "@/components/AppUpdateManager";
 
 function RoleRedirect() {
   const { isAdmin, isItManager, loading } = useProfile();
@@ -81,6 +82,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <AppUpdateManager />
           <BrowserRouter>
             <NotificationProvider>
             <Suspense fallback={<PageLoader />}>

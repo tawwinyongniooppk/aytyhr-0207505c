@@ -39,7 +39,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const restoreSession = async () => {
       try {
-        const { data } = await withTimeout(supabase.auth.getSession(), 20_000);
+        // A damaged/stale mobile session must never hold the login screen.
+        // Stored-session restoration is local and should finish immediately.
+        const { data } = await withTimeout(supabase.auth.getSession(), 3_000);
         applySession(data.session);
       } catch (error) {
         // Never leave the whole app behind an infinite auth spinner.
