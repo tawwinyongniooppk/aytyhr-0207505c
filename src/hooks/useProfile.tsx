@@ -35,12 +35,13 @@ export function useProfile() {
     }
 
     let cancelled = false;
+    const userId = user.id;
 
     async function load() {
       try {
         setError(null);
         const { data, error: fetchError } = await withNetworkRetry(
-          async () => await supabase.rpc("get_profile_full", { p_id: user!.id })
+          async () => await supabase.rpc("get_profile_full", { p_id: userId })
         );
 
 

@@ -27,21 +27,46 @@ export function isNetworkError(err: unknown): boolean {
 export const NETWORK_ERROR_MESSAGE =
   "Network connection problem. Please check your internet and try again.";
 
+export class RequestTimeoutError extends Error {
+  constructor(message = "Request timeout. Please try again.") {
+    super(message);
+    this.name = "RequestTimeoutError";
+  }
+}
+
+/** Prevents a browser/network request from leaving the UI loading forever. */
+export function withTimeout<T>(promise: Promise<T>, timeoutMs = 12_000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => reject(new RequestTimeoutError()), timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+}
+
 /**
  * Runs `fn`, retrying only when it fails with a transient network error.
  * Works for both thrown errors and Supabase-style `{ data, error }` results.
  */
 export async function withNetworkRetry<T>(
   fn: () => Promise<T>,
-  options: { retries?: number; baseDelayMs?: number } = {}
+  options: { retries?: number; baseDelayMs?: number; attemptTimeoutMs?: number } = {}
 ): Promise<T> {
   const retries = options.retries ?? 2;
   const baseDelay = options.baseDelayMs ?? 600;
+  const attemptTimeout = options.attemptTimeoutMs ?? 12_000;
 
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const result = await fn();
+      const result = await withTimeout(fn(), attemptTimeout);
       const resultError = (result as { error?: unknown } | null)?.error;
       if (resultError && isNetworkError(resultError) && attempt < retries) {
         lastError = resultError;
