@@ -25,7 +25,7 @@ export async function resilientPasswordSignIn(email: string, password: string) {
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
+    const timeoutId = window.setTimeout(() => controller.abort(), 20_000);
 
     try {
       const response = await fetch(`${AUTH_URL}/auth/v1/token?grant_type=password`, {
