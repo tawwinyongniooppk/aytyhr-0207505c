@@ -310,105 +310,124 @@ export default function Attendance() {
     }
   }, [settings.school_latitude, settings.school_longitude]);
 
-  const getLocation = useCallback(() => {
-    try {
-      if (!navigator.geolocation) {
-        setLocation((prev) => ({
-          ...prev,
-          status: "error",
-          errorMessage: "Geolocation not supported by your browser",
-        }));
-        return;
-      }
+  // GPS on phones frequently returns a first, low-accuracy fix (cell/Wi-Fi based,
+  // accuracy 50–500 m). Judging the geofence on that single sample is what made
+  // check-in fail ~3 times out of 10 while physically inside school. We now
+  // sample several fixes for a few seconds, keep the most accurate one, and
+  // allow the reported accuracy radius as tolerance.
+  const ACCURACY_TOLERANCE_CAP = 150; // metres
 
-      setLocation((prev) => ({ ...prev, status: "loading", errorMessage: null }));
+  const acquireBestPosition = (
+    totalMs = 9000,
+    goodAccuracy = 25,
+  ): Promise<GeolocationPosition> =>
+    new Promise((resolve, reject) => {
+      let best: GeolocationPosition | null = null;
+      let done = false;
+      let watchId: number | null = null;
 
-      navigator.geolocation.getCurrentPosition(
+      const finish = () => {
+        if (done) return;
+        done = true;
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        clearTimeout(timer);
+        if (best) resolve(best);
+        else reject({ code: 3, message: "Location request timed out" });
+      };
+
+      const timer = setTimeout(finish, totalMs);
+
+      watchId = navigator.geolocation.watchPosition(
         (pos) => {
-          try {
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-            const schoolConfigured = settings.school_latitude !== 0 || settings.school_longitude !== 0;
-            let distance: number | null = null;
-            let isInside: boolean | null = null;
-
-            if (schoolConfigured) {
-              distance = Math.round(haversineDistance(lat, lng, settings.school_latitude, settings.school_longitude));
-              isInside = distance <= settings.allowed_radius_meters;
-            }
-
-            setLocation({ status: "granted", lat, lng, distance, isInside, errorMessage: null });
-          } catch (e) {
-            console.error("Location calculation error:", e);
-            setLocation({
-              status: "error",
-              lat: null,
-              lng: null,
-              distance: null,
-              isInside: null,
-              errorMessage: "Unable to verify location, please try again",
-            });
-          }
+          if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
+          if (best.coords.accuracy <= goodAccuracy) finish();
         },
         (err) => {
-          console.warn("Geolocation denied:", err.message);
-          const msg =
-            err.code === 1
-              ? "Location permission is required. Please enable location access in your browser settings."
-              : err.code === 3
-                ? "Location request timed out"
-                : "Unable to get location";
-          setLocation({ status: "denied", lat: null, lng: null, distance: null, isInside: null, errorMessage: msg });
+          if (err.code === 1) {
+            if (done) return;
+            done = true;
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            clearTimeout(timer);
+            reject(err);
+          }
+          // transient POSITION_UNAVAILABLE / TIMEOUT: keep watching until totalMs
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
+        { enableHighAccuracy: true, timeout: totalMs, maximumAge: 0 },
       );
-    } catch (e) {
-      console.error("getLocation unexpected error:", e);
-      setLocation({
-        status: "error",
-        lat: null,
-        lng: null,
-        distance: null,
-        isInside: null,
-        errorMessage: "Unable to verify location, please try again",
-      });
+    });
+
+  const evaluatePosition = (pos: GeolocationPosition): LocationState => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const accuracy = Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : 0;
+    const schoolConfigured = settings.school_latitude !== 0 || settings.school_longitude !== 0;
+    let distance: number | null = null;
+    let isInside: boolean | null = null;
+    if (schoolConfigured) {
+      const raw = haversineDistance(lat, lng, settings.school_latitude, settings.school_longitude);
+      distance = Math.round(raw);
+      const tolerance = Math.min(Math.max(accuracy, 0), ACCURACY_TOLERANCE_CAP);
+      isInside = raw - tolerance <= settings.allowed_radius_meters;
     }
+    return { status: "granted", lat, lng, distance, isInside, errorMessage: null };
+  };
+
+  const geoErrorMessage = (err: any) =>
+    err?.code === 1
+      ? "Location permission is required. Please enable location access in your browser settings."
+      : err?.code === 3
+        ? "Location signal is weak. Please move near a window / outdoors and tap Refresh."
+        : "Unable to get location";
+
+  const getLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocation((prev) => ({
+        ...prev,
+        status: "error",
+        errorMessage: "Geolocation not supported by your browser",
+      }));
+      return;
+    }
+    setLocation((prev) => ({ ...prev, status: "loading", errorMessage: null }));
+    acquireBestPosition()
+      .then((pos) => setLocation(evaluatePosition(pos)))
+      .catch((err) => {
+        console.warn("Geolocation failed:", err?.message);
+        setLocation({
+          status: "denied",
+          lat: null,
+          lng: null,
+          distance: null,
+          isInside: null,
+          errorMessage: geoErrorMessage(err),
+        });
+      });
   }, [settings.school_latitude, settings.school_longitude, settings.allowed_radius_meters]);
 
   const requestLocationPermission = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        setLocation((prev) => ({ ...prev, status: "error", errorMessage: "Geolocation not supported" }));
-        resolve(false);
-        return;
-      }
-      setLocation((prev) => ({ ...prev, status: "loading", errorMessage: null }));
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          const schoolConfigured = settings.school_latitude !== 0 || settings.school_longitude !== 0;
-          let distance: number | null = null;
-          let isInside: boolean | null = null;
-          if (schoolConfigured) {
-            distance = Math.round(haversineDistance(lat, lng, settings.school_latitude, settings.school_longitude));
-            isInside = distance <= settings.allowed_radius_meters;
-          }
-          setLocation({ status: "granted", lat, lng, distance, isInside, errorMessage: null });
-          resolve(true);
-        },
-        (err) => {
-          const msg =
-            err.code === 1
-              ? "Location permission is required. Please enable location access in your browser settings."
-              : "Unable to get location";
-          setLocation({ status: "denied", lat: null, lng: null, distance: null, isInside: null, errorMessage: msg });
-          resolve(false);
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-      );
-    });
+    if (!navigator.geolocation) {
+      setLocation((prev) => ({ ...prev, status: "error", errorMessage: "Geolocation not supported" }));
+      return Promise.resolve(false);
+    }
+    setLocation((prev) => ({ ...prev, status: "loading", errorMessage: null }));
+    return acquireBestPosition()
+      .then((pos) => {
+        setLocation(evaluatePosition(pos));
+        return true;
+      })
+      .catch((err) => {
+        setLocation({
+          status: "denied",
+          lat: null,
+          lng: null,
+          distance: null,
+          isInside: null,
+          errorMessage: geoErrorMessage(err),
+        });
+        return false;
+      });
   };
+
 
   const loadData = async () => {
     try {
