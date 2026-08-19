@@ -740,23 +740,23 @@ export default function Attendance() {
     try {
       setCheckingIn(true);
 
-      // Always request location permission on check-in
-      if (schoolConfigured && location.status !== "granted") {
-        const granted = await requestLocationPermission();
-        if (!granted && !isAdmin) {
-          toast({
-            title: "Location permission is required",
-            description: "Please enable location access to check in.",
-            variant: "destructive",
-          });
-          setCheckingIn(false);
-          return;
-        }
+      // Always take a fresh, best-of-several-samples fix at check-in time.
+      let currentLocation: LocationState | null = location;
+      if (schoolConfigured && (location.status !== "granted" || location.isInside !== true)) {
+        currentLocation = await refreshLocationNow();
       }
 
-      // Re-check after location request
-      const currentLocation = location;
-      if (schoolConfigured && currentLocation.isInside === false && !isAdmin) {
+      if (schoolConfigured && !currentLocation && !isAdmin) {
+        toast({
+          title: "Location permission is required",
+          description: "Please enable location access to check in.",
+          variant: "destructive",
+        });
+        setCheckingIn(false);
+        return;
+      }
+
+      if (schoolConfigured && currentLocation?.isInside === false && !isAdmin) {
         toast({
           title: "Outside school area",
           description: `You are ${currentLocation.distance}m away. Move closer to check in.`,
@@ -766,15 +766,6 @@ export default function Attendance() {
         return;
       }
 
-      if (schoolConfigured && (currentLocation.status === "denied" || currentLocation.status === "error") && !isAdmin) {
-        toast({
-          title: "Location permission is required",
-          description: "Please enable location access for attendance",
-          variant: "destructive",
-        });
-        setCheckingIn(false);
-        return;
-      }
 
       const now = new Date();
       const effectiveStartTime = expectedCheckInTime;
