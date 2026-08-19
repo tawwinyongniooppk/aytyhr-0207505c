@@ -8,7 +8,8 @@ import { GraduationCap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { withNetworkRetry, isNetworkError, NETWORK_ERROR_MESSAGE } from "@/lib/netRetry";
+import { isNetworkError, NETWORK_ERROR_MESSAGE } from "@/lib/netRetry";
+import { resilientPasswordSignIn } from "@/lib/resilientSignIn";
 
 
 export default function Login() {
@@ -43,9 +44,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { error } = await withNetworkRetry(() =>
-        supabase.auth.signInWithPassword({ email, password })
-      , { retries: 1, attemptTimeoutMs: 12_000 });
+      const { error } = await resilientPasswordSignIn(email, password);
       if (error) {
         let msg = error.message;
         if (msg.includes("Invalid login credentials")) {
@@ -57,10 +56,11 @@ export default function Login() {
       } else {
         navigate("/", { replace: true });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unexpected error.";
       toast({
         title: "Sign in failed",
-        description: isNetworkError(err) ? NETWORK_ERROR_MESSAGE : err?.message ?? "Unexpected error.",
+        description: isNetworkError(err) ? NETWORK_ERROR_MESSAGE : message,
         variant: "destructive",
       });
     } finally {
