@@ -404,6 +404,32 @@ export default function Attendance() {
       });
   }, [settings.school_latitude, settings.school_longitude, settings.allowed_radius_meters]);
 
+  // Returns the freshly measured location state (never the stale React value).
+  const refreshLocationNow = (): Promise<LocationState | null> => {
+    if (!navigator.geolocation) {
+      setLocation((prev) => ({ ...prev, status: "error", errorMessage: "Geolocation not supported" }));
+      return Promise.resolve(null);
+    }
+    setLocation((prev) => ({ ...prev, status: "loading", errorMessage: null }));
+    return acquireBestPosition()
+      .then((pos) => {
+        const next = evaluatePosition(pos);
+        setLocation(next);
+        return next;
+      })
+      .catch((err) => {
+        setLocation({
+          status: "denied",
+          lat: null,
+          lng: null,
+          distance: null,
+          isInside: null,
+          errorMessage: geoErrorMessage(err),
+        });
+        return null;
+      });
+  };
+
   const requestLocationPermission = (): Promise<boolean> => {
     if (!navigator.geolocation) {
       setLocation((prev) => ({ ...prev, status: "error", errorMessage: "Geolocation not supported" }));
