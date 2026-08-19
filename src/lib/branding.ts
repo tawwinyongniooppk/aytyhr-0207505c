@@ -151,16 +151,15 @@ export async function applyBranding() {
         { src: maskable512, sizes: "512x512", type: "image/png", purpose: "maskable" },
       ],
     };
-    const blobUrl = URL.createObjectURL(
-      new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" }),
-    );
+    const manifestStr = JSON.stringify(manifest);
+    const manifestUri = `data:application/manifest+json;base64,${btoa(unescape(encodeURIComponent(manifestStr)))}`;
     let manifestLink = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     if (!manifestLink) {
       manifestLink = document.createElement("link");
       manifestLink.rel = "manifest";
       document.head.appendChild(manifestLink);
     }
-    manifestLink.href = blobUrl;
+    manifestLink.href = manifestUri;
   } catch {
     /* ignore — keep default branding */
   }

@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => ({
             handler: "NetworkFirst",
             options: {
               cacheName: "html-navigations",
-              networkTimeoutSeconds: 5,
+              networkTimeoutSeconds: 15,
               expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 },
             },
           },

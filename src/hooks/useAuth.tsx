@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const restoreSession = async () => {
       try {
-        const { data } = await withTimeout(supabase.auth.getSession(), 8_000);
+        const { data } = await withTimeout(supabase.auth.getSession(), 20_000);
         applySession(data.session);
       } catch (error) {
         // Never leave the whole app behind an infinite auth spinner.

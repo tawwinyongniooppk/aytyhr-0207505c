@@ -29,7 +29,7 @@ export async function applyUpdate() {
   }
   // Hard refresh fallback — bypass HTTP cache where supported.
   // @ts-ignore - legacy non-standard arg still respected by some engines
-  window.location.reload(true);
+  window.location.reload();
 }
 
 function isRefusedContext(): boolean {
