@@ -83,8 +83,8 @@ const DEFAULT_SETTINGS: Settings = {
 // Myanmar Standard Time (UTC+6:30) — use server-independent time math so
 // device-clock timezone bugs cannot produce wrong late/early minutes.
 const YANGON_OFFSET_MIN = 6 * 60 + 30;
-const CHECK_IN_GRACE_MINUTES = 3;
-const AUTO_LATE_WINDOW_END_MINUTES = 30;
+const CHECK_IN_GRACE_MINUTES = 5;
+
 
 function yangonNowMinutes(): number {
   const d = new Date();
@@ -315,7 +315,7 @@ export default function Attendance() {
   // check-in fail ~3 times out of 10 while physically inside school. We now
   // sample several fixes for a few seconds, keep the most accurate one, and
   // allow the reported accuracy radius as tolerance.
-  const ACCURACY_TOLERANCE_CAP = 150; // metres
+  const ACCURACY_TOLERANCE_CAP = 75; // metres — must match app_settings.geofence_accuracy_tolerance_meters
 
   const acquireBestPosition = (
     totalMs = 9000,
@@ -780,13 +780,12 @@ export default function Attendance() {
       });
 
       const rawLateMinutes = Math.max(0, yangonNowMinutes() - hhmmToMinutes(effectiveStartTime));
-      // Past the +30 boundary there is NO automatic per-minute charge — the case
-      // is handed to the Admin as a manual deduction. Clamping to 30 previously
-      // charged the maximum 27 minutes by mistake.
-      const lateMin =
-        isWorkingDay && rawLateMinutes <= AUTO_LATE_WINDOW_END_MINUTES
-          ? Math.max(0, rawLateMinutes - CHECK_IN_GRACE_MINUTES)
-          : 0;
+      // Uniform rule for every staff member: 5-minute grace, then every further
+      // minute is charged automatically. There is no upper cut-off any more.
+      const lateMin = isWorkingDay
+        ? Math.max(0, rawLateMinutes - CHECK_IN_GRACE_MINUTES)
+        : 0;
+
 
       const today = getMMTTodayISO();
       const locationStatus = getLocationStatusLabel();
@@ -823,19 +822,12 @@ export default function Attendance() {
             actualLateMin > 0 ? `Checked in (${actualLateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}`,
         });
 
-        if (rawLateMinutes > AUTO_LATE_WINDOW_END_MINUTES) {
-          notifyAdmins(
-            "Manual deduction required",
-            `${fullName || "Staff"} သည် Check in ကို သတ်မှတ်ပေးထားသည့် အချိန်ထက် ${rawLateMinutes} မိနစ် နောက်ကျပြီးမှ လုပ်ပါသဖြင့် Admin မှ သင့်တော်သော Deduction Amount တခု သတ်မှတ်ပေးပါ။`,
-            "/leave",
-          );
-        } else {
-          notifyAdmins(
-            "Staff checked in",
-            `${fullName || "Staff"} checked in${actualLateMin > 0 ? ` (${actualLateMin} charged min · -${(actualLateMin * staffLateRate).toLocaleString()} Ks)` : " on time"}`,
-            "/attendance",
-          );
-        }
+        notifyAdmins(
+          "Staff checked in",
+          `${fullName || "Staff"} checked in${actualLateMin > 0 ? ` (${actualLateMin} charged min · -${(actualLateMin * staffLateRate).toLocaleString()} Ks)` : " on time"}`,
+          "/attendance",
+        );
+
 
         // Show salary notification after check-in
         const estimatedDeduction = actualLateMin * staffLateRate;
@@ -1256,7 +1248,7 @@ export default function Attendance() {
           </div>
           {!isOffToday && (
             <p className="text-xs text-muted-foreground">
-              Expected check-in {formatTime12h(expectedCheckInTime)} · Grace time {CHECK_IN_GRACE_MINUTES} minutes · Late/minute deduction applies from minute 4 through minute 30.
+              Expected check-in {formatTime12h(expectedCheckInTime)} · Grace time {CHECK_IN_GRACE_MINUTES} minutes · From minute 6 onward every late minute is deducted automatically.
             </p>
           )}
           {dayEnded && !isOffToday && (
