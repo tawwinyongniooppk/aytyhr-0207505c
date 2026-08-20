@@ -315,7 +315,7 @@ export default function Attendance() {
   // check-in fail ~3 times out of 10 while physically inside school. We now
   // sample several fixes for a few seconds, keep the most accurate one, and
   // allow the reported accuracy radius as tolerance.
-  const ACCURACY_TOLERANCE_CAP = 150; // metres
+  const ACCURACY_TOLERANCE_CAP = 75; // metres — must match app_settings.geofence_accuracy_tolerance_meters
 
   const acquireBestPosition = (
     totalMs = 9000,
