@@ -780,13 +780,12 @@ export default function Attendance() {
       });
 
       const rawLateMinutes = Math.max(0, yangonNowMinutes() - hhmmToMinutes(effectiveStartTime));
-      // Past the +30 boundary there is NO automatic per-minute charge — the case
-      // is handed to the Admin as a manual deduction. Clamping to 30 previously
-      // charged the maximum 27 minutes by mistake.
-      const lateMin =
-        isWorkingDay && rawLateMinutes <= AUTO_LATE_WINDOW_END_MINUTES
-          ? Math.max(0, rawLateMinutes - CHECK_IN_GRACE_MINUTES)
-          : 0;
+      // Uniform rule for every staff member: 5-minute grace, then every further
+      // minute is charged automatically. There is no upper cut-off any more.
+      const lateMin = isWorkingDay
+        ? Math.max(0, rawLateMinutes - CHECK_IN_GRACE_MINUTES)
+        : 0;
+
 
       const today = getMMTTodayISO();
       const locationStatus = getLocationStatusLabel();
