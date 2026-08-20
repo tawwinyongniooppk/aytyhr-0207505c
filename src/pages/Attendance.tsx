@@ -83,8 +83,8 @@ const DEFAULT_SETTINGS: Settings = {
 // Myanmar Standard Time (UTC+6:30) — use server-independent time math so
 // device-clock timezone bugs cannot produce wrong late/early minutes.
 const YANGON_OFFSET_MIN = 6 * 60 + 30;
-const CHECK_IN_GRACE_MINUTES = 3;
-const AUTO_LATE_WINDOW_END_MINUTES = 30;
+const CHECK_IN_GRACE_MINUTES = 5;
+
 
 function yangonNowMinutes(): number {
   const d = new Date();

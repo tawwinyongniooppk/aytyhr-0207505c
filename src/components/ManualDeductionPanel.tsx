@@ -135,8 +135,19 @@ export function ManualDeductionPanel({
           </div>
           <div>
             <Label>Days to deduct</Label>
-            <Input type="number" min={1} step={1} value={days} onChange={(e) => setDays(e.target.value)} />
+            <Select value={days} onValueChange={setDays}>
+              <SelectTrigger><SelectValue placeholder="Select days" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0.5">0.5 day (Half day)</SelectItem>
+                <SelectItem value="1">1 day</SelectItem>
+                <SelectItem value="1.5">1.5 days</SelectItem>
+                <SelectItem value="2">2 days</SelectItem>
+                <SelectItem value="2.5">2.5 days</SelectItem>
+                <SelectItem value="3">3 days</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
         </div>
         <div>
           <Label>Title / Reason</Label>
