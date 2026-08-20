@@ -822,19 +822,12 @@ export default function Attendance() {
             actualLateMin > 0 ? `Checked in (${actualLateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}`,
         });
 
-        if (rawLateMinutes > AUTO_LATE_WINDOW_END_MINUTES) {
-          notifyAdmins(
-            "Manual deduction required",
-            `${fullName || "Staff"} သည် Check in ကို သတ်မှတ်ပေးထားသည့် အချိန်ထက် ${rawLateMinutes} မိနစ် နောက်ကျပြီးမှ လုပ်ပါသဖြင့် Admin မှ သင့်တော်သော Deduction Amount တခု သတ်မှတ်ပေးပါ။`,
-            "/leave",
-          );
-        } else {
-          notifyAdmins(
-            "Staff checked in",
-            `${fullName || "Staff"} checked in${actualLateMin > 0 ? ` (${actualLateMin} charged min · -${(actualLateMin * staffLateRate).toLocaleString()} Ks)` : " on time"}`,
-            "/attendance",
-          );
-        }
+        notifyAdmins(
+          "Staff checked in",
+          `${fullName || "Staff"} checked in${actualLateMin > 0 ? ` (${actualLateMin} charged min · -${(actualLateMin * staffLateRate).toLocaleString()} Ks)` : " on time"}`,
+          "/attendance",
+        );
+
 
         // Show salary notification after check-in
         const estimatedDeduction = actualLateMin * staffLateRate;
