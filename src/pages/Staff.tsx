@@ -43,7 +43,7 @@ interface StaffProfile {
 }
 
 const WORK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const CHECK_IN_GRACE_MINUTES = 3;
+const CHECK_IN_GRACE_MINUTES = 5;
 
 const defaultSchedule = (): WeekSchedule => {
   const sched: WeekSchedule = {} as WeekSchedule;
@@ -508,7 +508,7 @@ export default function Staff() {
                             />
                           </div>
                           <p className="col-span-2 text-xs text-muted-foreground">
-                            Grace time: {CHECK_IN_GRACE_MINUTES} minutes after expected check-in. Late/minute deduction starts from minute 4 and stops at minute 30.
+                            Grace time: {CHECK_IN_GRACE_MINUTES} minutes after expected check-in. From minute 6 onward every late minute is deducted automatically.
                           </p>
                         </div>
                       )}

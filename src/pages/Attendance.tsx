@@ -1248,7 +1248,7 @@ export default function Attendance() {
           </div>
           {!isOffToday && (
             <p className="text-xs text-muted-foreground">
-              Expected check-in {formatTime12h(expectedCheckInTime)} · Grace time {CHECK_IN_GRACE_MINUTES} minutes · Late/minute deduction applies from minute 4 through minute 30.
+              Expected check-in {formatTime12h(expectedCheckInTime)} · Grace time {CHECK_IN_GRACE_MINUTES} minutes · From minute 6 onward every late minute is deducted automatically.
             </p>
           )}
           {dayEnded && !isOffToday && (
