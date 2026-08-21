@@ -21,6 +21,16 @@ export function isUpdateAvailable() {
 export async function applyUpdate() {
   try {
     if (pendingUpdateSW) {
+      // Safety net: if the new SW claims clients but does not reload the page
+      // (some browsers), force a clean reload ourselves.
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.addEventListener(
+          "controllerchange",
+          () => window.location.reload(),
+          { once: true }
+        );
+      }
+      window.setTimeout(() => window.location.reload(), 3000);
       await pendingUpdateSW(true);
       return;
     }
@@ -31,6 +41,7 @@ export async function applyUpdate() {
   // @ts-ignore - legacy non-standard arg still respected by some engines
   window.location.reload();
 }
+
 
 function isRefusedContext(): boolean {
   if (!import.meta.env.PROD) return true;
