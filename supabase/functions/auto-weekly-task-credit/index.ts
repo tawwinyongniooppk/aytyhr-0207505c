@@ -1,7 +1,10 @@
-// Runs at MMT midnight on day 3, 10, 17, 24 of every month.
-// For each staff who was NOT manually assigned a task within the current
-// "week window" (prev checkpoint+1 .. today), the system credits them
-// 1 unit (auto-approved task) plus 1/4 of their monthly bonus.
+// Runs at 23:55 MMT on the WEEKLY DEADLINE nights only:
+//   February      → day 7, 14, 21, 28  (assignment slot last day + 4)
+//   other months  → day 8, 15, 22, 29  (assignment slot last day + 5)
+// For each staff who was NOT manually assigned a task whose ASSIGNMENT DATE
+// falls inside the matching slot (1-3 / 8-10 / 15-17 / 22-24), the system
+// credits them 1 unit (auto-approved) plus 1/4 of their monthly bonus.
+
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
