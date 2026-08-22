@@ -85,7 +85,16 @@ Deno.serve(async (req) => {
     );
 
     const today = yangonDateAt(0);
+    // Only the 4 weekly deadline nights matter. The cron fires on 7,8,14,15,21,
+    // 22,28,29 (pg_cron cannot branch on February), so the non-matching days
+    // exit immediately and cost nothing. `x-force-run: 1` allows a manual sweep.
+    if (!isDeadlineNight(today) && req.headers.get("x-force-run") !== "1") {
+      return new Response(JSON.stringify({ skipped: true, reason: "not a weekly deadline night", today }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const nowIso = new Date().toISOString();
+
     const log: Record<string, number> = {
       auto_approved_tasks: 0,
       auto_approved_assignments: 0,
