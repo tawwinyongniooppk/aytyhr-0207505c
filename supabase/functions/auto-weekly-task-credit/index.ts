@@ -34,45 +34,63 @@ function mmtToday(): { y: number; m: number; d: number; iso: string; monthStart:
 
 // Assignment slots are the ONLY days admins hand out tasks:
 //   Week 1 → 1-3, Week 2 → 8-10, Week 3 → 15-17, Week 4 → 22-24.
-// The checkpoint runs at 23:59 MMT of the slot's last day (3/10/17/24) and the
-// window is the slot itself — NOT the contiguous gap days in between. Using the
-// old contiguous ranges (4-10, 11-17, 18-24) made a task that merely *ended* on a
-// gap day (e.g. deadline Jul 14) look like it covered the next slot.
-function weekWindow(day: number, year: number, month: number) {
+// Each slot's DEADLINE night (slot last day + 5, or +4 in February) is the
+// single checkpoint where the credit sweep runs at 23:55 MMT.
+export const WEEK_SLOTS = [
+  { index: 1, startDay: 1, endDay: 3, label: "Week 1" },
+  { index: 2, startDay: 8, endDay: 10, label: "Week 2" },
+  { index: 3, startDay: 15, endDay: 17, label: "Week 3" },
+  { index: 4, startDay: 22, endDay: 24, label: "Week 4" },
+];
+
+export function checkpointDayFor(slotEndDay: number, month: number) {
+  return slotEndDay + (month === 2 ? 4 : 5);
+}
+
+function mkWindow(slot: typeof WEEK_SLOTS[number], year: number, month: number) {
   const pad = (n: number) => String(n).padStart(2, "0");
   const mk = (d: number) => `${year}-${pad(month)}-${pad(d)}`;
-  if (day >= 24) return { start: mk(22), end: mk(24), label: "Week 4" };
-  if (day >= 17) return { start: mk(15), end: mk(17), label: "Week 3" };
-  if (day >= 10) return { start: mk(8), end: mk(10), label: "Week 2" };
-  if (day >= 3) return { start: mk(1), end: mk(3), label: "Week 1" };
+  return {
+    start: mk(slot.startDay),
+    end: mk(slot.endDay),
+    label: slot.label,
+    index: slot.index,
+    checkpoint: mk(checkpointDayFor(slot.endDay, month)),
+  };
+}
+
+// Resolve the slot whose deadline night is `day` (or the morning after, so a
+// delayed/catch-up invocation still lands on the right window).
+export function checkpointWindow(day: number, year: number, month: number) {
+  for (const slot of WEEK_SLOTS) {
+    const cp = checkpointDayFor(slot.endDay, month);
+    if (day === cp || day === cp + 1) return mkWindow(slot, year, month);
+  }
   return null;
-}
-
-function previousDay(year: number, month: number, day: number) {
-  const d = new Date(Date.UTC(year, month - 1, day) - 86400000);
-  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
-}
-
-function checkpointWindow(day: number, year: number, month: number) {
-  if ([3, 10, 17, 24].includes(day)) return weekWindow(day, year, month);
-  const prev = previousDay(year, month, day);
-  return [3, 10, 17, 24].includes(prev.day) ? weekWindow(prev.day, prev.year, prev.month) : null;
 }
 
 function parseOverrideWindow(raw: string | null, year: number, month: number) {
   if (!raw) return null;
   const normalized = raw.trim().toLowerCase();
-  const weekMap: Record<string, number> = { week1: 3, week2: 10, week3: 17, week4: 24 };
+  const weekMap: Record<string, number> = { week1: 1, week2: 2, week3: 3, week4: 4 };
   if (normalized in weekMap) {
-    return weekWindow(weekMap[normalized], year, month);
+    const slot = WEEK_SLOTS.find((s) => s.index === weekMap[normalized])!;
+    return mkWindow(slot, year, month);
   }
 
   const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
 
   const [, y, m, d] = match;
-  return weekWindow(Number(d), Number(y), Number(m));
+  const mm = Number(m);
+  const dd = Number(d);
+  // Accept either the slot's last day or its deadline day.
+  const slot =
+    WEEK_SLOTS.find((s) => s.endDay === dd) ??
+    WEEK_SLOTS.find((s) => checkpointDayFor(s.endDay, mm) === dd);
+  return slot ? mkWindow(slot, Number(y), mm) : null;
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
