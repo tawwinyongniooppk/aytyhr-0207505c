@@ -141,10 +141,35 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3) "Covered" = the staff has a task/assignment whose OWN active span
-    //    [start .. deadline] overlaps this slot. A long (biweekly) task that runs
-    //    through the slot still owns it; a short task that merely ended on a gap
-    //    day before the slot does NOT.
+    // 3) "Covered" = the staff has a task/assignment whose ASSIGNMENT DATE
+    //    (start date) falls inside THIS slot. A task that merely *ends* inside
+    //    the slot belongs to the previous slot and must NOT block this credit
+    //    — that bug credited only one account in Week 2 (2026-08-08 → 08-10),
+    //    because everyone else had a Week-1 task (started 08-03) that happened
+    //    to have its deadline on 08-08.
+    //    Exception: a biweekly task (span ≥ 12 days) started in the PREVIOUS
+    //    slot legitimately owns this slot too (it is worth 2 units).
+    const prevSlot = WEEK_SLOTS.find((s) => s.index === win.index - 1);
+    const prevWindow = prevSlot
+      ? {
+          start: `${win.start.slice(0, 8)}${String(prevSlot.startDay).padStart(2, "0")}`,
+          end: `${win.start.slice(0, 8)}${String(prevSlot.endDay).padStart(2, "0")}`,
+        }
+      : null;
+
+    const spanDays = (start: string, end: string) =>
+      Math.round(
+        (new Date(end + "T00:00:00Z").getTime() - new Date(start + "T00:00:00Z").getTime()) / 86400000,
+      );
+
+    const ownsSlot = (start: string, end: string) => {
+      if (start >= win.start && start <= win.end) return true;
+      if (prevWindow && start >= prevWindow.start && start <= prevWindow.end) {
+        return spanDays(start, end) >= 12; // biweekly task spanning two slots
+      }
+      return false;
+    };
+
     const [taskRes, evRes] = await Promise.all([
       admin
         .from("tasks")
@@ -153,8 +178,8 @@ Deno.serve(async (req) => {
         .from("calendar_events")
         .select("id, start_date, end_date, event_type")
         .eq("event_type", "task")
-        .lte("start_date", win.end)
-        .gte("end_date", win.start),
+        .gte("start_date", prevWindow ? prevWindow.start : win.start)
+        .lte("start_date", win.end),
     ]);
 
     const coveredSet = new Set<string>();
@@ -162,14 +187,12 @@ Deno.serve(async (req) => {
     for (const t of (taskRes.data as { assignee_id: string; due_date: string | null; created_at: string }[]) || []) {
       const start = t.created_at.slice(0, 10);
       const end = t.due_date ?? start;
-      // overlap test against the slot
-      if (start <= win.end && end >= win.start) coveredSet.add(t.assignee_id);
+      if (ownsSlot(start, end)) coveredSet.add(t.assignee_id);
     }
 
-
-    // Calendar events: include both events ending within this window and events
-    // still ongoing past it (deadline > win.end) — both count as already-assigned.
-    const evIds = ((evRes.data as { id: string }[]) || []).map((e) => e.id);
+    const evIds = ((evRes.data as { id: string; start_date: string; end_date: string }[]) || [])
+      .filter((e) => ownsSlot(e.start_date, e.end_date))
+      .map((e) => e.id);
     if (evIds.length > 0) {
       const { data: assRows } = await admin
         .from("calendar_event_assignments")
@@ -179,6 +202,7 @@ Deno.serve(async (req) => {
         coveredSet.add(a.user_id);
       }
     }
+
 
     // 4) Idempotency: skip if we already credited this window
     const creditTitle = `Auto Weekly Credit — ${win.label} (${win.start} → ${win.end})`;
