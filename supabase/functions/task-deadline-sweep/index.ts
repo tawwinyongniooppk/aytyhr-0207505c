@@ -23,6 +23,15 @@ function monthStart(dateStr: string) {
   return dateStr.slice(0, 7) + "-01";
 }
 
+// Weekly deadline nights: slot last day (3/10/17/24) + 5 days, or + 4 in February.
+function isDeadlineNight(dateStr: string) {
+  const month = Number(dateStr.slice(5, 7));
+  const day = Number(dateStr.slice(8, 10));
+  const offset = month === 2 ? 4 : 5;
+  return [3, 10, 17, 24].some((slotEnd) => slotEnd + offset === day);
+}
+
+
 function getTaskUnitCount(startDate: string, endDate: string) {
   const days = Math.round(
     (new Date(endDate + "T00:00:00").getTime() - new Date(startDate + "T00:00:00").getTime()) / 86400000,
