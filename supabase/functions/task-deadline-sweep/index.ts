@@ -1,9 +1,11 @@
-// Runs once daily at end-of-day Yangon time (23:55 MMT = 17:25 UTC).
-// (A) Auto-approve tasks whose deadline = today and status = submitted → credit 1 unit bonus.
-// (B) Auto-approve calendar assignments whose event ends today and status = submitted → credit unit_count bonus.
+// Runs at 23:55 MMT on the WEEKLY DEADLINE nights ONLY (not daily):
+//   February     → day 7, 14, 21, 28   (assignment slot last day + 4)
+//   other months → day 8, 15, 22, 29   (assignment slot last day + 5)
+// (A) Auto-approve tasks whose deadline has arrived and status = submitted → credit 1 unit bonus.
+// (B) Auto-approve calendar assignments whose event ended and status = submitted → credit unit_count bonus.
 // (C) Mark overdue tasks (deadline < today, status not submitted/approved/overdue OR rejected) → insert 0-amount bonus row.
 // (D) Mark overdue calendar assignments (event ended before today, status not submitted/approved/overdue OR rejected) → insert 0-amount bonus row.
-// (E) End-of-window auto all-done credits — bulk inserts.
+
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -20,6 +22,15 @@ function yangonDateAt(offsetDays = 0) {
 function monthStart(dateStr: string) {
   return dateStr.slice(0, 7) + "-01";
 }
+
+// Weekly deadline nights: slot last day (3/10/17/24) + 5 days, or + 4 in February.
+function isDeadlineNight(dateStr: string) {
+  const month = Number(dateStr.slice(5, 7));
+  const day = Number(dateStr.slice(8, 10));
+  const offset = month === 2 ? 4 : 5;
+  return [3, 10, 17, 24].some((slotEnd) => slotEnd + offset === day);
+}
+
 
 function getTaskUnitCount(startDate: string, endDate: string) {
   const days = Math.round(
@@ -74,7 +85,16 @@ Deno.serve(async (req) => {
     );
 
     const today = yangonDateAt(0);
+    // Only the 4 weekly deadline nights matter. The cron fires on 7,8,14,15,21,
+    // 22,28,29 (pg_cron cannot branch on February), so the non-matching days
+    // exit immediately and cost nothing. `x-force-run: 1` allows a manual sweep.
+    if (!isDeadlineNight(today) && req.headers.get("x-force-run") !== "1") {
+      return new Response(JSON.stringify({ skipped: true, reason: "not a weekly deadline night", today }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const nowIso = new Date().toISOString();
+
     const log: Record<string, number> = {
       auto_approved_tasks: 0,
       auto_approved_assignments: 0,

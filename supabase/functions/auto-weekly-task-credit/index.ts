@@ -1,7 +1,10 @@
-// Runs at MMT midnight on day 3, 10, 17, 24 of every month.
-// For each staff who was NOT manually assigned a task within the current
-// "week window" (prev checkpoint+1 .. today), the system credits them
-// 1 unit (auto-approved task) plus 1/4 of their monthly bonus.
+// Runs at 23:55 MMT on the WEEKLY DEADLINE nights only:
+//   February      → day 7, 14, 21, 28  (assignment slot last day + 4)
+//   other months  → day 8, 15, 22, 29  (assignment slot last day + 5)
+// For each staff who was NOT manually assigned a task whose ASSIGNMENT DATE
+// falls inside the matching slot (1-3 / 8-10 / 15-17 / 22-24), the system
+// credits them 1 unit (auto-approved) plus 1/4 of their monthly bonus.
+
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -31,45 +34,63 @@ function mmtToday(): { y: number; m: number; d: number; iso: string; monthStart:
 
 // Assignment slots are the ONLY days admins hand out tasks:
 //   Week 1 → 1-3, Week 2 → 8-10, Week 3 → 15-17, Week 4 → 22-24.
-// The checkpoint runs at 23:59 MMT of the slot's last day (3/10/17/24) and the
-// window is the slot itself — NOT the contiguous gap days in between. Using the
-// old contiguous ranges (4-10, 11-17, 18-24) made a task that merely *ended* on a
-// gap day (e.g. deadline Jul 14) look like it covered the next slot.
-function weekWindow(day: number, year: number, month: number) {
+// Each slot's DEADLINE night (slot last day + 5, or +4 in February) is the
+// single checkpoint where the credit sweep runs at 23:55 MMT.
+export const WEEK_SLOTS = [
+  { index: 1, startDay: 1, endDay: 3, label: "Week 1" },
+  { index: 2, startDay: 8, endDay: 10, label: "Week 2" },
+  { index: 3, startDay: 15, endDay: 17, label: "Week 3" },
+  { index: 4, startDay: 22, endDay: 24, label: "Week 4" },
+];
+
+export function checkpointDayFor(slotEndDay: number, month: number) {
+  return slotEndDay + (month === 2 ? 4 : 5);
+}
+
+function mkWindow(slot: typeof WEEK_SLOTS[number], year: number, month: number) {
   const pad = (n: number) => String(n).padStart(2, "0");
   const mk = (d: number) => `${year}-${pad(month)}-${pad(d)}`;
-  if (day >= 24) return { start: mk(22), end: mk(24), label: "Week 4" };
-  if (day >= 17) return { start: mk(15), end: mk(17), label: "Week 3" };
-  if (day >= 10) return { start: mk(8), end: mk(10), label: "Week 2" };
-  if (day >= 3) return { start: mk(1), end: mk(3), label: "Week 1" };
+  return {
+    start: mk(slot.startDay),
+    end: mk(slot.endDay),
+    label: slot.label,
+    index: slot.index,
+    checkpoint: mk(checkpointDayFor(slot.endDay, month)),
+  };
+}
+
+// Resolve the slot whose deadline night is `day` (or the morning after, so a
+// delayed/catch-up invocation still lands on the right window).
+export function checkpointWindow(day: number, year: number, month: number) {
+  for (const slot of WEEK_SLOTS) {
+    const cp = checkpointDayFor(slot.endDay, month);
+    if (day === cp || day === cp + 1) return mkWindow(slot, year, month);
+  }
   return null;
-}
-
-function previousDay(year: number, month: number, day: number) {
-  const d = new Date(Date.UTC(year, month - 1, day) - 86400000);
-  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
-}
-
-function checkpointWindow(day: number, year: number, month: number) {
-  if ([3, 10, 17, 24].includes(day)) return weekWindow(day, year, month);
-  const prev = previousDay(year, month, day);
-  return [3, 10, 17, 24].includes(prev.day) ? weekWindow(prev.day, prev.year, prev.month) : null;
 }
 
 function parseOverrideWindow(raw: string | null, year: number, month: number) {
   if (!raw) return null;
   const normalized = raw.trim().toLowerCase();
-  const weekMap: Record<string, number> = { week1: 3, week2: 10, week3: 17, week4: 24 };
+  const weekMap: Record<string, number> = { week1: 1, week2: 2, week3: 3, week4: 4 };
   if (normalized in weekMap) {
-    return weekWindow(weekMap[normalized], year, month);
+    const slot = WEEK_SLOTS.find((s) => s.index === weekMap[normalized])!;
+    return mkWindow(slot, year, month);
   }
 
   const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
 
   const [, y, m, d] = match;
-  return weekWindow(Number(d), Number(y), Number(m));
+  const mm = Number(m);
+  const dd = Number(d);
+  // Accept either the slot's last day or its deadline day.
+  const slot =
+    WEEK_SLOTS.find((s) => s.endDay === dd) ??
+    WEEK_SLOTS.find((s) => checkpointDayFor(s.endDay, mm) === dd);
+  return slot ? mkWindow(slot, Number(y), mm) : null;
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -120,10 +141,35 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3) "Covered" = the staff has a task/assignment whose OWN active span
-    //    [start .. deadline] overlaps this slot. A long (biweekly) task that runs
-    //    through the slot still owns it; a short task that merely ended on a gap
-    //    day before the slot does NOT.
+    // 3) "Covered" = the staff has a task/assignment whose ASSIGNMENT DATE
+    //    (start date) falls inside THIS slot. A task that merely *ends* inside
+    //    the slot belongs to the previous slot and must NOT block this credit
+    //    — that bug credited only one account in Week 2 (2026-08-08 → 08-10),
+    //    because everyone else had a Week-1 task (started 08-03) that happened
+    //    to have its deadline on 08-08.
+    //    Exception: a biweekly task (span ≥ 12 days) started in the PREVIOUS
+    //    slot legitimately owns this slot too (it is worth 2 units).
+    const prevSlot = WEEK_SLOTS.find((s) => s.index === win.index - 1);
+    const prevWindow = prevSlot
+      ? {
+          start: `${win.start.slice(0, 8)}${String(prevSlot.startDay).padStart(2, "0")}`,
+          end: `${win.start.slice(0, 8)}${String(prevSlot.endDay).padStart(2, "0")}`,
+        }
+      : null;
+
+    const spanDays = (start: string, end: string) =>
+      Math.round(
+        (new Date(end + "T00:00:00Z").getTime() - new Date(start + "T00:00:00Z").getTime()) / 86400000,
+      );
+
+    const ownsSlot = (start: string, end: string) => {
+      if (start >= win.start && start <= win.end) return true;
+      if (prevWindow && start >= prevWindow.start && start <= prevWindow.end) {
+        return spanDays(start, end) >= 12; // biweekly task spanning two slots
+      }
+      return false;
+    };
+
     const [taskRes, evRes] = await Promise.all([
       admin
         .from("tasks")
@@ -132,8 +178,8 @@ Deno.serve(async (req) => {
         .from("calendar_events")
         .select("id, start_date, end_date, event_type")
         .eq("event_type", "task")
-        .lte("start_date", win.end)
-        .gte("end_date", win.start),
+        .gte("start_date", prevWindow ? prevWindow.start : win.start)
+        .lte("start_date", win.end),
     ]);
 
     const coveredSet = new Set<string>();
@@ -141,14 +187,12 @@ Deno.serve(async (req) => {
     for (const t of (taskRes.data as { assignee_id: string; due_date: string | null; created_at: string }[]) || []) {
       const start = t.created_at.slice(0, 10);
       const end = t.due_date ?? start;
-      // overlap test against the slot
-      if (start <= win.end && end >= win.start) coveredSet.add(t.assignee_id);
+      if (ownsSlot(start, end)) coveredSet.add(t.assignee_id);
     }
 
-
-    // Calendar events: include both events ending within this window and events
-    // still ongoing past it (deadline > win.end) — both count as already-assigned.
-    const evIds = ((evRes.data as { id: string }[]) || []).map((e) => e.id);
+    const evIds = ((evRes.data as { id: string; start_date: string; end_date: string }[]) || [])
+      .filter((e) => ownsSlot(e.start_date, e.end_date))
+      .map((e) => e.id);
     if (evIds.length > 0) {
       const { data: assRows } = await admin
         .from("calendar_event_assignments")
@@ -158,6 +202,7 @@ Deno.serve(async (req) => {
         coveredSet.add(a.user_id);
       }
     }
+
 
     // 4) Idempotency: skip if we already credited this window
     const creditTitle = `Auto Weekly Credit — ${win.label} (${win.start} → ${win.end})`;
