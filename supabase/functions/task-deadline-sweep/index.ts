@@ -1,9 +1,11 @@
-// Runs once daily at end-of-day Yangon time (23:55 MMT = 17:25 UTC).
-// (A) Auto-approve tasks whose deadline = today and status = submitted → credit 1 unit bonus.
-// (B) Auto-approve calendar assignments whose event ends today and status = submitted → credit unit_count bonus.
+// Runs at 23:55 MMT on the WEEKLY DEADLINE nights ONLY (not daily):
+//   February     → day 7, 14, 21, 28   (assignment slot last day + 4)
+//   other months → day 8, 15, 22, 29   (assignment slot last day + 5)
+// (A) Auto-approve tasks whose deadline has arrived and status = submitted → credit 1 unit bonus.
+// (B) Auto-approve calendar assignments whose event ended and status = submitted → credit unit_count bonus.
 // (C) Mark overdue tasks (deadline < today, status not submitted/approved/overdue OR rejected) → insert 0-amount bonus row.
 // (D) Mark overdue calendar assignments (event ended before today, status not submitted/approved/overdue OR rejected) → insert 0-amount bonus row.
-// (E) End-of-window auto all-done credits — bulk inserts.
+
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
