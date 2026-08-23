@@ -285,11 +285,34 @@ Deno.serve(async (req) => {
       auto_approved: true,
     }));
 
-    const { data: insertedAssignments, error: bulkAssErr } = await admin
-      .from("calendar_event_assignments")
-      .insert(assignmentsPayload)
-      .select("id, user_id");
-    if (bulkAssErr) throw bulkAssErr;
+    // Never throw on a bulk failure: one bad row must not abort the whole
+    // sweep (that left Week 3 half-credited and returned 500). Fall back to
+    // per-row inserts so every remaining staff member still gets credited.
+    const insertedAssignments: { id: string; user_id: string }[] = [];
+    if (assignmentsPayload.length > 0) {
+      const { data: bulkRows, error: bulkAssErr } = await admin
+        .from("calendar_event_assignments")
+        .insert(assignmentsPayload)
+        .select("id, user_id");
+      if (bulkAssErr) {
+        console.error("[auto-weekly-credit] bulk assignment error, retrying per-row", bulkAssErr);
+        for (const row of assignmentsPayload) {
+          const { data: oneRow, error: rowErr } = await admin
+            .from("calendar_event_assignments")
+            .insert(row)
+            .select("id, user_id")
+            .maybeSingle();
+          if (rowErr) {
+            console.error("[auto-weekly-credit] assignment insert FAILED for", row.user_id, rowErr);
+          } else if (oneRow) {
+            insertedAssignments.push(oneRow as { id: string; user_id: string });
+          }
+        }
+      } else {
+        insertedAssignments.push(...((bulkRows as { id: string; user_id: string }[]) || []));
+      }
+    }
+
 
     const assByUser = new Map<string, string>();
     for (const [userId, assignmentId] of existingByUser) assByUser.set(userId, assignmentId);
