@@ -18,5 +18,3 @@ verify_jwt = false
 [functions.monthly-reset]
 verify_jwt = false
 
-[functions.notification-scheduler]
-verify_jwt = false
