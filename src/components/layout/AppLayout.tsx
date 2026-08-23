@@ -4,7 +4,6 @@ import { AppHeader } from "./AppHeader";
 import { DesktopSidebar } from "./DesktopSidebar";
 import { BackToDashboard } from "@/components/BackToDashboard";
 import { GlobalCarousel } from "@/components/carousel/GlobalCarousel";
-import { AppUpdateManager } from "@/components/AppUpdateManager";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { Loader2 } from "lucide-react";
@@ -94,7 +93,6 @@ export function AppLayout() {
         <BottomNav />
       </div>
       {dashboardDetailRoutes.includes(location.pathname) && <BackToDashboard />}
-      <AppUpdateManager />
     </div>
   );
 }
