@@ -387,7 +387,7 @@ Deno.serve(async (req) => {
         for (const a of missingRows) {
           const totalBonus = bonusByUser.get(a.user_id) ?? 0;
           const perUnit = totalBonus > 0 ? Math.round(totalBonus / 4) : 0;
-          const { error: fixErr } = await admin.from("bonus_transactions").insert({
+          const { error: fixErr } = await admin.from("bonus_transactions").upsert({
             user_id: a.user_id,
             assignment_id: a.id,
             source: "calendar",
@@ -398,7 +398,8 @@ Deno.serve(async (req) => {
             approved_date: win.end,
             auto_approved: true,
             title: creditTitle,
-          });
+          }, { onConflict: "assignment_id", ignoreDuplicates: true });
+
           if (fixErr) console.error("[auto-weekly-credit] backfill bonus insert FAILED", a.user_id, fixErr);
         }
       }
