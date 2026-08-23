@@ -349,18 +349,25 @@ Deno.serve(async (req) => {
     }
 
     if (bonusPayload.length > 0) {
-      const { error: bulkBtErr } = await admin.from("bonus_transactions").insert(bonusPayload);
+      // Upsert on the unique assignment_id so a retry/catch-up run after a
+      // partial failure is a no-op instead of a 23505 duplicate-key storm.
+      const { error: bulkBtErr } = await admin
+        .from("bonus_transactions")
+        .upsert(bonusPayload, { onConflict: "assignment_id", ignoreDuplicates: true });
       if (bulkBtErr) {
         console.error("[auto-weekly-credit] bulk bonus tx error, retrying per-row", bulkBtErr);
         // Per-row retry so one bad row doesn't drop everyone's credit silently.
         for (const row of bonusPayload) {
-          const { error: rowErr } = await admin.from("bonus_transactions").insert(row);
+          const { error: rowErr } = await admin
+            .from("bonus_transactions")
+            .upsert(row, { onConflict: "assignment_id", ignoreDuplicates: true });
           if (rowErr) {
             console.error("[auto-weekly-credit] per-row bonus insert FAILED for user", row.user_id, rowErr);
           }
         }
       }
     }
+
 
     // Safety net: re-scan all auto-credited assignments for THIS event and
     // backfill any missing bonus_transactions (e.g. from a prior failed run).
