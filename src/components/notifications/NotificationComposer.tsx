@@ -32,8 +32,6 @@ const composerSchema = z.object({
   audience: z.enum(["all", "admins", "staff", "it_managers", "specific"]),
   action_type: z.enum(["none", "internal", "external"]),
   action_target: z.string().max(500).optional().nullable(),
-  delivery: z.enum(["now", "scheduled"]),
-  scheduled_at: z.string().optional().nullable(),
 });
 
 export type NotificationRow = {
@@ -47,8 +45,7 @@ export type NotificationRow = {
   action_target: string | null;
   audience: "all" | "admins" | "staff" | "it_managers" | "specific";
   audience_user_ids: string[];
-  status: "draft" | "scheduled" | "sent" | "failed";
-  scheduled_at: string | null;
+  status: "draft" | "sent" | "failed";
 };
 
 export interface ComposerHandle {
@@ -428,28 +425,6 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
               )}
             </div>
 
-            <Separator />
-
-            <RadioGroup value={delivery} onValueChange={(v) => setDelivery(v as typeof delivery)} className="grid grid-cols-2 gap-2">
-              {[
-                { v: "now", l: "Send immediately" },
-                { v: "scheduled", l: "Schedule for later" },
-              ].map((o) => (
-                <label key={o.v} className={cn(
-                  "flex items-center gap-2 rounded-md border p-2.5 text-sm cursor-pointer",
-                  delivery === o.v ? "border-primary bg-primary/5" : "hover:bg-muted",
-                )}>
-                  <RadioGroupItem value={o.v} /> {o.l}
-                </label>
-              ))}
-            </RadioGroup>
-            {delivery === "scheduled" && (
-              <div>
-                <Label>Scheduled Date & Time (local)</Label>
-                <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
-                 <p className="text-xs text-muted-foreground mt-1">Notifications are checked every minute.</p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -458,9 +433,9 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
             {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             {editingRow ? "Update draft" : "Save as draft"}
           </Button>
-          <Button onClick={handleSendOrSchedule} disabled={saving}>
+          <Button onClick={handleSendNow} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-            {delivery === "now" ? "Send now" : "Schedule"}
+            Send now
           </Button>
           {editingRow && (
             <Button variant="ghost" onClick={reset} disabled={saving}>
