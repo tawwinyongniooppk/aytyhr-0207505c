@@ -58,13 +58,6 @@ interface Props {
   onClearEdit: () => void;
 }
 
-function toLocalInputValue(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props) {
   const { user } = useAuth();
   const [title, setTitle] = useState("");
@@ -76,8 +69,6 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
   const [actionTarget, setActionTarget] = useState<string>("");
   const [audience, setAudience] = useState<"all" | "admins" | "staff" | "it_managers" | "specific">("all");
   const [specificIds, setSpecificIds] = useState<string[]>([]);
-  const [delivery, setDelivery] = useState<"now" | "scheduled">("now");
-  const [scheduledAt, setScheduledAt] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [staffOptions, setStaffOptions] = useState<Array<{ id: string; full_name: string }>>([]);
@@ -100,21 +91,14 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
     setActionTarget(editingRow.action_target ?? "");
     setAudience(editingRow.audience);
     setSpecificIds(editingRow.audience_user_ids ?? []);
-    if (editingRow.scheduled_at) {
-      setDelivery("scheduled");
-      setScheduledAt(toLocalInputValue(editingRow.scheduled_at));
-    } else {
-      setDelivery("now");
-      setScheduledAt("");
-    }
   }, [editingRow]);
 
   const reset = () => {
     setTitle(""); setBody(""); setBannerUrl(""); setIconKey("default"); setLayout("minimal");
     setActionType("none"); setActionTarget(""); setAudience("all"); setSpecificIds([]);
-    setDelivery("now"); setScheduledAt("");
     onClearEdit();
   };
+
 
   const uploadBanner = async (file: File) => {
     if (!user) return;
@@ -159,21 +143,17 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
     action_target: string | null;
     audience: "all" | "admins" | "staff" | "it_managers" | "specific";
     audience_user_ids: string[];
-    status: "draft" | "scheduled" | "sent" | "failed";
-    scheduled_at: string | null;
+    status: "draft" | "sent" | "failed";
     created_by: string;
   };
 
-  const buildPayload = (statusOverride?: "draft" | "scheduled"): NotifPayload | null => {
+  const buildPayload = (): NotifPayload | null => {
     const parsed = composerSchema.safeParse({
       title, body, audience, action_type: actionType,
       action_target: actionTarget || null,
-      delivery,
-      scheduled_at: delivery === "scheduled" ? scheduledAt : null,
     });
     if (!parsed.success) {
-      const first = parsed.error.issues[0];
-      toast.error(first.message);
+      toast.error(parsed.error.issues[0].message);
       return null;
     }
     if (actionType !== "none" && !actionTarget.trim()) {
@@ -184,16 +164,10 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
       toast.error("Select at least one user for the specific audience");
       return null;
     }
-    if (delivery === "scheduled" && !scheduledAt) {
-      toast.error("Pick a scheduled date and time");
-      return null;
-    }
     if (layout === "image_focused" && !bannerUrl) {
       toast.error("Image-focused layout requires a banner image");
       return null;
     }
-    const scheduledIso = delivery === "scheduled" && scheduledAt ? new Date(scheduledAt).toISOString() : null;
-    const status = statusOverride ?? (delivery === "scheduled" ? "scheduled" : "draft");
     return {
       title: title.trim(),
       body: body.trim(),
@@ -204,8 +178,7 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
       action_target: actionType === "none" ? null : actionTarget.trim(),
       audience,
       audience_user_ids: audience === "specific" ? specificIds : [],
-      status,
-      scheduled_at: scheduledIso,
+      status: "draft",
       created_by: user!.id,
     };
   };
@@ -222,7 +195,7 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
   };
 
   const handleSaveDraft = async () => {
-    const payload = buildPayload("draft");
+    const payload = buildPayload();
     if (!payload) return;
     setSaving(true);
     const id = await persist(payload);
@@ -230,24 +203,20 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
     if (id) { toast.success("Saved as draft"); reset(); onDone(); }
   };
 
-  const handleSendOrSchedule = async () => {
+  const handleSendNow = async () => {
     const payload = buildPayload();
     if (!payload) return;
     setSaving(true);
     try {
       const id = await persist(payload);
       if (!id) return;
-      if (delivery === "now") {
-        const { data, error } = await supabase.functions.invoke("dispatch-notification", {
-          body: { notification_id: id },
-        });
-        if (error) throw error;
-        const j = data as { ok?: boolean; sent?: number; failed?: number; error?: string };
-        if (j.ok) toast.success(`Sent to ${j.sent} device${j.sent === 1 ? "" : "s"}`);
-        else toast.error(`Dispatch failed`, { description: j.error ?? "no devices reached" });
-      } else {
-        toast.success("Notification scheduled");
-      }
+      const { data, error } = await supabase.functions.invoke("dispatch-notification", {
+        body: { notification_id: id },
+      });
+      if (error) throw error;
+      const j = data as { ok?: boolean; sent?: number; failed?: number; error?: string };
+      if (j.ok) toast.success(`Sent to ${j.sent} device${j.sent === 1 ? "" : "s"}`);
+      else toast.error("Dispatch failed", { description: j.error ?? "no devices reached" });
       reset(); onDone();
     } catch (e) {
       toast.error("Failed", { description: (e as Error).message });
@@ -255,6 +224,7 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
       setSaving(false);
     }
   };
+
 
   const layoutOptions: Array<{ value: NotifLayout; label: string }> = [
     { value: "minimal", label: "Minimal" },
