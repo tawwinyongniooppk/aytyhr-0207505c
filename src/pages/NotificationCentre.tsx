@@ -15,7 +15,7 @@ export default function NotificationCentre() {
         </div>
         <div>
           <h1 className="text-xl md:text-2xl font-bold">Notification Centre</h1>
-          <p className="text-sm text-muted-foreground">Compose, schedule, and manage push notifications for your users.</p>
+          <p className="text-sm text-muted-foreground">Compose and send push notifications to your users instantly.</p>
         </div>
       </header>
 

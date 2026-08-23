@@ -23,7 +23,6 @@ const AUDIENCE_LABEL: Record<Row["audience"], string> = {
 
 const STATUS_VARIANT: Record<Row["status"], { label: string; className: string }> = {
   draft: { label: "Draft", className: "bg-muted text-muted-foreground" },
-  scheduled: { label: "Scheduled", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
   sent: { label: "Sent", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
   failed: { label: "Failed", className: "bg-destructive/10 text-destructive" },
 };
@@ -36,7 +35,7 @@ interface Props {
 export function NotificationsTable({ onEdit, refreshToken }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"all" | "draft" | "scheduled" | "sent">("all");
+  const [tab, setTab] = useState<"all" | "draft" | "sent">("all");
   const [sendingId, setSendingId] = useState<string | null>(null);
 
   const load = async () => {
@@ -104,12 +103,11 @@ export function NotificationsTable({ onEdit, refreshToken }: Props) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
-        <CardTitle className="text-base">Templates, Drafts & Scheduled</CardTitle>
+        <CardTitle className="text-base">Templates & Drafts</CardTitle>
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="draft">Drafts</TabsTrigger>
-            <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
             <TabsTrigger value="sent">Sent</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -127,7 +125,7 @@ export function NotificationsTable({ onEdit, refreshToken }: Props) {
                   <TableHead>Title</TableHead>
                   <TableHead>Audience</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Scheduled / Sent</TableHead>
+                  <TableHead>Created / Sent</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -136,9 +134,7 @@ export function NotificationsTable({ onEdit, refreshToken }: Props) {
                   const badge = STATUS_VARIANT[row.status];
                   const when = row.status === "sent"
                     ? row.sent_at ? format(new Date(row.sent_at), "PP p") : "—"
-                    : row.status === "scheduled"
-                      ? row.scheduled_at ? format(new Date(row.scheduled_at), "PP p") : "—"
-                      : format(new Date(row.created_at), "PP p");
+                    : format(new Date(row.created_at), "PP p");
                   return (
                     <TableRow key={row.id}>
                       <TableCell className="min-w-[200px]">
@@ -161,7 +157,7 @@ export function NotificationsTable({ onEdit, refreshToken }: Props) {
                       <TableCell className="whitespace-nowrap text-sm text-muted-foreground">{when}</TableCell>
                       <TableCell className="text-right whitespace-nowrap">
                         <div className="inline-flex gap-1">
-                          {(row.status === "draft" || row.status === "scheduled" || row.status === "failed") && (
+                          {(row.status === "draft" || row.status === "failed") && (
                             <Button size="icon" variant="ghost" title="Send now" disabled={sendingId === row.id} onClick={() => sendNow(row.id)}>
                               {sendingId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                             </Button>
