@@ -285,11 +285,34 @@ Deno.serve(async (req) => {
       auto_approved: true,
     }));
 
-    const { data: insertedAssignments, error: bulkAssErr } = await admin
-      .from("calendar_event_assignments")
-      .insert(assignmentsPayload)
-      .select("id, user_id");
-    if (bulkAssErr) throw bulkAssErr;
+    // Never throw on a bulk failure: one bad row must not abort the whole
+    // sweep (that left Week 3 half-credited and returned 500). Fall back to
+    // per-row inserts so every remaining staff member still gets credited.
+    const insertedAssignments: { id: string; user_id: string }[] = [];
+    if (assignmentsPayload.length > 0) {
+      const { data: bulkRows, error: bulkAssErr } = await admin
+        .from("calendar_event_assignments")
+        .insert(assignmentsPayload)
+        .select("id, user_id");
+      if (bulkAssErr) {
+        console.error("[auto-weekly-credit] bulk assignment error, retrying per-row", bulkAssErr);
+        for (const row of assignmentsPayload) {
+          const { data: oneRow, error: rowErr } = await admin
+            .from("calendar_event_assignments")
+            .insert(row)
+            .select("id, user_id")
+            .maybeSingle();
+          if (rowErr) {
+            console.error("[auto-weekly-credit] assignment insert FAILED for", row.user_id, rowErr);
+          } else if (oneRow) {
+            insertedAssignments.push(oneRow as { id: string; user_id: string });
+          }
+        }
+      } else {
+        insertedAssignments.push(...((bulkRows as { id: string; user_id: string }[]) || []));
+      }
+    }
+
 
     const assByUser = new Map<string, string>();
     for (const [userId, assignmentId] of existingByUser) assByUser.set(userId, assignmentId);
@@ -326,18 +349,25 @@ Deno.serve(async (req) => {
     }
 
     if (bonusPayload.length > 0) {
-      const { error: bulkBtErr } = await admin.from("bonus_transactions").insert(bonusPayload);
+      // Upsert on the unique assignment_id so a retry/catch-up run after a
+      // partial failure is a no-op instead of a 23505 duplicate-key storm.
+      const { error: bulkBtErr } = await admin
+        .from("bonus_transactions")
+        .upsert(bonusPayload, { onConflict: "assignment_id", ignoreDuplicates: true });
       if (bulkBtErr) {
         console.error("[auto-weekly-credit] bulk bonus tx error, retrying per-row", bulkBtErr);
         // Per-row retry so one bad row doesn't drop everyone's credit silently.
         for (const row of bonusPayload) {
-          const { error: rowErr } = await admin.from("bonus_transactions").insert(row);
+          const { error: rowErr } = await admin
+            .from("bonus_transactions")
+            .upsert(row, { onConflict: "assignment_id", ignoreDuplicates: true });
           if (rowErr) {
             console.error("[auto-weekly-credit] per-row bonus insert FAILED for user", row.user_id, rowErr);
           }
         }
       }
     }
+
 
     // Safety net: re-scan all auto-credited assignments for THIS event and
     // backfill any missing bonus_transactions (e.g. from a prior failed run).
@@ -357,7 +387,7 @@ Deno.serve(async (req) => {
         for (const a of missingRows) {
           const totalBonus = bonusByUser.get(a.user_id) ?? 0;
           const perUnit = totalBonus > 0 ? Math.round(totalBonus / 4) : 0;
-          const { error: fixErr } = await admin.from("bonus_transactions").insert({
+          const { error: fixErr } = await admin.from("bonus_transactions").upsert({
             user_id: a.user_id,
             assignment_id: a.id,
             source: "calendar",
@@ -368,7 +398,8 @@ Deno.serve(async (req) => {
             approved_date: win.end,
             auto_approved: true,
             title: creditTitle,
-          });
+          }, { onConflict: "assignment_id", ignoreDuplicates: true });
+
           if (fixErr) console.error("[auto-weekly-credit] backfill bonus insert FAILED", a.user_id, fixErr);
         }
       }
