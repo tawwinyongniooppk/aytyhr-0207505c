@@ -166,20 +166,20 @@ export default function Staff() {
       updateData.overtime_rate_per_minute = Math.max(0, Number(form.overtime_rate) || 0);
     }
 
-    // Update the specific staff member's profile and verify the row was changed
-    const { data: updated, error } = await supabase
+    // Update the specific staff member's profile.
+    // Only admins can read back other users' profile rows (financial/contact
+    // fields are admin-only), so non-admin roles rely on the affected-row count.
+    const { count, error } = await supabase
       .from("profiles")
-      .update(updateData)
-      .eq("id", editId)
-      .select("id, work_schedule, check_in_time, check_out_time, work_day")
-      .maybeSingle();
+      .update(updateData, { count: "exact" })
+      .eq("id", editId);
 
     if (error) {
       console.error("Profile update failed", error);
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
       return;
     }
-    if (!updated) {
+    if (count === 0) {
       toast({
         title: "Save failed",
         description: "No staff record was updated. You may not have permission to modify this profile.",
@@ -187,6 +187,7 @@ export default function Staff() {
       });
       return;
     }
+
 
     // Admin: upsert monthly salary financial fields (bonus, manual deduction, reason)
     if (isAdminRole) {
