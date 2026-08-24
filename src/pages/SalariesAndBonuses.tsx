@@ -283,17 +283,27 @@ export default function SalariesAndBonuses() {
     setSaving(false);
   };
 
+  const monthMin = getMMTMonthStartISO();
+  const monthMax = getMMTMonthEndISO();
+  const inCurrentMonth = (d: string) => !!d && d >= monthMin && d <= monthMax;
+
   const openAdd = (memberId: string) => {
     if (!isAdminRole) return;
     setAddOpenFor(memberId);
-    setAddForm({ title: "", amount: "" });
+    setAddForm({ title: "", amount: "", date: getMMTTodayISO() });
+  };
+
+  const openDeduct = (memberId: string) => {
+    if (!isAdminRole) return;
+    setDedOpenFor(memberId);
+    setDedForm({ title: "", amount: "", date: getMMTTodayISO() });
   };
 
   const handleAdd = async () => {
     if (!addOpenFor || !user) return;
     const amt = Number(addForm.amount);
-    if (!addForm.title.trim() || !Number.isFinite(amt) || amt <= 0) {
-      toast({ title: "Invalid input", description: "Enter a description and a positive amount.", variant: "destructive" });
+    if (!addForm.title.trim() || !Number.isFinite(amt) || amt <= 0 || !inCurrentMonth(addForm.date)) {
+      toast({ title: "Invalid input", description: "Enter a description, a positive amount and a date inside this month.", variant: "destructive" });
       return;
     }
     setAddSaving(true);
@@ -303,7 +313,8 @@ export default function SalariesAndBonuses() {
       title: addForm.title.trim(),
       amount: Math.round(amt),
       created_by: user.id,
-    });
+      effective_date: addForm.date,
+    } as any);
     if (error) {
       toast({ title: "Failed", description: error.message, variant: "destructive" });
     } else {
@@ -313,6 +324,34 @@ export default function SalariesAndBonuses() {
     }
     setAddSaving(false);
   };
+
+  const handleDeduct = async () => {
+    if (!dedOpenFor || !user) return;
+    const amt = Number(dedForm.amount);
+    if (!dedForm.title.trim() || !Number.isFinite(amt) || amt <= 0 || !inCurrentMonth(dedForm.date)) {
+      toast({ title: "Invalid input", description: "Enter a description, a positive amount and a date inside this month.", variant: "destructive" });
+      return;
+    }
+    setDedSaving(true);
+    const { error } = await (supabase as any).from("salary_manual_deductions").insert({
+      user_id: dedOpenFor,
+      month: getMonthStart(),
+      title: dedForm.title.trim(),
+      amount: Math.round(amt),
+      source: "manual",
+      created_by: user.id,
+      effective_date: dedForm.date,
+    });
+    if (error) {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: `Deducted -${Math.round(amt).toLocaleString()} Ks` });
+      setDedOpenFor(null);
+      load();
+    }
+    setDedSaving(false);
+  };
+
 
   const removeAddition = async (id: string, amount: number) => {
     const { error } = await supabase.from("salary_manual_additions").delete().eq("id", id);
