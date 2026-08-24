@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, TrendingDown, DollarSign, Sparkles, Pencil, Plus, Trash2, PenLine } from "lucide-react";
+import { Wallet, TrendingDown, DollarSign, Sparkles, Pencil, Plus, Minus, Trash2, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
-import { formatMMTDateTime, formatMMTMonthLabel, getMMTMonthStartISO } from "@/lib/mmt";
+import { formatMMTDate, formatMMTDateTime, formatMMTMonthLabel, getMMTMonthStartISO, getMMTMonthEndISO, getMMTTodayISO } from "@/lib/mmt";
 
 interface StaffRow {
   id: string;
