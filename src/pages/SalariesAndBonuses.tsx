@@ -62,8 +62,13 @@ export default function SalariesAndBonuses() {
 
   // Manual Addition dialog
   const [addOpenFor, setAddOpenFor] = useState<string | null>(null);
-  const [addForm, setAddForm] = useState({ title: "", amount: "" });
+  const [addForm, setAddForm] = useState({ title: "", amount: "", date: getMMTTodayISO() });
   const [addSaving, setAddSaving] = useState(false);
+
+  // Manual Deduction dialog (per-transaction, dated)
+  const [dedOpenFor, setDedOpenFor] = useState<string | null>(null);
+  const [dedForm, setDedForm] = useState({ title: "", amount: "", date: getMMTTodayISO() });
+  const [dedSaving, setDedSaving] = useState(false);
 
   // Slip signing toggle
   const [slipEnabled, setSlipEnabled] = useState(false);
