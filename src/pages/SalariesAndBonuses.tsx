@@ -624,13 +624,24 @@ export default function SalariesAndBonuses() {
             <div>
               <Label>Amount (kyats)</Label>
               <Input type="number" min={1} value={addForm.amount} onChange={(e) => setAddForm({ ...addForm, amount: e.target.value })} placeholder="0" />
+            </div>
+            <div>
+              <Label>Date (this month)</Label>
+              <Input
+                type="date"
+                value={addForm.date}
+                min={monthMin}
+                max={monthMax}
+                onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
+              />
               <p className="text-xs text-muted-foreground mt-1">
-                Added on top of Base. Logged as a transaction with date, description and amount.
+                Appears on this date in the staff member's Transaction History. Cleared with the monthly reset.
               </p>
             </div>
             <Button onClick={handleAdd} disabled={addSaving} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
               {addSaving ? "Adding..." : "Add to Salary"}
             </Button>
+
           </div>
         </DialogContent>
       </Dialog>
