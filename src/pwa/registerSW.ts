@@ -2,10 +2,9 @@
 // Registers only in the published production app. Refuses in dev, iframes,
 // Lovable preview hosts, and when ?sw=off is present (kill switch).
 //
-// Update strategy: every app open (and every foreground return / periodic tick)
-// asks the browser for a fresh service worker. When a new build is found it is
-// applied automatically — no cache clearing or PWA reinstall needed. A manual
-// "Check for update" entry point is exported for the header button.
+// Update strategy: MANUAL ONLY. Nothing polls in the background — no interval,
+// no visibility/focus/online listeners. The app checks for a new build only
+// when the user presses the "Check for update" button in the header.
 
 type UpdateCallback = () => void;
 
@@ -14,12 +13,6 @@ let swRegistration: ServiceWorkerRegistration | null = null;
 const listeners = new Set<UpdateCallback>();
 let updateAvailable = false;
 let applying = false;
-
-// Auto-apply silently while the session is fresh (app just opened) — after that
-// we still auto-apply, but only when the tab is in the foreground so the reload
-// is never a surprise mid-background.
-const bootedAt = Date.now();
-const AUTO_APPLY_GRACE_MS = 20_000;
 
 export function onUpdateAvailable(cb: UpdateCallback): () => void {
   listeners.add(cb);
@@ -30,6 +23,7 @@ export function onUpdateAvailable(cb: UpdateCallback): () => void {
 export function isUpdateAvailable() {
   return updateAvailable;
 }
+
 
 export async function applyUpdate() {
   if (applying) return;
