@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Upload, Building2 } from "lucide-react";
+import { Upload, Building2, RefreshCw } from "lucide-react";
+import { checkForUpdate } from "@/pwa/registerSW";
 
 const MAX_LOGO_SIZE = 2 * 1024 * 1024;
 const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml", "image/webp"];
@@ -22,6 +23,17 @@ export function AppHeader() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+  const onCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    try {
+      const found = await checkForUpdate();
+      if (!found) toast({ title: "You are on the latest version" });
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
 
   useEffect(() => {
     supabase
@@ -97,6 +109,17 @@ export function AppHeader() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onCheckUpdate}
+            disabled={checkingUpdate}
+            className="h-9 w-9"
+            aria-label="Check for update"
+            title="Check for update"
+          >
+            <RefreshCw className={`h-4 w-4 ${checkingUpdate ? "animate-spin" : ""}`} />
+          </Button>
           {isItManager && (
             <>
               <input
