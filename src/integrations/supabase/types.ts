@@ -716,6 +716,7 @@ export type Database = {
           amount: number
           created_at: string
           created_by: string
+          effective_date: string | null
           id: string
           kind: string
           month: string
@@ -726,6 +727,7 @@ export type Database = {
           amount: number
           created_at?: string
           created_by: string
+          effective_date?: string | null
           id?: string
           kind?: string
           month?: string
@@ -736,6 +738,7 @@ export type Database = {
           amount?: number
           created_at?: string
           created_by?: string
+          effective_date?: string | null
           id?: string
           kind?: string
           month?: string
@@ -749,6 +752,7 @@ export type Database = {
           amount: number
           created_at: string
           created_by: string
+          effective_date: string | null
           id: string
           month: string
           source: string
@@ -759,6 +763,7 @@ export type Database = {
           amount: number
           created_at?: string
           created_by: string
+          effective_date?: string | null
           id?: string
           month?: string
           source?: string
@@ -769,6 +774,7 @@ export type Database = {
           amount?: number
           created_at?: string
           created_by?: string
+          effective_date?: string | null
           id?: string
           month?: string
           source?: string
