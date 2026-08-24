@@ -645,6 +645,42 @@ export default function SalariesAndBonuses() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Manual Deduction dialog */}
+      <Dialog open={!!dedOpenFor} onOpenChange={(v) => { if (!v) setDedOpenFor(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display">Manual Salary Deduction</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label>Description</Label>
+              <Input value={dedForm.title} onChange={(e) => setDedForm({ ...dedForm, title: e.target.value })} placeholder="e.g. Excess leave deduction" />
+            </div>
+            <div>
+              <Label>Amount (kyats)</Label>
+              <Input type="number" min={1} value={dedForm.amount} onChange={(e) => setDedForm({ ...dedForm, amount: e.target.value })} placeholder="0" />
+            </div>
+            <div>
+              <Label>Date (this month)</Label>
+              <Input
+                type="date"
+                value={dedForm.date}
+                min={monthMin}
+                max={monthMax}
+                onChange={(e) => setDedForm({ ...dedForm, date: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Appears on this date in the staff member's Transaction History. Cleared with the monthly reset.
+              </p>
+            </div>
+            <Button onClick={handleDeduct} disabled={dedSaving} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {dedSaving ? "Saving..." : "Apply Deduction"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
