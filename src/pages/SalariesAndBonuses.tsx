@@ -555,7 +555,9 @@ export default function SalariesAndBonuses() {
                               </Badge>
                               {a.title}
                             </p>
-                            <p className="text-[10px] text-muted-foreground">{formatMMTDateTime(a.created_at)}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {a.effective_date ? formatMMTDate(`${a.effective_date}T00:00:00+06:30`) : formatMMTDateTime(a.created_at)}
+                            </p>
                           </div>
                           <Badge variant="secondary" className="text-[10px]">+{a.amount.toLocaleString()} Ks</Badge>
                           {isAdminRole && !isAuto && (
