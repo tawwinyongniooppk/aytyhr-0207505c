@@ -36,6 +36,7 @@ interface ManualAddition {
   title: string;
   amount: number;
   created_at: string;
+  effective_date?: string | null;
   kind?: string;
 }
 
