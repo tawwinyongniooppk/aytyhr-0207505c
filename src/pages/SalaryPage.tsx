@@ -335,7 +335,7 @@ export default function SalaryPage() {
       const isAuto = (a.kind || "manual") === "auto";
       items.push({
         id: `add-${a.id}`,
-        date: (() => {
+        date: (a as any).effective_date || (() => {
           const { year, month, day } = getMMTDateParts(a.created_at);
           return `${year}-${month}-${day}`;
         })(),
@@ -430,7 +430,7 @@ export default function SalaryPage() {
 
       items.push({
         id: `smd-${d.id}`,
-        date: getMMTDateISO(d.created_at),
+        date: (d as any).effective_date || getMMTDateISO(d.created_at),
         type: "manual_deduction",
         description: d.title,
         amount: -(Number(d.amount) || 0),

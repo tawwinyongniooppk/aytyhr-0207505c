@@ -2,10 +2,9 @@
 // Registers only in the published production app. Refuses in dev, iframes,
 // Lovable preview hosts, and when ?sw=off is present (kill switch).
 //
-// Update strategy: every app open (and every foreground return / periodic tick)
-// asks the browser for a fresh service worker. When a new build is found it is
-// applied automatically — no cache clearing or PWA reinstall needed. A manual
-// "Check for update" entry point is exported for the header button.
+// Update strategy: MANUAL ONLY. Nothing polls in the background — no interval,
+// no visibility/focus/online listeners. The app checks for a new build only
+// when the user presses the "Check for update" button in the header.
 
 type UpdateCallback = () => void;
 
@@ -14,12 +13,6 @@ let swRegistration: ServiceWorkerRegistration | null = null;
 const listeners = new Set<UpdateCallback>();
 let updateAvailable = false;
 let applying = false;
-
-// Auto-apply silently while the session is fresh (app just opened) — after that
-// we still auto-apply, but only when the tab is in the foreground so the reload
-// is never a surprise mid-background.
-const bootedAt = Date.now();
-const AUTO_APPLY_GRACE_MS = 20_000;
 
 export function onUpdateAvailable(cb: UpdateCallback): () => void {
   listeners.add(cb);
@@ -30,6 +23,7 @@ export function onUpdateAvailable(cb: UpdateCallback): () => void {
 export function isUpdateAvailable() {
   return updateAvailable;
 }
+
 
 export async function applyUpdate() {
   if (applying) return;
@@ -157,49 +151,20 @@ export async function registerPwa() {
     pendingUpdateSW = registerSW({
       immediate: true,
       onNeedRefresh() {
+        // Only reachable from a user-triggered checkForUpdate(); never applied
+        // automatically in the background.
         updateAvailable = true;
-        const fresh = Date.now() - bootedAt < AUTO_APPLY_GRACE_MS;
-        const visible = document.visibilityState === "visible";
-        // Auto-update: apply straight away on app open, or while the user is
-        // actively looking at the app. Otherwise show the banner as a fallback.
-        if (fresh || visible) {
-          window.setTimeout(() => void applyUpdate(), 0);
-          return;
-        }
         notifyListeners();
       },
       onRegisteredSW(_swUrl, registration) {
         if (!registration) return;
         swRegistration = registration;
-        registration.update().catch(() => {});
-
-        // A worker already waiting from a previous session -> apply now.
-        if (registration.waiting) {
-          updateAvailable = true;
-          window.setTimeout(() => void applyUpdate(), 0);
-        }
-
-        // Periodic check while the tab is alive.
-        window.setInterval(() => {
-          registration.update().catch(() => {});
-        }, 5 * 60 * 1000);
-
-        // Check whenever the app is brought back to the foreground —
-        // this is what makes "open the PWA" always land on the latest build.
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "visible") {
-            registration.update().catch(() => {});
-          }
-        });
-        window.addEventListener("focus", () => {
-          registration.update().catch(() => {});
-        });
-        window.addEventListener("online", () => {
-          registration.update().catch(() => {});
-        });
+        // No update() call here, no interval, no visibility/focus/online
+        // listeners — checking happens only on the manual button press.
       },
     });
   } catch {
     // virtual module unavailable — silently skip
   }
+
 }

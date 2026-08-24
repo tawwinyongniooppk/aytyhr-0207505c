@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, TrendingDown, DollarSign, Sparkles, Pencil, Plus, Trash2, PenLine } from "lucide-react";
+import { Wallet, TrendingDown, DollarSign, Sparkles, Pencil, Plus, Minus, Trash2, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
-import { formatMMTDateTime, formatMMTMonthLabel, getMMTMonthStartISO } from "@/lib/mmt";
+import { formatMMTDate, formatMMTDateTime, formatMMTMonthLabel, getMMTMonthStartISO, getMMTMonthEndISO, getMMTTodayISO } from "@/lib/mmt";
 
 interface StaffRow {
   id: string;
@@ -36,6 +36,7 @@ interface ManualAddition {
   title: string;
   amount: number;
   created_at: string;
+  effective_date?: string | null;
   kind?: string;
 }
 
@@ -61,8 +62,13 @@ export default function SalariesAndBonuses() {
 
   // Manual Addition dialog
   const [addOpenFor, setAddOpenFor] = useState<string | null>(null);
-  const [addForm, setAddForm] = useState({ title: "", amount: "" });
+  const [addForm, setAddForm] = useState({ title: "", amount: "", date: getMMTTodayISO() });
   const [addSaving, setAddSaving] = useState(false);
+
+  // Manual Deduction dialog (per-transaction, dated)
+  const [dedOpenFor, setDedOpenFor] = useState<string | null>(null);
+  const [dedForm, setDedForm] = useState({ title: "", amount: "", date: getMMTTodayISO() });
+  const [dedSaving, setDedSaving] = useState(false);
 
   // Slip signing toggle
   const [slipEnabled, setSlipEnabled] = useState(false);
@@ -277,17 +283,27 @@ export default function SalariesAndBonuses() {
     setSaving(false);
   };
 
+  const monthMin = getMMTMonthStartISO();
+  const monthMax = getMMTMonthEndISO();
+  const inCurrentMonth = (d: string) => !!d && d >= monthMin && d <= monthMax;
+
   const openAdd = (memberId: string) => {
     if (!isAdminRole) return;
     setAddOpenFor(memberId);
-    setAddForm({ title: "", amount: "" });
+    setAddForm({ title: "", amount: "", date: getMMTTodayISO() });
+  };
+
+  const openDeduct = (memberId: string) => {
+    if (!isAdminRole) return;
+    setDedOpenFor(memberId);
+    setDedForm({ title: "", amount: "", date: getMMTTodayISO() });
   };
 
   const handleAdd = async () => {
     if (!addOpenFor || !user) return;
     const amt = Number(addForm.amount);
-    if (!addForm.title.trim() || !Number.isFinite(amt) || amt <= 0) {
-      toast({ title: "Invalid input", description: "Enter a description and a positive amount.", variant: "destructive" });
+    if (!addForm.title.trim() || !Number.isFinite(amt) || amt <= 0 || !inCurrentMonth(addForm.date)) {
+      toast({ title: "Invalid input", description: "Enter a description, a positive amount and a date inside this month.", variant: "destructive" });
       return;
     }
     setAddSaving(true);
@@ -297,7 +313,8 @@ export default function SalariesAndBonuses() {
       title: addForm.title.trim(),
       amount: Math.round(amt),
       created_by: user.id,
-    });
+      effective_date: addForm.date,
+    } as any);
     if (error) {
       toast({ title: "Failed", description: error.message, variant: "destructive" });
     } else {
@@ -307,6 +324,34 @@ export default function SalariesAndBonuses() {
     }
     setAddSaving(false);
   };
+
+  const handleDeduct = async () => {
+    if (!dedOpenFor || !user) return;
+    const amt = Number(dedForm.amount);
+    if (!dedForm.title.trim() || !Number.isFinite(amt) || amt <= 0 || !inCurrentMonth(dedForm.date)) {
+      toast({ title: "Invalid input", description: "Enter a description, a positive amount and a date inside this month.", variant: "destructive" });
+      return;
+    }
+    setDedSaving(true);
+    const { error } = await (supabase as any).from("salary_manual_deductions").insert({
+      user_id: dedOpenFor,
+      month: getMonthStart(),
+      title: dedForm.title.trim(),
+      amount: Math.round(amt),
+      source: "manual",
+      created_by: user.id,
+      effective_date: dedForm.date,
+    });
+    if (error) {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: `Deducted -${Math.round(amt).toLocaleString()} Ks` });
+      setDedOpenFor(null);
+      load();
+    }
+    setDedSaving(false);
+  };
+
 
   const removeAddition = async (id: string, amount: number) => {
     const { error } = await supabase.from("salary_manual_additions").delete().eq("id", id);
@@ -481,10 +526,16 @@ export default function SalariesAndBonuses() {
                     <p className="text-muted-foreground flex items-center gap-1">+ Manual Addition {isAdminRole && <Plus className="h-3 w-3" />}</p>
                     <p className="font-semibold text-accent">+{manualAdd.toLocaleString()}</p>
                   </button>
-                  <div className="rounded bg-destructive/10 p-2">
-                    <p className="text-muted-foreground">- Manual Deduction</p>
+                  <button
+                    type="button"
+                    onClick={() => isAdminRole && openDeduct(m.id)}
+                    className="rounded bg-destructive/10 p-2 text-left hover:bg-destructive/20 transition-colors disabled:opacity-60"
+                    disabled={!isAdminRole}
+                    title={isAdminRole ? "Add manual deduction" : ""}
+                  >
+                    <p className="text-muted-foreground flex items-center gap-1">- Manual Deduction {isAdminRole && <Minus className="h-3 w-3" />}</p>
                     <p className="font-semibold text-destructive">-{manual.toLocaleString()}</p>
-                  </div>
+                  </button>
                   <div className="rounded bg-primary/10 p-2">
                     <p className="text-muted-foreground">Final Salary</p>
                     <p className="font-bold text-primary">{final.toLocaleString()}</p>
@@ -504,7 +555,9 @@ export default function SalariesAndBonuses() {
                               </Badge>
                               {a.title}
                             </p>
-                            <p className="text-[10px] text-muted-foreground">{formatMMTDateTime(a.created_at)}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {a.effective_date ? formatMMTDate(`${a.effective_date}T00:00:00+06:30`) : formatMMTDateTime(a.created_at)}
+                            </p>
                           </div>
                           <Badge variant="secondary" className="text-[10px]">+{a.amount.toLocaleString()} Ks</Badge>
                           {isAdminRole && !isAuto && (
@@ -571,16 +624,63 @@ export default function SalariesAndBonuses() {
             <div>
               <Label>Amount (kyats)</Label>
               <Input type="number" min={1} value={addForm.amount} onChange={(e) => setAddForm({ ...addForm, amount: e.target.value })} placeholder="0" />
+            </div>
+            <div>
+              <Label>Date (this month)</Label>
+              <Input
+                type="date"
+                value={addForm.date}
+                min={monthMin}
+                max={monthMax}
+                onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
+              />
               <p className="text-xs text-muted-foreground mt-1">
-                Added on top of Base. Logged as a transaction with date, description and amount.
+                Appears on this date in the staff member's Transaction History. Cleared with the monthly reset.
               </p>
             </div>
             <Button onClick={handleAdd} disabled={addSaving} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
               {addSaving ? "Adding..." : "Add to Salary"}
             </Button>
+
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Manual Deduction dialog */}
+      <Dialog open={!!dedOpenFor} onOpenChange={(v) => { if (!v) setDedOpenFor(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display">Manual Salary Deduction</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label>Description</Label>
+              <Input value={dedForm.title} onChange={(e) => setDedForm({ ...dedForm, title: e.target.value })} placeholder="e.g. Excess leave deduction" />
+            </div>
+            <div>
+              <Label>Amount (kyats)</Label>
+              <Input type="number" min={1} value={dedForm.amount} onChange={(e) => setDedForm({ ...dedForm, amount: e.target.value })} placeholder="0" />
+            </div>
+            <div>
+              <Label>Date (this month)</Label>
+              <Input
+                type="date"
+                value={dedForm.date}
+                min={monthMin}
+                max={monthMax}
+                onChange={(e) => setDedForm({ ...dedForm, date: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Appears on this date in the staff member's Transaction History. Cleared with the monthly reset.
+              </p>
+            </div>
+            <Button onClick={handleDeduct} disabled={dedSaving} className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {dedSaving ? "Saving..." : "Apply Deduction"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
