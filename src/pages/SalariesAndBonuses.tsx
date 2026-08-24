@@ -526,10 +526,16 @@ export default function SalariesAndBonuses() {
                     <p className="text-muted-foreground flex items-center gap-1">+ Manual Addition {isAdminRole && <Plus className="h-3 w-3" />}</p>
                     <p className="font-semibold text-accent">+{manualAdd.toLocaleString()}</p>
                   </button>
-                  <div className="rounded bg-destructive/10 p-2">
-                    <p className="text-muted-foreground">- Manual Deduction</p>
+                  <button
+                    type="button"
+                    onClick={() => isAdminRole && openDeduct(m.id)}
+                    className="rounded bg-destructive/10 p-2 text-left hover:bg-destructive/20 transition-colors disabled:opacity-60"
+                    disabled={!isAdminRole}
+                    title={isAdminRole ? "Add manual deduction" : ""}
+                  >
+                    <p className="text-muted-foreground flex items-center gap-1">- Manual Deduction {isAdminRole && <Minus className="h-3 w-3" />}</p>
                     <p className="font-semibold text-destructive">-{manual.toLocaleString()}</p>
-                  </div>
+                  </button>
                   <div className="rounded bg-primary/10 p-2">
                     <p className="text-muted-foreground">Final Salary</p>
                     <p className="font-bold text-primary">{final.toLocaleString()}</p>
