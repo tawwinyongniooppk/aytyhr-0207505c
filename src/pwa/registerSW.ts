@@ -151,49 +151,20 @@ export async function registerPwa() {
     pendingUpdateSW = registerSW({
       immediate: true,
       onNeedRefresh() {
+        // Only reachable from a user-triggered checkForUpdate(); never applied
+        // automatically in the background.
         updateAvailable = true;
-        const fresh = Date.now() - bootedAt < AUTO_APPLY_GRACE_MS;
-        const visible = document.visibilityState === "visible";
-        // Auto-update: apply straight away on app open, or while the user is
-        // actively looking at the app. Otherwise show the banner as a fallback.
-        if (fresh || visible) {
-          window.setTimeout(() => void applyUpdate(), 0);
-          return;
-        }
         notifyListeners();
       },
       onRegisteredSW(_swUrl, registration) {
         if (!registration) return;
         swRegistration = registration;
-        registration.update().catch(() => {});
-
-        // A worker already waiting from a previous session -> apply now.
-        if (registration.waiting) {
-          updateAvailable = true;
-          window.setTimeout(() => void applyUpdate(), 0);
-        }
-
-        // Periodic check while the tab is alive.
-        window.setInterval(() => {
-          registration.update().catch(() => {});
-        }, 5 * 60 * 1000);
-
-        // Check whenever the app is brought back to the foreground —
-        // this is what makes "open the PWA" always land on the latest build.
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "visible") {
-            registration.update().catch(() => {});
-          }
-        });
-        window.addEventListener("focus", () => {
-          registration.update().catch(() => {});
-        });
-        window.addEventListener("online", () => {
-          registration.update().catch(() => {});
-        });
+        // No update() call here, no interval, no visibility/focus/online
+        // listeners — checking happens only on the manual button press.
       },
     });
   } catch {
     // virtual module unavailable — silently skip
   }
+
 }
