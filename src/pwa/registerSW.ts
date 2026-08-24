@@ -1,12 +1,25 @@
 // Guarded service worker registration wrapper.
 // Registers only in the published production app. Refuses in dev, iframes,
 // Lovable preview hosts, and when ?sw=off is present (kill switch).
+//
+// Update strategy: every app open (and every foreground return / periodic tick)
+// asks the browser for a fresh service worker. When a new build is found it is
+// applied automatically — no cache clearing or PWA reinstall needed. A manual
+// "Check for update" entry point is exported for the header button.
 
 type UpdateCallback = () => void;
 
 let pendingUpdateSW: ((reload?: boolean) => Promise<void>) | null = null;
+let swRegistration: ServiceWorkerRegistration | null = null;
 const listeners = new Set<UpdateCallback>();
 let updateAvailable = false;
+let applying = false;
+
+// Auto-apply silently while the session is fresh (app just opened) — after that
+// we still auto-apply, but only when the tab is in the foreground so the reload
+// is never a surprise mid-background.
+const bootedAt = Date.now();
+const AUTO_APPLY_GRACE_MS = 20_000;
 
 export function onUpdateAvailable(cb: UpdateCallback): () => void {
   listeners.add(cb);
@@ -19,6 +32,8 @@ export function isUpdateAvailable() {
 }
 
 export async function applyUpdate() {
+  if (applying) return;
+  applying = true;
   try {
     if (pendingUpdateSW) {
       // Safety net: if the new SW claims clients but does not reload the page
@@ -37,11 +52,41 @@ export async function applyUpdate() {
   } catch {
     // fall through to hard reload
   }
-  // Hard refresh fallback — bypass HTTP cache where supported.
-  // @ts-ignore - legacy non-standard arg still respected by some engines
   window.location.reload();
 }
 
+/**
+ * Manually ask the browser for a newer build.
+ * Returns true when a new version was found (the page then reloads itself).
+ */
+export async function checkForUpdate(): Promise<boolean> {
+  if (updateAvailable) {
+    void applyUpdate();
+    return true;
+  }
+  if (!("serviceWorker" in navigator)) {
+    window.location.reload();
+    return false;
+  }
+  try {
+    const reg =
+      swRegistration ?? (await navigator.serviceWorker.getRegistration("/"));
+    if (!reg) {
+      window.location.reload();
+      return false;
+    }
+    await reg.update();
+    // Give the browser a moment to surface a waiting worker.
+    await new Promise((r) => window.setTimeout(r, 1200));
+    if (updateAvailable || reg.waiting) {
+      void applyUpdate();
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 function isRefusedContext(): boolean {
   if (!import.meta.env.PROD) return true;
@@ -89,6 +134,16 @@ async function unregisterAppSW() {
   }
 }
 
+function notifyListeners() {
+  listeners.forEach((cb) => {
+    try {
+      cb();
+    } catch {
+      // ignore
+    }
+  });
+}
+
 export async function registerPwa() {
   if (typeof window === "undefined") return;
 
@@ -103,31 +158,43 @@ export async function registerPwa() {
       immediate: true,
       onNeedRefresh() {
         updateAvailable = true;
-        // Login is a critical entry point. Do not leave signed-out users on an
-        // old auth bundle with no update control available to them.
-        if (window.location.pathname === "/login") {
-          window.setTimeout(() => {
-            void applyUpdate();
-          }, 0);
+        const fresh = Date.now() - bootedAt < AUTO_APPLY_GRACE_MS;
+        const visible = document.visibilityState === "visible";
+        // Auto-update: apply straight away on app open, or while the user is
+        // actively looking at the app. Otherwise show the banner as a fallback.
+        if (fresh || visible) {
+          window.setTimeout(() => void applyUpdate(), 0);
           return;
         }
-        listeners.forEach((cb) => {
-          try {
-            cb();
-          } catch {
-            // ignore
-          }
-        });
+        notifyListeners();
       },
       onRegisteredSW(_swUrl, registration) {
         if (!registration) return;
+        swRegistration = registration;
         registration.update().catch(() => {});
-        // Poll for updates every 30 minutes while the tab is alive.
-        setInterval(() => {
+
+        // A worker already waiting from a previous session -> apply now.
+        if (registration.waiting) {
+          updateAvailable = true;
+          window.setTimeout(() => void applyUpdate(), 0);
+        }
+
+        // Periodic check while the tab is alive.
+        window.setInterval(() => {
           registration.update().catch(() => {});
-        }, 30 * 60 * 1000);
-        // Also check when the tab regains focus.
+        }, 5 * 60 * 1000);
+
+        // Check whenever the app is brought back to the foreground —
+        // this is what makes "open the PWA" always land on the latest build.
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") {
+            registration.update().catch(() => {});
+          }
+        });
         window.addEventListener("focus", () => {
+          registration.update().catch(() => {});
+        });
+        window.addEventListener("online", () => {
           registration.update().catch(() => {});
         });
       },
