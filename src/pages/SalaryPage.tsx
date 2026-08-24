@@ -335,7 +335,7 @@ export default function SalaryPage() {
       const isAuto = (a.kind || "manual") === "auto";
       items.push({
         id: `add-${a.id}`,
-        date: (() => {
+        date: (a as any).effective_date || (() => {
           const { year, month, day } = getMMTDateParts(a.created_at);
           return `${year}-${month}-${day}`;
         })(),
