@@ -1,6 +1,5 @@
-// Runs at 23:55 MMT on the WEEKLY DEADLINE nights only:
-//   February      → day 7, 14, 21, 28  (assignment slot last day + 4)
-//   other months  → day 8, 15, 22, 29  (assignment slot last day + 5)
+// Runs at 23:55 MMT on each assignment-window checkpoint:
+//   day 3, 10, 17, 24 (the final day of each assignment slot).
 // For each staff who was NOT manually assigned a task whose ASSIGNMENT DATE
 // falls inside the matching slot (1-3 / 8-10 / 15-17 / 22-24), the system
 // credits them 1 unit (auto-approved) plus 1/4 of their monthly bonus.
@@ -34,8 +33,8 @@ function mmtToday(): { y: number; m: number; d: number; iso: string; monthStart:
 
 // Assignment slots are the ONLY days admins hand out tasks:
 //   Week 1 → 1-3, Week 2 → 8-10, Week 3 → 15-17, Week 4 → 22-24.
-// Each slot's DEADLINE night (slot last day + 5, or +4 in February) is the
-// single checkpoint where the credit sweep runs at 23:55 MMT.
+// Each slot's final day is the single checkpoint where the credit sweep runs
+// at 23:55 MMT.
 export const WEEK_SLOTS = [
   { index: 1, startDay: 1, endDay: 3, label: "Week 1" },
   { index: 2, startDay: 8, endDay: 10, label: "Week 2" },
@@ -44,7 +43,8 @@ export const WEEK_SLOTS = [
 ];
 
 export function checkpointDayFor(slotEndDay: number, month: number) {
-  return slotEndDay + (month === 2 ? 4 : 5);
+  void month;
+  return slotEndDay;
 }
 
 function mkWindow(slot: typeof WEEK_SLOTS[number], year: number, month: number) {
@@ -59,7 +59,7 @@ function mkWindow(slot: typeof WEEK_SLOTS[number], year: number, month: number) 
   };
 }
 
-// Resolve the slot whose deadline night is `day` (or the morning after, so a
+// Resolve the slot whose checkpoint is `day` (or the morning after, so a
 // delayed/catch-up invocation still lands on the right window).
 export function checkpointWindow(day: number, year: number, month: number) {
   for (const slot of WEEK_SLOTS) {
@@ -147,16 +147,8 @@ Deno.serve(async (req) => {
     //    — that bug credited only one account in Week 2 (2026-08-08 → 08-10),
     //    because everyone else had a Week-1 task (started 08-03) that happened
     //    to have its deadline on 08-08.
-    //    Exception: a biweekly task (span ≥ 12 days) started in the PREVIOUS
-    //    slot legitimately owns this slot too (it is worth 2 units).
-    const prevSlot = WEEK_SLOTS.find((s) => s.index === win.index - 1);
-    const prevWindow = prevSlot
-      ? {
-          start: `${win.start.slice(0, 8)}${String(prevSlot.startDay).padStart(2, "0")}`,
-          end: `${win.start.slice(0, 8)}${String(prevSlot.endDay).padStart(2, "0")}`,
-        }
-      : null;
-
+    //    Exception: an active biweekly task (span ≥ 12 days) started in the
+    //    PREVIOUS slot legitimately owns this slot too (it is worth 2 units).
     const spanDays = (start: string, end: string) =>
       Math.round(
         (new Date(end + "T00:00:00Z").getTime() - new Date(start + "T00:00:00Z").getTime()) / 86400000,
@@ -164,10 +156,14 @@ Deno.serve(async (req) => {
 
     const ownsSlot = (start: string, end: string) => {
       if (start >= win.start && start <= win.end) return true;
-      if (prevWindow && start >= prevWindow.start && start <= prevWindow.end) {
-        return spanDays(start, end) >= 12; // biweekly task spanning two slots
-      }
-      return false;
+      // A 2-unit task assigned before this slot also covers it while its
+      // deadline is still open. This prevents a second +1 system credit.
+      return start < win.start && spanDays(start, end) >= 12 && end >= win.end;
+    };
+
+    const mmtDateFromTimestamp = (value: string) => {
+      const timestamp = new Date(value).getTime() + (6 * 60 + 30) * 60 * 1000;
+      return new Date(timestamp).toISOString().slice(0, 10);
     };
 
     const [taskRes, evRes] = await Promise.all([
@@ -178,14 +174,14 @@ Deno.serve(async (req) => {
         .from("calendar_events")
         .select("id, start_date, end_date, event_type")
         .eq("event_type", "task")
-        .gte("start_date", prevWindow ? prevWindow.start : win.start)
+        .gte("start_date", `${win.start.slice(0, 7)}-01`)
         .lte("start_date", win.end),
     ]);
 
     const coveredSet = new Set<string>();
 
     for (const t of (taskRes.data as { assignee_id: string; due_date: string | null; created_at: string }[]) || []) {
-      const start = t.created_at.slice(0, 10);
+      const start = mmtDateFromTimestamp(t.created_at);
       const end = t.due_date ?? start;
       if (ownsSlot(start, end)) coveredSet.add(t.assignee_id);
     }
@@ -323,6 +319,16 @@ Deno.serve(async (req) => {
     // 6c) Build a ledger transaction for every credited unit. A zero bonus pot
     // still needs a unit_count=1 row so Status Monitor, Yearly Bonus, and
     // Transaction History agree immediately.
+    const assignmentIds = [...assByUser.values()];
+    const { data: currentBonusRows } = assignmentIds.length > 0
+      ? await admin
+          .from("bonus_transactions")
+          .select("assignment_id")
+          .in("assignment_id", assignmentIds)
+      : { data: [] as { assignment_id: string }[] };
+    const creditedAssignmentIds = new Set(
+      ((currentBonusRows as { assignment_id: string }[]) || []).map((row) => row.assignment_id),
+    );
     const bonusPayload: Record<string, unknown>[] = [];
     const perUnitByUser = new Map<string, number>();
     for (const s of missing) {
@@ -332,7 +338,7 @@ Deno.serve(async (req) => {
       const perUnit = totalBonus > 0 ? Math.round(totalBonus / 4) : 0;
       perUnitByUser.set(s.id, perUnit);
       const assignmentId = assByUser.get(s.id);
-      if (assignmentId) {
+      if (assignmentId && !creditedAssignmentIds.has(assignmentId)) {
         bonusPayload.push({
           user_id: s.id,
           assignment_id: assignmentId,
@@ -349,18 +355,16 @@ Deno.serve(async (req) => {
     }
 
     if (bonusPayload.length > 0) {
-      // Upsert on the unique assignment_id so a retry/catch-up run after a
-      // partial failure is a no-op instead of a 23505 duplicate-key storm.
       const { error: bulkBtErr } = await admin
         .from("bonus_transactions")
-        .upsert(bonusPayload, { onConflict: "assignment_id", ignoreDuplicates: true });
+        .insert(bonusPayload);
       if (bulkBtErr) {
         console.error("[auto-weekly-credit] bulk bonus tx error, retrying per-row", bulkBtErr);
         // Per-row retry so one bad row doesn't drop everyone's credit silently.
         for (const row of bonusPayload) {
           const { error: rowErr } = await admin
             .from("bonus_transactions")
-            .upsert(row, { onConflict: "assignment_id", ignoreDuplicates: true });
+            .insert(row);
           if (rowErr) {
             console.error("[auto-weekly-credit] per-row bonus insert FAILED for user", row.user_id, rowErr);
           }
@@ -387,7 +391,7 @@ Deno.serve(async (req) => {
         for (const a of missingRows) {
           const totalBonus = bonusByUser.get(a.user_id) ?? 0;
           const perUnit = totalBonus > 0 ? Math.round(totalBonus / 4) : 0;
-          const { error: fixErr } = await admin.from("bonus_transactions").upsert({
+          const { error: fixErr } = await admin.from("bonus_transactions").insert({
             user_id: a.user_id,
             assignment_id: a.id,
             source: "calendar",
@@ -398,7 +402,7 @@ Deno.serve(async (req) => {
             approved_date: win.end,
             auto_approved: true,
             title: creditTitle,
-          }, { onConflict: "assignment_id", ignoreDuplicates: true });
+          });
 
           if (fixErr) console.error("[auto-weekly-credit] backfill bonus insert FAILED", a.user_id, fixErr);
         }
