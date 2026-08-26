@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -29,6 +29,7 @@ export function useLeaveBalance(userId?: string) {
 
 /** One batched RPC call for many users instead of one call per user. */
 export function useLeaveBalances(userIds: string[]) {
+  const qc = useQueryClient();
   const key = [...userIds].sort().join(",");
   return useQuery({
     queryKey: ["leave-balances", key],
@@ -41,7 +42,10 @@ export function useLeaveBalances(userIds: string[]) {
       if (error) throw error;
       const map: Record<string, number | null> = {};
       for (const row of ((data as any[]) || [])) {
-        map[row.user_id] = typeof row.balance === "number" ? row.balance : Number(row.balance);
+        const value = typeof row.balance === "number" ? row.balance : Number(row.balance);
+        map[row.user_id] = value;
+        // Share the batch result so a single-user card does not refetch it.
+        qc.setQueryData(leaveBalanceKey(row.user_id), value);
       }
       return map;
     },
