@@ -182,10 +182,8 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
       if (document.visibilityState === "visible") setRefreshKey((k) => k + 1);
     };
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
     return () => {
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
     };
   }, [user]);
 

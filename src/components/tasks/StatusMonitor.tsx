@@ -64,11 +64,9 @@ export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
       if (document.visibilityState === "visible") load();
     };
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
     return () => {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
       void supabase.removeChannel(channel);
     };
   }, []);

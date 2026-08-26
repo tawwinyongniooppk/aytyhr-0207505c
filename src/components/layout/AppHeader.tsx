@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Upload, Building2, RefreshCw } from "lucide-react";
 import { checkForUpdate } from "@/pwa/registerSW";
+import { useCompanyLogo } from "@/hooks/useAppSettingsCache";
 
 const MAX_LOGO_SIZE = 2 * 1024 * 1024;
 const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml", "image/webp"];
@@ -20,7 +21,7 @@ function getGreeting() {
 export function AppHeader() {
   const { profile, isItManager } = useProfile();
   const { toast } = useToast();
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const { logoUrl, setLogoUrl } = useCompanyLogo();
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -34,17 +35,6 @@ export function AppHeader() {
       setCheckingUpdate(false);
     }
   };
-
-  useEffect(() => {
-    supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "company_logo_url")
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.value) setLogoUrl(data.value);
-      });
-  }, []);
 
   const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -87,11 +87,9 @@ export default function Tasks() {
       if (document.visibilityState === "visible") scheduleRefetch();
     };
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
     return () => {
       if (refetchTimer.current) clearTimeout(refetchTimer.current);
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, profileLoading, isStaff]);
