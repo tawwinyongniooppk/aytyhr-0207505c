@@ -72,7 +72,7 @@ export default function SalariesAndBonuses() {
   const [dedSaving, setDedSaving] = useState(false);
 
   // Slip signing toggle
-  const { slipEnabled, slipUntil, refreshSlipSetting } = useSlipSetting();
+  const { slipEnabled, slipUntil, refreshSlipSetting, setSlipSetting } = useSlipSetting();
   const [slipSaving, setSlipSaving] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
 
@@ -127,8 +127,7 @@ export default function SalariesAndBonuses() {
     if (error) {
       toast({ title: "Failed", description: error.message, variant: "destructive" });
     } else {
-      setSlipEnabled(next);
-      setSlipUntil(until);
+      setSlipSetting({ enabled: next, until });
       toast({
         title: next ? "Sign & Download enabled" : "Sign & Download disabled",
         description: next ? "Staff နိုင်ပါပြီ ၊ ညနေ ၁၁:၅၉ PM MMT တွင် Auto Off ဖြစ်မည်" : undefined,

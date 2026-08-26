@@ -38,6 +38,9 @@ export function useSlipSetting() {
   return {
     slipEnabled: query.data?.enabled ?? false,
     slipUntil: query.data?.until ?? null,
+    /** Optimistically write the value after an admin toggle. */
+    setSlipSetting: (next: SlipSetting) =>
+      qc.setQueryData(["app_settings", "slip_signing"], next),
     /** Force a refresh (used by the existing realtime app_settings listener). */
     refreshSlipSetting: () => qc.invalidateQueries({ queryKey: ["app_settings", "slip_signing"] }),
   };
