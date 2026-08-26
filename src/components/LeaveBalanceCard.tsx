@@ -1,39 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarDays, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useLeaveBalance } from "@/hooks/useLeaveBalances";
 
 export function LeaveBalanceCard({ userId }: { userId?: string }) {
   const { user } = useAuth();
   const targetId = userId ?? user?.id;
-  const [balance, setBalance] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading, refetch } = useLeaveBalance(targetId);
+  const balance = data ?? null;
+  const loading = !!targetId && isLoading;
 
   useEffect(() => {
     if (!targetId) return;
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      const { data, error } = await supabase.rpc("get_leave_balance", { p_user_id: targetId });
-      if (cancelled) return;
-      if (!error && typeof data === "number") setBalance(data);
-      setLoading(false);
-    }
-    load();
-
     // Refresh when the tab becomes visible again (avoids a realtime channel).
     const onVisible = () => {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState === "visible") void refetch();
     };
     document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [targetId, refetch]);
 
-    return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [targetId]);
 
 
   return (
