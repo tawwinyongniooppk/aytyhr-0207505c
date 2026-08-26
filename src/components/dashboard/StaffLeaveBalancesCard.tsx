@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { CalendarDays, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
+import { useLeaveBalances } from "@/hooks/useLeaveBalances";
 
 type StaffLeaveBalanceMember = {
   id: string;
@@ -10,52 +10,26 @@ type StaffLeaveBalanceMember = {
 };
 
 export function StaffLeaveBalancesCard({ staff }: { staff: StaffLeaveBalanceMember[] }) {
-  const [balances, setBalances] = useState<Record<string, number | null>>({});
-  const [loading, setLoading] = useState(true);
-
   const orderedStaff = useMemo(
     () => [...staff].sort((a, b) => (a.sequence ?? Number.MAX_SAFE_INTEGER) - (b.sequence ?? Number.MAX_SAFE_INTEGER)),
     [staff],
   );
 
+  const ids = useMemo(() => orderedStaff.map((m) => m.id), [orderedStaff]);
+  const { data, isLoading, refetch } = useLeaveBalances(ids);
+  const balances = data ?? {};
+  const loading = ids.length > 0 && isLoading;
+
+  // Single tab-return refresh (visibilitychange only — a `focus` listener here
+  // would fire the same reload twice for one return to the app).
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      if (orderedStaff.length === 0) {
-        setBalances({});
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      const results = await Promise.all(
-        orderedStaff.map(async (member) => {
-          const { data, error } = await supabase.rpc("get_leave_balance", { p_user_id: member.id });
-          return [member.id, error ? null : typeof data === "number" ? data : null] as const;
-        }),
-      );
-
-      if (cancelled) return;
-      setBalances(Object.fromEntries(results));
-      setLoading(false);
-    }
-
-    load();
-
     const onVisible = () => {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState === "visible") void refetch();
     };
-
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refetch]);
 
-    return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
-    };
-  }, [orderedStaff]);
 
   return (
     <Card className="border border-border shadow-sm bg-gradient-to-b from-card to-primary/5">
@@ -75,7 +49,7 @@ export function StaffLeaveBalancesCard({ staff }: { staff: StaffLeaveBalanceMemb
         ) : (
           <div className="grid gap-2 max-h-[24rem] overflow-y-auto pr-1">
             {orderedStaff.map((member) => {
-              const balance = balances[member.id];
+              const balance = balances[member.id] ?? null;
 
               return (
                 <div

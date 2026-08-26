@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Wallet, TrendingDown, DollarSign, Sparkles, Pencil, Plus, Minus, Trash2, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSlipSetting } from "@/hooks/useAppSettingsCache";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
@@ -71,8 +72,7 @@ export default function SalariesAndBonuses() {
   const [dedSaving, setDedSaving] = useState(false);
 
   // Slip signing toggle
-  const [slipEnabled, setSlipEnabled] = useState(false);
-  const [slipUntil, setSlipUntil] = useState<string | null>(null);
+  const { slipEnabled, slipUntil, refreshSlipSetting, setSlipSetting } = useSlipSetting();
   const [slipSaving, setSlipSaving] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
 
@@ -87,7 +87,6 @@ export default function SalariesAndBonuses() {
   useEffect(() => {
     if (!user) return;
     load();
-    loadSlipSetting();
     const ch = supabase
       .channel("admin-salaries-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "salaries" }, () => load(true))
@@ -96,25 +95,12 @@ export default function SalariesAndBonuses() {
       .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_additions" }, () => load(true))
       .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions" }, () => load(true))
       .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests" }, () => load(true))
-      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => loadSlipSetting())
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => refreshSlipSetting())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user]);
 
 
-  const loadSlipSetting = async () => {
-    const { data } = await supabase
-      .from("app_settings")
-      .select("key, value")
-      .in("key", ["slip_signing_enabled", "slip_signing_enabled_until"]);
-    let en = false, until: string | null = null;
-    for (const r of (data as any[]) || []) {
-      if (r.key === "slip_signing_enabled") en = r.value === "true";
-      if (r.key === "slip_signing_enabled_until") until = r.value;
-    }
-    setSlipEnabled(en);
-    setSlipUntil(until);
-  };
 
   // Returns the UTC ISO string for today's MMT 23:59:59
   const computeMMTEndOfDayISO = () => {
@@ -141,8 +127,7 @@ export default function SalariesAndBonuses() {
     if (error) {
       toast({ title: "Failed", description: error.message, variant: "destructive" });
     } else {
-      setSlipEnabled(next);
-      setSlipUntil(until);
+      setSlipSetting({ enabled: next, until });
       toast({
         title: next ? "Sign & Download enabled" : "Sign & Download disabled",
         description: next ? "Staff နိုင်ပါပြီ ၊ ညနေ ၁၁:၅၉ PM MMT တွင် Auto Off ဖြစ်မည်" : undefined,

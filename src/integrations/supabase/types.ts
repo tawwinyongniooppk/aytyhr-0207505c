@@ -922,6 +922,13 @@ export type Database = {
         }[]
       }
       get_leave_balance: { Args: { p_user_id: string }; Returns: number }
+      get_leave_balances_all: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          balance: number
+          user_id: string
+        }[]
+      }
       get_profile_full: {
         Args: { p_id: string }
         Returns: {

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote, Plus, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSlipSetting } from "@/hooks/useAppSettingsCache";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { formatMMTMonthLabel, getMMTDateParts, getMMTMonthStartISO } from "@/lib/mmt";
@@ -105,8 +106,7 @@ export default function SalaryPage() {
   const [manualAdditions, setManualAdditions] = useState<any[]>([]);
   const [manualDeductionsList, setManualDeductionsList] = useState<any[]>([]);
   const [rates, setRates] = useState<{ late: number; early: number }>({ late: 200, early: 200 });
-  const [slipEnabled, setSlipEnabled] = useState(false);
-  const [slipUntil, setSlipUntil] = useState<string | null>(null);
+  const { slipEnabled, slipUntil, refreshSlipSetting } = useSlipSetting();
   const [nowMs, setNowMs] = useState(Date.now());
   const [signOpen, setSignOpen] = useState(false);
 
@@ -117,24 +117,10 @@ export default function SalaryPage() {
 
   const slipActive = slipEnabled && !!slipUntil && nowMs < Date.parse(slipUntil);
 
-  const loadSlipSetting = async () => {
-    const { data } = await supabase
-      .from("app_settings")
-      .select("key, value")
-      .in("key", ["slip_signing_enabled", "slip_signing_enabled_until"]);
-    let en = false, until: string | null = null;
-    for (const r of (data as any[]) || []) {
-      if (r.key === "slip_signing_enabled") en = r.value === "true";
-      if (r.key === "slip_signing_enabled_until") until = r.value;
-    }
-    setSlipEnabled(en);
-    setSlipUntil(until);
-  };
 
   useEffect(() => {
     if (!user) return;
     loadData();
-    loadSlipSetting();
     // Realtime: refresh when any of the user's salary-related rows change
     const ch = supabase
       .channel(`salary-live-${user.id}`)
@@ -145,7 +131,7 @@ export default function SalaryPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions", filter: `user_id=eq.${user.id}` }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "leave_manual_deductions", filter: `user_id=eq.${user.id}` }, () => loadData())
       .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests", filter: `user_id=eq.${user.id}` }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => loadSlipSetting())
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => refreshSlipSetting())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user]);
