@@ -862,7 +862,7 @@ function SubmitForm({
           </div>
           <div>
             <Label>Date</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input type="date" min={getMMTTodayISO()} value={date} onChange={(e) => setDate(e.target.value)} />
             {dayName && <p className="text-xs text-muted-foreground mt-1">{dayName}</p>}
             {(fullLeaveDuplicate || halfLeaveDuplicate) && (
               <p className="text-xs text-destructive mt-1.5 font-medium">{DUPLICATE_MSG}</p>
