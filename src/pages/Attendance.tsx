@@ -663,9 +663,9 @@ export default function Attendance() {
       : isSpecialDay && staffCheckInTime
         ? staffCheckInTime
         : settings.start_time;
-  // Check-in timing is independent from every Leave type. Only the saved
-  // staff schedule determines the expected check-in time.
-  const expectedCheckInTime = baseExpectedCheckInTime;
+  // Morning Half-Leave (pending or approved) → expected check-in shifts to 12:00 PM (MMT).
+  const expectedCheckInTime = hasMorningHalfLeaveToday ? "12:00" : baseExpectedCheckInTime;
+
   const baseExpectedCheckOutTime =
     todaySchedule && todaySchedule.active !== false && todaySchedule.check_out
       ? todaySchedule.check_out
