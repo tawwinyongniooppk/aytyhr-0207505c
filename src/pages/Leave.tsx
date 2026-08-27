@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 import { ManualDeductionPanel } from "@/components/ManualDeductionPanel";
 import { OvertimeSection } from "@/components/OvertimeSection";
-import { getMMTDateParts } from "@/lib/mmt";
+import { getMMTDateParts, getMMTTodayISO } from "@/lib/mmt";
 
 type LeaveType = "leave" | "half_leave" | "partial_leave";
 
