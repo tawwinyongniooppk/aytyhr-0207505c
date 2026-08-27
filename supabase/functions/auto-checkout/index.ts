@@ -143,9 +143,21 @@ Deno.serve(async (req) => {
       if (!profile) continue;
       if (isOffDay(profile)) continue; // off-day staff are excluded
 
-      const expectedStr = resolveExpectedCheckOut(profile, settingsEnd);
+      let expectedStr = resolveExpectedCheckOut(profile, settingsEnd);
+      // Afternoon Half-Leave (pending or approved) → expected check-out is 12:00 MMT.
+      const { data: afHalf } = await admin
+        .from("leave_requests")
+        .select("id")
+        .eq("user_id", att.user_id)
+        .eq("date", today)
+        .eq("type", "half_leave")
+        .eq("half_period", "afternoon")
+        .neq("status", "rejected")
+        .limit(1);
+      if (afHalf && afHalf.length > 0) expectedStr = "12:00";
       const dueMinOfDay = hhmmToMinutes(expectedStr) + GRACE_AFTER_CHECKOUT_MIN;
       if (nowMinOfDay < dueMinOfDay) continue; // not yet eligible
+
 
       // ---- Partial-leave suppression ----
       // If the staff has an APPROVED partial_leave on this date whose end_time
