@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.reset_checkin_on_morning_half_leave() FROM PUBLIC, anon, authenticated;
