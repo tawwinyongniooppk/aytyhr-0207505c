@@ -162,6 +162,10 @@ export default function Leave() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!date || !reason || !user) return;
+    if (date < getMMTTodayISO()) {
+      toast({ title: "Invalid date", description: "ကျော်လွန်ပြီးသော ရက်စွဲကို ရွေး၍ မရပါ။", variant: "destructive" });
+      return;
+    }
     if (type === "partial_leave" && (!startTime || !endTime)) return;
     if (type === "partial_leave" && startTime >= endTime) {
       toast({ title: "Invalid time range", description: "End time must be after start time.", variant: "destructive" });
