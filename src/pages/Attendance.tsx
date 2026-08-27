@@ -997,6 +997,8 @@ export default function Attendance() {
         if (!after6) return null;
         if (dayEnded) return null;
         if (checkedIn) return null;
+        if (fullLeaveLocked) return null;
+
         const displayName = fullName || "မင်္ဂလာပါ";
         const isOffDayOrHoliday = !isWorkingDay || isHolidayToday;
         if (isOffDayOrHoliday) {
