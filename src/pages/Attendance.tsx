@@ -663,9 +663,9 @@ export default function Attendance() {
       : isSpecialDay && staffCheckInTime
         ? staffCheckInTime
         : settings.start_time;
-  // Check-in timing is independent from every Leave type. Only the saved
-  // staff schedule determines the expected check-in time.
-  const expectedCheckInTime = baseExpectedCheckInTime;
+  // Morning Half-Leave (pending or approved) → expected check-in shifts to 12:00 PM (MMT).
+  const expectedCheckInTime = hasMorningHalfLeaveToday ? "12:00" : baseExpectedCheckInTime;
+
   const baseExpectedCheckOutTime =
     todaySchedule && todaySchedule.active !== false && todaySchedule.check_out
       ? todaySchedule.check_out
@@ -696,14 +696,16 @@ export default function Attendance() {
   const endOfWorkDayMinutes = hhmmToMinutes(expectedCheckOutTime) + 30;
   const dayEnded = currentYangonMinutes >= endOfWorkDayMinutes;
 
-  // Leave records never block or alter check-in. Only an explicit schedule
-  // off-day or a school holiday closes attendance.
+  // Full Leave (pending or approved) closes the whole day's box.
+  const fullLeaveLocked = hasFullLeaveToday;
   const isOffToday = !isWorkingDay || isHolidayToday;
   const canCheckIn = (() => {
     if (isOffToday) return false;
+    if (fullLeaveLocked) return false;
     if (dayEnded) return false;
     if (morningHalfLocked) return false;
     if (record?.check_in_time) return false;
+
     if (!schoolConfigured) return true;
     if (location.isInside === true) return true;
     if ((geoDenied || geoError) && isAdmin) return true;
@@ -716,7 +718,7 @@ export default function Attendance() {
   const partialCoversCheckout = partialLeaveEndsToday.some(
     (end) => hhmmToMinutes(end) >= hhmmToMinutes(expectedCheckOutTime),
   );
-  const canCheckOut = !!record?.check_in_time && !record?.check_out_time && !isOffToday && !afternoonHalfLocked && !partialCoversCheckout;
+  const canCheckOut = !!record?.check_in_time && !record?.check_out_time && !isOffToday && !fullLeaveLocked && !afternoonHalfLocked && !partialCoversCheckout;
 
   const getLocationStatusLabel = (): string => {
     if (!schoolConfigured) return "";
@@ -995,6 +997,8 @@ export default function Attendance() {
         if (!after6) return null;
         if (dayEnded) return null;
         if (checkedIn) return null;
+        if (fullLeaveLocked) return null;
+
         const displayName = fullName || "မင်္ဂလာပါ";
         const isOffDayOrHoliday = !isWorkingDay || isHolidayToday;
         if (isOffDayOrHoliday) {
@@ -1246,12 +1250,27 @@ export default function Attendance() {
               Check Out
             </Button>
           </div>
-          {!isOffToday && (
+          {!isOffToday && !fullLeaveLocked && (
             <p className="text-xs text-muted-foreground">
               Expected check-in {formatTime12h(expectedCheckInTime)} · Grace time {CHECK_IN_GRACE_MINUTES} minutes · From minute 6 onward every late minute is deducted automatically.
             </p>
           )}
-          {dayEnded && !isOffToday && (
+          {fullLeaveLocked && (
+            <p className="text-xs text-destructive">
+              <span className="font-semibold">{fullName || "Staff"}</span> ရေ — သင် ယနေ့အတွက် Full Leave တင်ထားသောကြောင့် Check in / Check out Box ကို ပိတ်ထားပါသည်။
+            </p>
+          )}
+          {!fullLeaveLocked && hasMorningHalfLeaveToday && (
+            <p className="text-xs text-warning">
+              <span className="font-semibold">{fullName || "Staff"}</span> ရေ — သင် Morning Half Leave ယူထားသောကြောင့် သင့်၏ Check in ကို MMT 12:00 PM သို့ ရွှေ့ထားပါသည်။ နေ့လည် ၁၂ နာရီ အမှီ သွားပါနော် (Grace 5 မိနစ်)။
+            </p>
+          )}
+          {!fullLeaveLocked && hasAfternoonHalfLeaveToday && (
+            <p className="text-xs text-warning">
+              <span className="font-semibold">{fullName || "Staff"}</span> ရေ — သင် Afternoon Half Leave ယူထားသောကြောင့် သင့်၏ Check out ကို MMT 12:00 PM သို့ ရွှေ့ထားပါသည်။ Check out လုပ်ပြီးမှ ထွက်သွားပါရန်။
+            </p>
+          )}
+          {dayEnded && !isOffToday && !fullLeaveLocked && (
             <p className="text-xs text-muted-foreground">
               ဒီနေ့အတွက် အလုပ်ချိန် ပြီးဆုံးသွားပါပြီ။ နောက်နေ့ Check in / Check out Box သည် မြန်မာစံတော်ချိန် ည ၁၂ နာရီ ကျော်မှ ပြန်ပွင့်ပါမည်။
             </p>
@@ -1261,24 +1280,18 @@ export default function Attendance() {
               ဒီနေ့က ပိတ်ရက်ဖြစ်လို့ Check in / Check out ပိတ်ထားပါတယ်
             </p>
           )}
-          {hasAfternoonHalfLeaveToday && !hasFullLeaveToday && (
-            <p className="text-xs text-warning">
-              Afternoon Half-Leave ဖြစ်နေပါသည်။ MMT 12:00 PM မှ စ၍ Check in / Check out ပိတ်ထားပါသည်။
-            </p>
-          )}
-          {!isOffToday && schoolConfigured && !canCheckIn && !checkedIn && !geoLoading && (
+          {!isOffToday && !fullLeaveLocked && schoolConfigured && !canCheckIn && !checkedIn && !geoLoading && (
             <p className="text-xs text-destructive">
               {geoBlocked
                 ? "Move inside school area to check in"
                 : (geoDenied || geoError) && !isAdmin
                   ? "Location permission is required to check in"
-                  : morningHalfLocked
-                    ? "Morning Half-Leave အတွက် MMT 11:30 AM မတိုင်ခင် Check in မလုပ်နိုင်ပါ"
-                    : hasAfternoonHalfLeaveToday
-                      ? "Afternoon Half-Leave ဖြစ်နေသောကြောင့် Check in ပိတ်ထားပါသည်"
-                      : ""}
+                  : afternoonHalfLocked
+                    ? "Afternoon Half-Leave ဖြစ်နေသောကြောင့် MMT 12:00 PM နောက်ပိုင်း Check in ပိတ်ထားပါသည်"
+                    : ""}
             </p>
           )}
+
         </CardContent>
       </Card>
 

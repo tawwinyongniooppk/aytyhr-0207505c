@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
 import { ManualDeductionPanel } from "@/components/ManualDeductionPanel";
 import { OvertimeSection } from "@/components/OvertimeSection";
-import { getMMTDateParts } from "@/lib/mmt";
+import { getMMTDateParts, getMMTTodayISO } from "@/lib/mmt";
 
 type LeaveType = "leave" | "half_leave" | "partial_leave";
 
@@ -162,6 +162,10 @@ export default function Leave() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!date || !reason || !user) return;
+    if (date < getMMTTodayISO()) {
+      toast({ title: "Invalid date", description: "ကျော်လွန်ပြီးသော ရက်စွဲကို ရွေး၍ မရပါ။", variant: "destructive" });
+      return;
+    }
     if (type === "partial_leave" && (!startTime || !endTime)) return;
     if (type === "partial_leave" && startTime >= endTime) {
       toast({ title: "Invalid time range", description: "End time must be after start time.", variant: "destructive" });
@@ -862,7 +866,7 @@ function SubmitForm({
           </div>
           <div>
             <Label>Date</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input type="date" min={getMMTTodayISO()} value={date} onChange={(e) => setDate(e.target.value)} />
             {dayName && <p className="text-xs text-muted-foreground mt-1">{dayName}</p>}
             {(fullLeaveDuplicate || halfLeaveDuplicate) && (
               <p className="text-xs text-destructive mt-1.5 font-medium">{DUPLICATE_MSG}</p>
