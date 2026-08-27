@@ -696,14 +696,16 @@ export default function Attendance() {
   const endOfWorkDayMinutes = hhmmToMinutes(expectedCheckOutTime) + 30;
   const dayEnded = currentYangonMinutes >= endOfWorkDayMinutes;
 
-  // Leave records never block or alter check-in. Only an explicit schedule
-  // off-day or a school holiday closes attendance.
+  // Full Leave (pending or approved) closes the whole day's box.
+  const fullLeaveLocked = hasFullLeaveToday;
   const isOffToday = !isWorkingDay || isHolidayToday;
   const canCheckIn = (() => {
     if (isOffToday) return false;
+    if (fullLeaveLocked) return false;
     if (dayEnded) return false;
     if (morningHalfLocked) return false;
     if (record?.check_in_time) return false;
+
     if (!schoolConfigured) return true;
     if (location.isInside === true) return true;
     if ((geoDenied || geoError) && isAdmin) return true;
