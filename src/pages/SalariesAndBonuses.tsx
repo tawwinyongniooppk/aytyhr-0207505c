@@ -85,18 +85,23 @@ export default function SalariesAndBonuses() {
 
   const slipActive = slipEnabled && !!slipUntil && nowMs < Date.parse(slipUntil);
 
+  // Phase 2B-1: Realtime events while the tab is hidden only mark a pending
+  // refresh; exactly one reload runs when the tab becomes visible again.
+  const triggerLoad = useVisibleRefresh(() => load(true));
+  const triggerSlip = useVisibleRefresh(() => refreshSlipSetting());
+
   useEffect(() => {
     if (!user) return;
     load();
     const ch = supabase
       .channel("admin-salaries-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "salaries" }, () => load(true))
-      .on("postgres_changes", { event: "*", schema: "public", table: "attendance" }, () => load(true))
-      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_deductions" }, () => load(true))
-      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_additions" }, () => load(true))
-      .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions" }, () => load(true))
-      .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests" }, () => load(true))
-      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => refreshSlipSetting())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salaries" }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "attendance" }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_deductions" }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_additions" }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions" }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests" }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => triggerSlip())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user]);
