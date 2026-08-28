@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Wallet, TrendingDown, DollarSign, Gift, Minus, Banknote, Plus, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSlipSetting } from "@/hooks/useAppSettingsCache";
+import { useVisibleRefresh } from "@/hooks/useVisibleRefresh";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { formatMMTMonthLabel, getMMTDateParts, getMMTMonthStartISO } from "@/lib/mmt";
