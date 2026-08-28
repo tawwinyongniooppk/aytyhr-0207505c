@@ -162,7 +162,12 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
 
   useEffect(() => {
     if (!user) return;
-    const refresh = () => setRefreshKey((k) => k + 1);
+    // Phase 2B-1: skip Realtime-triggered reloads while hidden; the
+    // visibilitychange effect below already refreshes once on return.
+    const refresh = () => {
+      if (document.hidden) return;
+      setRefreshKey((k) => k + 1);
+    };
     const channel = supabase
       .channel(`yearly-bonus-live-${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "calendar_event_assignments", filter: `user_id=eq.${user.id}` }, refresh)
