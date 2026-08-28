@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useVisibleRefresh } from "@/hooks/useVisibleRefresh";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -51,13 +52,16 @@ export function NotificationsTable({ onEdit, refreshToken }: Props) {
 
   useEffect(() => { void load(); }, [refreshToken]);
 
+  // Phase 2B-1: skip hidden-tab reloads; one refresh when visible again.
+  const triggerLoad = useVisibleRefresh(() => load());
+
   useEffect(() => {
     const channel = supabase
       .channel("notifications-table")
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => { void load(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => { triggerLoad(); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [triggerLoad]);
 
   const filtered = tab === "all" ? rows : rows.filter((r) => r.status === tab);
 
