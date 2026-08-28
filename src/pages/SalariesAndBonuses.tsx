@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Wallet, TrendingDown, DollarSign, Sparkles, Pencil, Plus, Minus, Trash2, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSlipSetting } from "@/hooks/useAppSettingsCache";
+import { useVisibleRefresh } from "@/hooks/useVisibleRefresh";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
