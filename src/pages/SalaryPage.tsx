@@ -119,20 +119,24 @@ export default function SalaryPage() {
   const slipActive = slipEnabled && !!slipUntil && nowMs < Date.parse(slipUntil);
 
 
+  // Phase 2B-1: hidden-tab Realtime events defer to one refresh on return.
+  const triggerLoad = useVisibleRefresh(() => loadData());
+  const triggerSlip = useVisibleRefresh(() => refreshSlipSetting());
+
   useEffect(() => {
     if (!user) return;
     loadData();
     // Realtime: refresh when any of the user's salary-related rows change
     const ch = supabase
       .channel(`salary-live-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "attendance", filter: `user_id=eq.${user.id}` }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "salaries", filter: `user_id=eq.${user.id}` }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_deductions", filter: `user_id=eq.${user.id}` }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_additions", filter: `user_id=eq.${user.id}` }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions", filter: `user_id=eq.${user.id}` }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "leave_manual_deductions", filter: `user_id=eq.${user.id}` }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests", filter: `user_id=eq.${user.id}` }, () => loadData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => refreshSlipSetting())
+      .on("postgres_changes", { event: "*", schema: "public", table: "attendance", filter: `user_id=eq.${user.id}` }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salaries", filter: `user_id=eq.${user.id}` }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_deductions", filter: `user_id=eq.${user.id}` }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salary_manual_additions", filter: `user_id=eq.${user.id}` }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions", filter: `user_id=eq.${user.id}` }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "leave_manual_deductions", filter: `user_id=eq.${user.id}` }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "leave_requests", filter: `user_id=eq.${user.id}` }, () => triggerLoad())
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => triggerSlip())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user]);
