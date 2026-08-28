@@ -51,11 +51,18 @@ export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
       }
     }
     void load();
+    // Phase 2B-1: ignore Realtime reloads while the tab is hidden — the
+    // visibilitychange handler below already performs exactly one refresh
+    // when the user returns, no matter how many events arrived meanwhile.
+    const onEvent = () => {
+      if (document.hidden) return;
+      void load();
+    };
     const channel = supabase
       .channel("task-status-monitor-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_event_assignments" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_event_assignments" }, onEvent)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bonus_transactions" }, onEvent)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, onEvent)
       .subscribe();
     // Refetch when the tab regains focus/visibility so an auto-weekly-credit
     // checkpoint (23:55 MMT on day 3/10/17/24) that fired while this view was
