@@ -201,30 +201,24 @@ export default function Attendance() {
 
   // (Initial + per-MMT-date load lives in the mmtDate effect below.)
 
-  // Lightweight polling (60s) instead of a realtime channel — keeps DB compute
-  // low on the free tier. Pauses when the tab is hidden, refreshes on focus.
+  // Event-driven holiday/leave refresh (Phase 2A) — no polling interval.
+  // Refreshes exactly once when the tab becomes visible again; no duplicate
+  // focus listener. No DB work while document.hidden === true.
   useEffect(() => {
     if (!user) return;
-    let id: ReturnType<typeof setInterval> | null = null;
-    const start = () => {
-      if (id != null) return;
-      id = setInterval(() => {
-        if (!document.hidden) loadHolidayAndLeave();
-      }, 60_000);
+    let refreshing = false;
+    const onVis = async () => {
+      if (document.hidden || refreshing) return;
+      refreshing = true;
+      try {
+        await loadHolidayAndLeave();
+      } finally {
+        refreshing = false;
+      }
     };
-    const stop = () => {
-      if (id != null) { clearInterval(id); id = null; }
-    };
-    const onVis = () => {
-      if (document.hidden) { stop(); }
-      else { loadHolidayAndLeave(); start(); }
-    };
-    start();
     document.addEventListener("visibilitychange", onVis);
-    return () => {
-      stop();
-      document.removeEventListener("visibilitychange", onVis);
-    };
+    return () => document.removeEventListener("visibilitychange", onVis);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Tick every minute so 6 AM gating + end-of-day boundary update without
