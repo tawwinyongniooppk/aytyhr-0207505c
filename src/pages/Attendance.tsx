@@ -839,6 +839,10 @@ export default function Attendance() {
             url: "/salary",
           });
         }
+
+        // Phase 2A: refresh holiday/leave state after a successful check-in
+        // (replaces the old 60s polling refresh). Fire-and-forget.
+        loadHolidayAndLeave();
       }
 
     } catch (e) {
@@ -886,6 +890,10 @@ export default function Attendance() {
 
       const updatedRecord = data as unknown as AttendanceRecord;
       setRecord(updatedRecord);
+
+      // Phase 2A: refresh holiday/leave state after a successful check-out
+      // (replaces the old 60s polling refresh). Fire-and-forget.
+      loadHolidayAndLeave();
 
       const { data: approvedLeave } = await supabase
         .from("leave_requests")
