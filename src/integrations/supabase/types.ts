@@ -1029,6 +1029,17 @@ export type Database = {
         Returns: undefined
       }
       seed_monthly_salaries: { Args: { p_month: string }; Returns: number }
+      update_staff_attendance_settings: {
+        Args: {
+          p_check_in_time: string
+          p_check_out_time: string
+          p_join_date: string
+          p_staff_id: string
+          p_work_day: string
+          p_work_schedule: Json
+        }
+        Returns: boolean
+      }
       verify_cron_secret: { Args: { p_candidate: string }; Returns: boolean }
     }
     Enums: {
