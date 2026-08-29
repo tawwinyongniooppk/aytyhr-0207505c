@@ -716,7 +716,7 @@ export default function Attendance() {
   const partialCoversCheckout = partialLeaveEndsToday.some(
     (end) => hhmmToMinutes(end) >= hhmmToMinutes(expectedCheckOutTime),
   );
-  const canCheckOut = !!record?.check_in_time && !record?.check_out_time && !isOffToday && !fullLeaveLocked && !afternoonHalfLocked && !partialCoversCheckout;
+  const canCheckOut = !!record?.check_in_time && !record?.check_out_time && !isOffToday && !fullLeaveLocked && !partialCoversCheckout;
 
   const getLocationStatusLabel = (): string => {
     if (!schoolConfigured) return "";
