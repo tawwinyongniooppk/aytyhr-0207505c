@@ -54,7 +54,55 @@
     --font-display: 'Outfit', sans-serif;
     --font-body: 'Inter', sans-serif;
   }
+
+  /* Dark Mode — same Modern Office palette, deep navy surfaces */
+  .dark {
+    --background: 222 40% 8%;
+    --foreground: 220 28% 96%;
+
+    --card: 222 38% 12%;
+    --card-foreground: 220 28% 96%;
+
+    --popover: 222 38% 12%;
+    --popover-foreground: 220 28% 96%;
+
+    --primary: 224 80% 62%;
+    --primary-foreground: 222 44% 10%;
+
+    --secondary: 222 30% 20%;
+    --secondary-foreground: 220 28% 96%;
+
+    --muted: 222 28% 17%;
+    --muted-foreground: 220 16% 72%;
+
+    --accent: 168 62% 46%;
+    --accent-foreground: 222 44% 10%;
+
+    --destructive: 0 68% 58%;
+    --destructive-foreground: 222 44% 10%;
+
+    --warning: 33 88% 58%;
+    --warning-foreground: 222 44% 10%;
+
+    --success: 158 60% 46%;
+    --success-foreground: 222 44% 10%;
+
+    --border: 222 26% 24%;
+    --input: 222 26% 24%;
+    --ring: 224 80% 62%;
+
+    --sidebar-background: 222 44% 10%;
+    --sidebar-foreground: 220 28% 96%;
+    --sidebar-primary: 224 80% 62%;
+    --sidebar-primary-foreground: 222 44% 10%;
+    --sidebar-accent: 222 34% 18%;
+    --sidebar-accent-foreground: 220 28% 96%;
+    --sidebar-border: 222 30% 20%;
+    --sidebar-ring: 224 80% 62%;
+  }
 }
+
+
 
 @layer base {
   * {
