@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { formatMMTMonthLabel, getMMTMonthStartISO } from "@/lib/mmt";
+import type { Json } from "@/integrations/supabase/types";
 
 interface DaySchedule {
   active: boolean;
@@ -180,7 +181,7 @@ export default function Staff() {
           p_check_in_time: legacyDay.check_in,
           p_check_out_time: legacyDay.check_out,
           p_work_day: firstActive,
-          p_work_schedule: schedule,
+          p_work_schedule: schedule as unknown as Json,
         })
       : await supabase
           .from("profiles")
