@@ -42,12 +42,10 @@ export const WEEK_SLOTS = [
   { index: 4, startDay: 22, endDay: 24, label: "Week 4" },
 ];
 
-// The sweep runs on each slot's DEADLINE day (slot end + 5):
-//   day 8, 15, 22, 29 at 23:55 MMT. February is clamped to the last day.
-export function checkpointDayFor(slotEndDay: number, month: number) {
-  const target = slotEndDay + 5;
-  if (month === 2 && target > 28) return 28;
-  return target;
+// The sweep runs on each slot's CHECKPOINT day = the slot's last day:
+//   day 3, 10, 17, 24 at 23:55 MMT.
+export function checkpointDayFor(slotEndDay: number, _month: number) {
+  return slotEndDay;
 }
 
 function mkWindow(slot: typeof WEEK_SLOTS[number], year: number, month: number) {
