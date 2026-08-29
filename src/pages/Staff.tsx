@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { formatMMTMonthLabel, getMMTMonthStartISO } from "@/lib/mmt";
+import type { Json } from "@/integrations/supabase/types";
 
 interface DaySchedule {
   active: boolean;
@@ -169,17 +170,35 @@ export default function Staff() {
     // Update the specific staff member's profile.
     // Only admins can read back other users' profile rows (financial/contact
     // fields are admin-only), so non-admin roles rely on the affected-row count.
-    const { count, error } = await supabase
-      .from("profiles")
-      .update(updateData, { count: "exact" })
-      .eq("id", editId);
+    // Assistant Admin cannot directly read another profile row after the
+    // privacy hardening, so a direct PostgREST UPDATE cannot reliably resolve
+    // the target row. Use the narrow attendance-settings RPC for that role;
+    // Admin keeps the existing update path (including financial settings).
+    const saveResult = currentUserRole === "assistant"
+      ? await supabase.rpc("update_staff_attendance_settings", {
+          p_staff_id: editId,
+          p_join_date: form.join_date || null,
+          p_check_in_time: legacyDay.check_in,
+          p_check_out_time: legacyDay.check_out,
+          p_work_day: firstActive,
+          p_work_schedule: schedule as unknown as Json,
+        })
+      : await supabase
+          .from("profiles")
+          .update(updateData, { count: "exact" })
+          .eq("id", editId);
+
+    const error = saveResult.error;
 
     if (error) {
       console.error("Profile update failed", error);
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
       return;
     }
-    if (count === 0) {
+    const didUpdate = currentUserRole === "assistant"
+      ? saveResult.data === true
+      : "count" in saveResult && saveResult.count !== 0;
+    if (!didUpdate) {
       toast({
         title: "Save failed",
         description: "No staff record was updated. You may not have permission to modify this profile.",
