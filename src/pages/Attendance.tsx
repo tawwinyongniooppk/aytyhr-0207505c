@@ -1273,7 +1273,7 @@ export default function Attendance() {
           )}
           {!fullLeaveLocked && hasAfternoonHalfLeaveToday && (
             <p className="text-xs text-warning">
-              <span className="font-semibold">{fullName || "Staff"}</span> ရေ — သင် Afternoon Half Leave ယူထားသောကြောင့် သင့်၏ Check out ကို MMT 12:00 PM သို့ ရွှေ့ထားပါသည်။ Check out လုပ်ပြီးမှ ထွက်သွားပါရန်။
+              <span className="font-semibold">{fullName || "Staff"}</span> ရေ — သင် Afternoon Half Leave ယူထားသောကြောင့် သင့်၏ Check out ကို MMT 12:00 PM သို့ ရွှေ့ထားပါသည်။ MMT 12:00 PM မှ 3:44 PM အတွင်း ကိုယ်တိုင် Check out လုပ်ပြီးမှ အပြင်ထွက်ပါ။ MMT 3:45 PM အထိ မေ့ကျန်ပါက System မှ Auto Check out လုပ်ပြီး 1000 MMK ဖြတ်ပါမည်။
             </p>
           )}
           {dayEnded && !isOffToday && !fullLeaveLocked && (
