@@ -3,9 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Upload, Building2, RefreshCw } from "lucide-react";
+import { Upload, Building2, RefreshCw, Moon, Sun } from "lucide-react";
 import { checkForUpdate } from "@/pwa/registerSW";
 import { useCompanyLogo } from "@/hooks/useAppSettingsCache";
+import { useTheme } from "@/hooks/useTheme";
 
 const MAX_LOGO_SIZE = 2 * 1024 * 1024;
 const ALLOWED = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml", "image/webp"];
@@ -22,6 +23,7 @@ export function AppHeader() {
   const { profile, isItManager } = useProfile();
   const { toast } = useToast();
   const { logoUrl, setLogoUrl } = useCompanyLogo();
+  const { isDark, toggleTheme } = useTheme();
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -99,6 +101,16 @@ export function AppHeader() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="h-9 w-9"
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            title={isDark ? "Light Mode" : "Dark Mode"}
+          >
+            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
           <Button
             variant="ghost"
             size="icon"

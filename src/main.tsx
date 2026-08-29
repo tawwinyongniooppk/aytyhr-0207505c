@@ -4,6 +4,10 @@ import App from "./App.tsx";
 import "./index.css";
 import { applyBranding } from "@/lib/branding";
 import { registerPwa } from "@/pwa/registerSW";
+import { applyTheme, getStoredTheme } from "@/hooks/useTheme";
+
+// Apply the saved Light/Dark preference before first paint (localStorage only).
+applyTheme(getStoredTheme());
 
 // Swap favicon / apple-touch-icon / PWA manifest to the uploaded company logo.
 applyBranding();

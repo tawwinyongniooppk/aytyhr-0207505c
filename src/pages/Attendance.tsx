@@ -679,16 +679,20 @@ export default function Attendance() {
   // opens at MMT 11:30 AM (staff must check in between 11:30 AM and 12:00 PM).
   // Before 11:30 AM the box stays locked.
   const morningHalfLocked = false;
-  // Afternoon Half-Leave (pending or approved) → after 12:00 PM MMT, BOTH
-  // check-in and check-out are locked (the working window has ended).
+  // Afternoon Half-Leave (pending or approved) → after 12:00 PM MMT the staff
+  // may NOT check in any more, but Check out stays OPEN so the staff can check
+  // out themself between 12:00 PM and the auto-checkout sweep (MMT 3:45 PM).
   const afternoonHalfLocked = hasAfternoonHalfLeaveToday && currentYangonMinutes >= noonMinutes;
 
   // End-of-day boundary (MMT). After expected check-out + 30 min grace, the
   // workday is considered finished for the day. Until next midnight MMT the
   // page stays in "Day Complete" mode — no morning greeting, no open
   // check-in/out box. State resets automatically at MMT 00:00 next day.
-  const endOfWorkDayMinutes = hhmmToMinutes(expectedCheckOutTime) + 30;
+  // For Afternoon Half-Leave the box must stay usable until the NORMAL end of
+  // the working day, so the staff can still check out manually before the sweep.
+  const endOfWorkDayMinutes = hhmmToMinutes(baseExpectedCheckOutTime) + 30;
   const dayEnded = currentYangonMinutes >= endOfWorkDayMinutes;
+
 
   // Full Leave (pending or approved) closes the whole day's box.
   const fullLeaveLocked = hasFullLeaveToday;
@@ -712,7 +716,7 @@ export default function Attendance() {
   const partialCoversCheckout = partialLeaveEndsToday.some(
     (end) => hhmmToMinutes(end) >= hhmmToMinutes(expectedCheckOutTime),
   );
-  const canCheckOut = !!record?.check_in_time && !record?.check_out_time && !isOffToday && !fullLeaveLocked && !afternoonHalfLocked && !partialCoversCheckout;
+  const canCheckOut = !!record?.check_in_time && !record?.check_out_time && !isOffToday && !fullLeaveLocked && !partialCoversCheckout;
 
   const getLocationStatusLabel = (): string => {
     if (!schoolConfigured) return "";
@@ -1269,7 +1273,7 @@ export default function Attendance() {
           )}
           {!fullLeaveLocked && hasAfternoonHalfLeaveToday && (
             <p className="text-xs text-warning">
-              <span className="font-semibold">{fullName || "Staff"}</span> ရေ — သင် Afternoon Half Leave ယူထားသောကြောင့် သင့်၏ Check out ကို MMT 12:00 PM သို့ ရွှေ့ထားပါသည်။ Check out လုပ်ပြီးမှ ထွက်သွားပါရန်။
+              <span className="font-semibold">{fullName || "Staff"}</span> ရေ — သင် Afternoon Half Leave ယူထားသောကြောင့် သင့်၏ Check out ကို MMT 12:00 PM သို့ ရွှေ့ထားပါသည်။ MMT 12:00 PM မှ 3:44 PM အတွင်း ကိုယ်တိုင် Check out လုပ်ပြီးမှ အပြင်ထွက်ပါ။ MMT 3:45 PM အထိ မေ့ကျန်ပါက System မှ Auto Check out လုပ်ပြီး 1000 MMK ဖြတ်ပါမည်။
             </p>
           )}
           {dayEnded && !isOffToday && !fullLeaveLocked && (
