@@ -1,5 +1,5 @@
-// Runs at 23:55 MMT on each assignment-window DEADLINE day:
-//   day 8, 15, 22, 29 (the final deadline day of each assignment slot).
+// Runs at 23:55 MMT on each assignment-window CHECKPOINT day:
+//   day 3, 10, 17, 24 (the LAST day of each assignment slot).
 // For each staff who was NOT manually assigned a task whose ASSIGNMENT DATE
 // falls inside the matching slot (1-3 / 8-10 / 15-17 / 22-24), the system
 // credits them 1 unit (auto-approved) plus 1/4 of their monthly bonus.
