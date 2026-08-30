@@ -54,9 +54,16 @@ export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
     // Phase 2B-1: ignore Realtime reloads while the tab is hidden — the
     // visibilitychange handler below already performs exactly one refresh
     // when the user returns, no matter how many events arrived meanwhile.
+    // Phase 2B-2: while visible, coalesce rapid event bursts into ONE reload.
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const onEvent = () => {
       if (document.hidden) return;
-      void load();
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        if (document.hidden || cancelled) return;
+        void load();
+      }, 400);
     };
     const channel = supabase
       .channel("task-status-monitor-live")
@@ -68,15 +75,20 @@ export function StatusMonitor({ staffList }: { staffList: StaffLite[] }) {
     // checkpoint (23:55 MMT on day 3/10/17/24) that fired while this view was
     // already open shows up without a full page reload.
     const onVisible = () => {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState === "visible") {
+        if (timer) { clearTimeout(timer); timer = null; }
+        load();
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
       void supabase.removeChannel(channel);
     };
   }, []);
+
 
   const displayRows = rows.length > 0 ? rows : staffList.map((s) => ({ ...s, ...emptyMemberStats() }));
 
