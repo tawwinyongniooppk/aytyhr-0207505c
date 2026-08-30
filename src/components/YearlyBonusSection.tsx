@@ -164,9 +164,16 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
     if (!user) return;
     // Phase 2B-1: skip Realtime-triggered reloads while hidden; the
     // visibilitychange effect below already refreshes once on return.
+    // Phase 2B-2: coalesce rapid visible-tab event bursts into one refresh.
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const refresh = () => {
       if (document.hidden) return;
-      setRefreshKey((k) => k + 1);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        if (document.hidden) return;
+        setRefreshKey((k) => k + 1);
+      }, 400);
     };
     const channel = supabase
       .channel(`yearly-bonus-live-${user.id}`)
@@ -175,8 +182,9 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "yearly_bonus_progress", filter: `user_id=eq.${user.id}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `assignee_id=eq.${user.id}` }, refresh)
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => { if (timer) clearTimeout(timer); void supabase.removeChannel(channel); };
   }, [user]);
+
 
   // Refetch on tab focus/visibility so a checkpoint credit (23:55 MMT on
   // day 3/10/17/24) that lands while this card is already open shows up
