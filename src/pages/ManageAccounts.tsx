@@ -160,6 +160,7 @@ export default function ManageAccounts() {
     setAvatarPreview(null);
     setAvatarFile(null);
     toast({ title: "Photo removed" });
+    queryClient.invalidateQueries({ queryKey: STAFF_DIRECTORY_KEY });
     loadAccounts();
   };
 
