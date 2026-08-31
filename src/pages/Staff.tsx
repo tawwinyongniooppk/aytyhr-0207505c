@@ -8,9 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Switch } from "@/components/ui/switch";
 import { Phone, Wallet, TrendingDown, DollarSign, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
+import { STAFF_DIRECTORY_KEY } from "@/hooks/useStaffDirectory";
 import { formatMMTMonthLabel, getMMTMonthStartISO } from "@/lib/mmt";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -258,6 +260,9 @@ export default function Staff() {
           : m
       )
     );
+
+    // Schedule/work_day changed → refresh the shared staff directory cache.
+    queryClient.invalidateQueries({ queryKey: STAFF_DIRECTORY_KEY });
 
     toast({ title: "Saved", description: `Updated schedule for ${form.full_name || "staff member"}.` });
 
