@@ -12,8 +12,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { fetchStaffDirectory } from "@/hooks/useStaffDirectory";
 import { toast } from "@/hooks/use-toast";
 import { sendPush } from "@/lib/push";
 import { toMyanmarDate, getMyanmarHoliday, getMyanmarMoonPhase } from "@/lib/mmCalendar";
@@ -62,6 +64,7 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [staffList, setStaffList] = useState<StaffProfile[]>([]);
   const [mySchedule, setMySchedule] = useState<Record<string, { active: boolean }> | null>(null);
   const [offStaffByWeekday, setOffStaffByWeekday] = useState<Record<string, string[]>>({});
@@ -150,7 +153,8 @@ export default function CalendarPage() {
       // Any staff (or assistant) marked off on a weekday => the calendar cell
       // for that weekday gets the light-red Off Day highlight.
       if (!isStaff) {
-        const { data } = await (supabase.rpc("list_staff_directory") as any);
+        // Phase 3A: shared 10-min cached staff directory (same RPC underneath).
+        const data = await fetchStaffDirectory(queryClient);
         const rows = ((data || []) as Array<{ full_name: string; work_schedule: any; role: string }>)
           .filter((r) => r.role === "staff" || r.role === "assistant");
         const byDay: Record<string, string[]> = {};
@@ -228,7 +232,8 @@ export default function CalendarPage() {
       // Admin can assign tasks to Staff and Assistant Admin.
       // Assistant Admin can assign only to Staff.
       const roles = isAssistant ? ["staff"] : ["staff", "assistant"];
-      const { data } = await (supabase.rpc("list_staff_directory") as any);
+      // Phase 3A: shared 10-min cached staff directory (same RPC underneath).
+      const data = await fetchStaffDirectory(queryClient);
       const filtered = ((data as any[]) || []).filter((p) => roles.includes(p.role));
       setStaffList((filtered as StaffProfile[]) || []);
     } catch { /* ignore */ }

@@ -8,7 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { UserPlus, Pencil, Trash2, Loader2, Users, Upload, X, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { STAFF_DIRECTORY_KEY } from "@/hooks/useStaffDirectory";
 import { withNetworkRetry, isNetworkError, NETWORK_ERROR_MESSAGE } from "@/lib/netRetry";
 
 
@@ -38,6 +40,7 @@ function validateEmailPrefix(prefix: string): string | null {
 export default function ManageAccounts() {
   const { toast } = useToast();
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const queryClient = useQueryClient();
   const [loadingAccounts, setLoadingAccounts] = useState(true);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -98,6 +101,7 @@ export default function ManageAccounts() {
         toast({ title: "Account created!", description: `${createForm.full_name} can now log in.` });
         setCreateOpen(false);
         setCreateForm({ full_name: "", emailPrefix: "", password: "", role: "staff", sequence: 100, class: "Neutral" });
+        queryClient.invalidateQueries({ queryKey: STAFF_DIRECTORY_KEY });
         loadAccounts();
       }
     } catch (err: any) {
@@ -156,6 +160,7 @@ export default function ManageAccounts() {
     setAvatarPreview(null);
     setAvatarFile(null);
     toast({ title: "Photo removed" });
+    queryClient.invalidateQueries({ queryKey: STAFF_DIRECTORY_KEY });
     loadAccounts();
   };
 
@@ -209,6 +214,7 @@ export default function ManageAccounts() {
 
       toast({ title: "Account updated" });
       setEditOpen(false);
+      queryClient.invalidateQueries({ queryKey: STAFF_DIRECTORY_KEY });
       loadAccounts();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -229,6 +235,7 @@ export default function ManageAccounts() {
         toast({ title: "Account deleted" });
         setDeleteOpen(false);
         setDeleteAccount(null);
+        queryClient.invalidateQueries({ queryKey: STAFF_DIRECTORY_KEY });
         loadAccounts();
       }
     } catch (err: any) {
