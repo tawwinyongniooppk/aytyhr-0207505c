@@ -101,6 +101,7 @@ export default function ManageAccounts() {
         toast({ title: "Account created!", description: `${createForm.full_name} can now log in.` });
         setCreateOpen(false);
         setCreateForm({ full_name: "", emailPrefix: "", password: "", role: "staff", sequence: 100, class: "Neutral" });
+        queryClient.invalidateQueries({ queryKey: STAFF_DIRECTORY_KEY });
         loadAccounts();
       }
     } catch (err: any) {
@@ -212,6 +213,7 @@ export default function ManageAccounts() {
 
       toast({ title: "Account updated" });
       setEditOpen(false);
+      queryClient.invalidateQueries({ queryKey: STAFF_DIRECTORY_KEY });
       loadAccounts();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -232,6 +234,7 @@ export default function ManageAccounts() {
         toast({ title: "Account deleted" });
         setDeleteOpen(false);
         setDeleteAccount(null);
+        queryClient.invalidateQueries({ queryKey: STAFF_DIRECTORY_KEY });
         loadAccounts();
       }
     } catch (err: any) {
