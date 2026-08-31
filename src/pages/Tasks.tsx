@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { fetchStaffDirectory } from "@/hooks/useStaffDirectory";
 import { toast } from "sonner";
 import { sendPush } from "@/lib/push";
 import { StaffTaskView } from "@/components/tasks/StaffTaskView";
@@ -53,6 +55,7 @@ interface EventAssignment {
 export default function Tasks() {
   const { user } = useAuth();
   const { isAdmin, isStaff, loading: profileLoading } = useProfile();
+  const queryClient = useQueryClient();
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalEvent[]>([]);
   const [eventAssignments, setEventAssignments] = useState<EventAssignment[]>([]);
@@ -103,10 +106,12 @@ export default function Tasks() {
     isFetchingRef.current = true;
     setLoading(true);
     try {
-      const profilesPromise = (supabase.rpc("list_staff_directory") as any).then((r: any) => ({
-        data: (r.data as any[] | null) ?? [],
-        error: r.error,
-      }));
+      // Phase 3A: shared 10-min cached staff directory (same data/shape as the
+      // previous direct RPC; errors surface in the same {data, error} shape).
+      const profilesPromise = fetchStaffDirectory(queryClient).then(
+        (data) => ({ data, error: null as any }),
+        (error) => ({ data: [] as any[], error })
+      );
 
       if (isStaff) {
         const [tasksRes, profilesRes, assRes] = await Promise.all([
