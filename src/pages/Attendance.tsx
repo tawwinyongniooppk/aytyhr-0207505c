@@ -607,7 +607,7 @@ export default function Attendance() {
       const earnedBonus = (bonusRes.data as any[] | null)?.reduce((s, b) => s + (Number(b.amount) || 0), 0) ?? 0;
       const additions = (addRes.data as any[] | null)?.reduce((s, a) => s + (Number(a.amount) || 0), 0) ?? 0;
       const manual = Math.max(0, Number(sal?.manual_deduction ?? 0));
-      const rp = ratesRes.data as any;
+      const rp = profRes.data as any;
       const legacyRate = Number(rp?.deduction_rate_per_minute) || 200;
       const lateRate = Number(rp?.late_deduction_per_minute) || legacyRate;
       const earlyRate = Number(rp?.early_deduction_per_minute) || legacyRate;
