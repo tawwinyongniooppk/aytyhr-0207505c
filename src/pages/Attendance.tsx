@@ -455,22 +455,23 @@ export default function Attendance() {
       const today = getMMTTodayISO();
       const monthStart = getMonthStart();
 
-      const [attRes, settRes, salRes, profileRes, bonusRes, addRes, profSalRes, smdRes, monthAttRes, leavesRes, ratesRes] = await Promise.all([
+      // Single unified profiles fetch: schedule fields + base_salary + deduction
+      // rates were previously three separate selects of the same row (merged in
+      // Phase 3A). Field usage below is unchanged.
+      const [attRes, settRes, salRes, profileRes, bonusRes, addRes, smdRes, monthAttRes, leavesRes] = await Promise.all([
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("key,value").in("key", ["start_time","end_time","grace_period_minutes","deduction_rate_per_minute","school_latitude","school_longitude","allowed_radius_meters"]),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
         supabase
           .from("profiles")
-          .select("role, full_name, work_day, check_in_time, check_out_time, work_schedule")
+          .select("role, full_name, work_day, check_in_time, check_out_time, work_schedule, base_salary, late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute")
           .eq("id", user!.id)
           .maybeSingle(),
         supabase.from("bonus_transactions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("salary_manual_additions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
-        supabase.from("profiles").select("base_salary").eq("id", user!.id).maybeSingle(),
         (supabase as any).from("salary_manual_deductions").select("amount, source").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("attendance").select("date, late_minutes, early_minutes").eq("user_id", user!.id).gte("date", monthStart),
         supabase.from("leave_requests").select("date, type, payment_type, status").eq("user_id", user!.id).eq("status", "approved").gte("date", monthStart),
-        supabase.from("profiles").select("late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute").eq("id", user!.id).maybeSingle(),
       ]);
 
       if (attRes.data) {
