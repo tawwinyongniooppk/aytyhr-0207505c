@@ -89,6 +89,7 @@ function getMonthStart(): string {
 export default function Staff() {
   const { user } = useAuth();
   const { isAdmin, canViewSalary, profile: currentProfile } = useProfile();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [staff, setStaff] = useState<StaffProfile[]>([]);
   const [salaryMap, setSalaryMap] = useState<Record<string, SalaryRecord>>({});
