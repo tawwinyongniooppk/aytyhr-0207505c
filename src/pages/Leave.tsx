@@ -15,7 +15,10 @@ import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { sendPush, notifyAdmins } from "@/lib/push";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { LeaveBalanceCard } from "@/components/LeaveBalanceCard";
+import { useQueryClient } from "@tanstack/react-query";
+import { LeaveBalanceCard, pendingLeaveUnitsKey } from "@/components/LeaveBalanceCard";
+import { leaveBalanceKey } from "@/hooks/useLeaveBalances";
+
 import { ManualDeductionPanel } from "@/components/ManualDeductionPanel";
 import { OvertimeSection } from "@/components/OvertimeSection";
 import { getMMTDateParts, getMMTTodayISO } from "@/lib/mmt";
