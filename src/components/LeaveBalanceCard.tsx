@@ -52,11 +52,15 @@ export function LeaveBalanceCard({ userId }: { userId?: string }) {
     if (!targetId) return;
     // Refresh when the tab becomes visible again (avoids a realtime channel).
     const onVisible = () => {
-      if (document.visibilityState === "visible") void refetch();
+      if (document.visibilityState === "visible") {
+        void refetch();
+        void refetchPending();
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [targetId, refetch]);
+  }, [targetId, refetch, refetchPending]);
+
 
 
 
