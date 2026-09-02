@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Loader2, Upload, Send, Save, X, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationPreview, ICON_MAP, type NotifIconKey, type NotifLayout } from "./NotificationPreview";
+import { useStaffDirectory } from "@/hooks/useStaffDirectory";
 
 const INTERNAL_ROUTES = [
   { value: "/dashboard", label: "Dashboard" },
@@ -71,14 +72,13 @@ export function NotificationComposer({ editingRow, onDone, onClearEdit }: Props)
   const [specificIds, setSpecificIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [staffOptions, setStaffOptions] = useState<Array<{ id: string; full_name: string }>>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const { data: staffDirectory } = useStaffDirectory();
 
-  useEffect(() => {
-    supabase.rpc("list_staff_directory").then(({ data }) => {
-      if (data) setStaffOptions((data as Array<{ id: string; full_name: string }>).map((r) => ({ id: r.id, full_name: r.full_name })));
-    });
-  }, []);
+  const staffOptions = useMemo(
+    () => ((staffDirectory ?? []) as Array<{ id: string; full_name: string }>).map((r) => ({ id: r.id, full_name: r.full_name })),
+    [staffDirectory],
+  );
 
   useEffect(() => {
     if (!editingRow) return;
