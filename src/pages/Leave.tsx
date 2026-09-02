@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useQueryClient } from "@tanstack/react-query";
 import { LeaveBalanceCard, pendingLeaveUnitsKey } from "@/components/LeaveBalanceCard";
 import { leaveBalanceKey } from "@/hooks/useLeaveBalances";
+import { fetchStaffDirectory } from "@/hooks/useStaffDirectory";
 
 import { ManualDeductionPanel } from "@/components/ManualDeductionPanel";
 import { OvertimeSection } from "@/components/OvertimeSection";
@@ -112,26 +113,27 @@ export default function Leave() {
       : Promise.resolve({ data: [] as any[] });
 
     const staffPromise = canManage
-      ? (supabase.rpc("list_staff_directory") as any).then((r: any) => ({
-          data: (r.data as any[] | null)?.filter((p) => p.role === "staff" || p.role === "assistant") ?? [],
-        }))
-      : Promise.resolve({ data: [] as any[] });
+      ? fetchStaffDirectory(queryClient)
+      : Promise.resolve([] as any[]);
 
     const [myRes, allRes, staffRes] = await Promise.all([myPromise, allPromise, staffPromise]);
 
     if (myRes.data) setMyRequests(myRes.data as unknown as LeaveRequest[]);
 
-    if (staffRes.data) {
-      setStaffList((staffRes.data as any[]).map((p: any) => ({ id: p.id, full_name: p.full_name })));
+    if (canManage) {
+      setStaffList(
+        (staffRes as any[])
+          .filter((p: any) => p.role === "staff" || p.role === "assistant")
+          .map((p: any) => ({ id: p.id, full_name: p.full_name })),
+      );
     }
 
     if (canManage && allRes.data) {
       const all = allRes.data as any[];
       const userIds = [...new Set(all.map((r: any) => r.user_id))];
       if (userIds.length > 0) {
-        const { data: profiles } = await (supabase.rpc("list_staff_directory") as any);
         const nameMap: Record<string, string> = {};
-        (profiles as any[])?.filter((p: any) => userIds.includes(p.id))
+        (staffRes as any[])?.filter((p: any) => userIds.includes(p.id))
           .forEach((p: any) => (nameMap[p.id] = p.full_name));
 
         setAllRequests(

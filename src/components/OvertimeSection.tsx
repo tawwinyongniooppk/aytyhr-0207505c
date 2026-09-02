@@ -18,6 +18,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { sendPush, notifyAdmins } from "@/lib/push";
 import { formatMMTDateTime, getMMTDateParts } from "@/lib/mmt";
+import { useQueryClient } from "@tanstack/react-query";
+import { fetchStaffDirectory } from "@/hooks/useStaffDirectory";
 
 interface OvertimeRequest {
   id: string;
@@ -54,6 +56,7 @@ export function OvertimeSection() {
   const { user } = useAuth();
   const { profile, isAdmin, isAssistant, isStaff } = useProfile();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const canManage = isAdmin || isAssistant;
   const canSubmit = isStaff || isAssistant;
@@ -90,22 +93,25 @@ export function OvertimeSection() {
       ? supabase.from("overtime_requests").select("*").order("created_at", { ascending: false })
       : Promise.resolve({ data: [] as any[] });
     const staffP = canManage
-      ? (supabase.rpc("list_staff_directory") as any).then((r: any) => ({
-          data: (r.data as any[] | null)?.filter((p) => p.role === "staff" || p.role === "assistant") ?? [],
-        }))
-      : Promise.resolve({ data: [] as any[] });
+      ? fetchStaffDirectory(queryClient)
+      : Promise.resolve([] as any[]);
 
     const [my, all, staff] = await Promise.all([myP, allP, staffP]);
     if (my.data) setMyItems(my.data as any);
-    if (staff.data) setStaffList((staff.data as any[]).map((p) => ({ id: p.id, full_name: p.full_name })));
+    if (canManage) {
+      setStaffList(
+        (staff as any[])
+          .filter((p) => p.role === "staff" || p.role === "assistant")
+          .map((p) => ({ id: p.id, full_name: p.full_name })),
+      );
+    }
 
     if (canManage && all.data) {
       const rows = all.data as any[];
       const uids = [...new Set(rows.map((r) => r.user_id))];
       let nameMap: Record<string, string> = {};
       if (uids.length) {
-        const { data: profs } = await (supabase.rpc("list_staff_directory") as any);
-        (profs as any[])?.filter((p) => uids.includes(p.id)).forEach((p) => (nameMap[p.id] = p.full_name));
+        (staff as any[])?.filter((p) => uids.includes(p.id)).forEach((p) => (nameMap[p.id] = p.full_name));
       }
       setAllItems(rows.map((r) => ({ ...r, profile_name: nameMap[r.user_id] || "Unknown" })));
     }
