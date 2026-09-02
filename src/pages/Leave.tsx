@@ -54,6 +54,7 @@ export default function Leave() {
   const { user } = useAuth();
   const { profile, isAdmin, isAssistant, isStaff } = useProfile();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [myRequests, setMyRequests] = useState<LeaveRequest[]>([]);
   const [allRequests, setAllRequests] = useState<LeaveRequest[]>([]);
   const [date, setDate] = useState("");
@@ -208,6 +209,8 @@ export default function Leave() {
         setHalfPeriod("morning");
         setStartTime("");
         setEndTime("");
+        queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+        queryClient.invalidateQueries({ queryKey: ["leave-pending-units"] });
         loadData();
       }
     } finally {
@@ -319,6 +322,8 @@ export default function Leave() {
         setSelectedRequest(null);
         setHalfDeductTitle("");
         setHalfDeductAmount("");
+        queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+        queryClient.invalidateQueries({ queryKey: ["leave-pending-units"] });
         loadData();
       } finally {
         setReviewingId(null);
@@ -412,6 +417,8 @@ export default function Leave() {
         url: "/leave",
       });
       setSelectedRequest(null);
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-pending-units"] });
       loadData();
     } finally {
       setReviewingId(null);
