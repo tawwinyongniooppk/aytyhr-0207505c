@@ -18,7 +18,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { fetchStaffDirectory } from "@/hooks/useStaffDirectory";
 import { toast } from "@/hooks/use-toast";
 import { sendPush } from "@/lib/push";
-import { toMyanmarDate, getMyanmarHoliday, getMyanmarMoonPhase } from "@/lib/mmCalendar";
+import { getMyanmarHoliday } from "@/lib/mmCalendar";
 
 interface CalEvent {
   id: string;
@@ -769,8 +769,6 @@ export default function CalendarPage() {
               const mmHoliday = getMyanmarHoliday(dateStr);
               const isScheduledOff = !!mySchedule && mySchedule[weekdayName] && mySchedule[weekdayName].active === false;
               const isOffDay = isScheduledOff || !!mmHoliday;
-              const mmDateText = toMyanmarDate(new Date(year, month, day));
-              const mmDayOnly = mmDateText.split(" ")[0] || "";
               const isSunday = dow === 0;
 
               const numClasses = [
@@ -789,11 +787,6 @@ export default function CalendarPage() {
                   className={`relative h-14 sm:h-20 flex flex-col items-center justify-start pt-1.5 border-b border-border/40 transition-colors ${offHighlight ? "bg-destructive/15 hover:bg-destructive/20" : "hover:bg-muted/40"}`}
                 >
                   <span className={numClasses}>{day}</span>
-                  {mmDayOnly && (
-                    <span className={`text-[10px] mt-0.5 leading-none ${mmHoliday || isSunday ? "text-destructive/70" : "text-muted-foreground"}`} lang="my">
-                      {mmDayOnly}
-                    </span>
-                  )}
                   <div className="flex gap-0.5 mt-auto mb-1.5 flex-wrap justify-center px-1">
                     {dayEvents.slice(0, 3).map((e) => (
                       <div key={e.id} className={`h-1 w-1 rounded-full ${EVENT_DOT_COLORS[e.event_type] || "bg-muted-foreground"}`} title={e.title} />
@@ -814,7 +807,6 @@ export default function CalendarPage() {
         const isScheduledOff = !!mySchedule && mySchedule[weekdayName] && mySchedule[weekdayName].active === false;
         const mmHoliday = getMyanmarHoliday(selectedDate);
         const isOffDay = isScheduledOff || !!mmHoliday;
-        const mmDate = toMyanmarDate(sd);
 
         return (
           <Card className="border border-border shadow-sm">
@@ -827,13 +819,6 @@ export default function CalendarPage() {
                     {sd.toLocaleDateString("default", { month: "long", day: "numeric", year: "numeric" })}
                   </CardTitle>
                 </div>
-                {mmDate && (
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground" lang="my">{mmDate}</p>
-                    <p className="text-xs text-muted-foreground/80" lang="my">{getMyanmarMoonPhase(sd).label}</p>
-                  </div>
-                )}
-
               </div>
             </CardHeader>
             <CardContent>
