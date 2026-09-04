@@ -18,6 +18,8 @@ interface Props {
   onRowHeightChange?: (cardId: string, rowId: string, newHeightPx: number) => void;
   /** Visual scale of the canvas (for converting drag pixel delta back to model space). */
   scale?: number;
+  /** Allow inline editing of locked cells (template editor only — locked applies to staff). */
+  allowLockedEdit?: boolean;
   /** Show dashed page-break lines if content exceeds one page height. */
   showPageBreaks?: boolean;
   className?: string;
