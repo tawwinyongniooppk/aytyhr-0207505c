@@ -281,13 +281,14 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
       />
     ) : null;
 
-    if (editable && !cell.locked) {
+    if (editable && (!cell.locked || allowLockedEdit)) {
       if (cell.options && cell.options.length > 0) {
         return (
-          <td key={cell.id} colSpan={cell.colSpan} style={baseStyle}>
+          <td key={cell.id} colSpan={cell.colSpan} style={baseStyle} onClick={() => onCellClick?.(cardId, rowId, cell.id)}>
             {prefix}
             <select
               value={cell.value}
+              onFocus={() => onCellClick?.(cardId, rowId, cell.id)}
               onChange={e => onCellChange?.(cardId, rowId, cell.id, e.target.value)}
               style={{ width: "100%", border: "none", background: "transparent", font: "inherit", color: "inherit", outline: "none" }}
             >
@@ -299,9 +300,10 @@ export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function Templat
         );
       }
       return (
-        <td key={cell.id} colSpan={cell.colSpan} style={baseStyle}>
+        <td key={cell.id} colSpan={cell.colSpan} style={baseStyle} onClick={() => onCellClick?.(cardId, rowId, cell.id)}>
           {prefix}
           <textarea
+            onFocus={() => onCellClick?.(cardId, rowId, cell.id)}
             value={cell.value}
             onChange={e => onCellChange?.(cardId, rowId, cell.id, e.target.value)}
             rows={1}
