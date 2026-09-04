@@ -182,7 +182,7 @@ function ColumnResizeOverlay({
 }
 
 export const TemplateCanvas = forwardRef<HTMLDivElement, Props>(function TemplateCanvas(
-  { template, editable, selectedCellId, onCellClick, onCellChange, onColWidthChange, onRowHeightChange, scale = 1, showPageBreaks, className, renderOverlay, dragCardId, onCardDragStart, onCardDragEnd, onCardReorder },
+  { template, editable, selectedCellId, onCellClick, onCellChange, onColWidthChange, onRowHeightChange, scale = 1, allowLockedEdit, showPageBreaks, className, renderOverlay, dragCardId, onCardDragStart, onCardDragEnd, onCardReorder },
   ref,
 ) {
 
