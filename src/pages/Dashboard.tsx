@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2, ListChecks, ChevronRight, Activity, CheckCircle2, UserX, Sparkles, CalendarDays } from "lucide-react";
+import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2, ListChecks, ChevronRight, Activity, CheckCircle2, UserX, CalendarDays, ArrowUpRight, CircleCheck, BriefcaseBusiness } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,7 +52,7 @@ interface TopDeduction {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { canViewSalary, isStaff } = useProfile();
+  const { canViewSalary, isStaff, isAssistant } = useProfile();
   const { hasFor } = useNotifications();
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -183,19 +183,10 @@ export default function Dashboard() {
     .slice(0, 3);
 
 
-  const summaryCards = [
-    { label: "Total Staff", value: totalStaff, icon: Users, accent: "text-primary", to: "/staff" },
-    { label: "Present Today", value: presentToday, icon: CalendarCheck, accent: "text-accent", to: "/attendance" },
-    { label: "Late Today", value: lateToday, icon: AlertTriangle, accent: "text-destructive", to: "/attendance" },
-    { label: "On Leave", value: onLeaveToday, icon: FileText, accent: "text-warning", to: "/leave" },
-    { label: "Tasks", value: `${pendingTasks} pending • ${completedTasks} done`, icon: ListChecks, accent: "text-primary", to: "/tasks" },
-    ...(canViewSalary ? [{ label: "Today's Deductions", value: `${todayDeductions.toLocaleString()} Ks`, icon: TrendingDown, accent: "text-destructive", to: "/salaries-bonuses" }] : []),
-  ];
-
   function attendanceStatus(a: AttendanceRow) {
     if (!a.check_in_time) return { label: "Absent", cls: "bg-muted text-muted-foreground" };
     if (a.late_minutes > 0) return { label: `Late ${a.late_minutes}m`, cls: "bg-destructive/10 text-destructive" };
-    return { label: "On time", cls: "bg-green-100 text-green-700" };
+    return { label: "On time", cls: "bg-success/10 text-success" };
   }
 
   function formatTime(ts: string | null) {
@@ -231,169 +222,163 @@ export default function Dashboard() {
   const taskCompletion = taskTotal > 0 ? Math.round((completedTasks / taskTotal) * 100) : 0;
   const avgDailyDeduction = totalAttendanceDays > 0 ? Math.round(monthDeductions / totalAttendanceDays) : 0;
   const adminStaffList = staffProfiles.map((p) => ({ id: p.id, full_name: p.full_name, sequence: p.sequence ?? null }));
+  const attentionItems = [
+    { label: "Pending leave", value: pendingRequests.length, icon: FileText, to: "/leave", tone: "warning" },
+    { label: "Late today", value: lateToday, icon: AlertTriangle, to: "/attendance", tone: "destructive" },
+    { label: "Absent today", value: absentToday, icon: UserX, to: "/attendance", tone: "muted" },
+    { label: "Pending tasks", value: pendingTasks, icon: ListChecks, to: "/tasks", tone: "primary" },
+  ] as const;
+
+  const interactiveCard = "group cursor-pointer border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+  const sectionHeader = "flex items-center justify-between gap-3 border-b border-border/70 px-4 py-4 sm:px-5";
 
   return (
-    <div className="space-y-6">
-      {/* Premium Hero */}
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-background to-accent/5 p-5 md:p-7">
-        <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-primary/15 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -left-12 h-48 w-48 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
-        <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-primary mb-2">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span className="uppercase tracking-wider">Live Overview</span>
+    <div className="space-y-5 pb-4">
+      <section className="overflow-hidden rounded-lg border border-border bg-secondary text-secondary-foreground shadow-sm">
+        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(480px,0.85fr)] lg:items-end">
+          <div className="max-w-2xl">
+            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase text-secondary-foreground/65">
+              <BriefcaseBusiness className="h-4 w-4" />
+              {isAssistant ? "Operations workspace" : "HR command center"}
             </div>
-            <h1 className="text-3xl font-bold font-display tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground text-sm mt-1">{formatMMTDate(new Date(), "en-US")} · Myanmar Standard Time</p>
+            <h1 className="text-2xl font-bold font-display sm:text-3xl">
+              {isAssistant ? "Assistant Admin Dashboard" : "Admin Dashboard"}
+            </h1>
+            <p className="mt-2 text-sm text-secondary-foreground/70">
+              {formatMMTDate(new Date(), "en-US")} · Myanmar Standard Time
+            </p>
           </div>
-          <div className="grid grid-cols-3 md:grid-cols-4 gap-3 md:gap-5 md:min-w-[520px]">
-            <div className="rounded-xl bg-card/70 backdrop-blur border border-border/60 px-3 py-2.5">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Attendance</p>
-              <p className="text-lg font-bold font-display text-primary">{attendanceRate}%</p>
-              <Progress value={attendanceRate} className="h-1 mt-1.5" />
-            </div>
-            <div className="rounded-xl bg-card/70 backdrop-blur border border-border/60 px-3 py-2.5">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Punctuality</p>
-              <p className="text-lg font-bold font-display text-accent">{punctualityRate}%</p>
-              <Progress value={punctualityRate} className="h-1 mt-1.5" />
-            </div>
-            <div className="rounded-xl bg-card/70 backdrop-blur border border-border/60 px-3 py-2.5">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Active Staff</p>
-              <p className="text-lg font-bold font-display text-secondary">{activeStaffToday}</p>
-              <p className="text-[11px] text-muted-foreground mt-1">{offDayStaffIds.size} off today</p>
-            </div>
-            <div className="rounded-xl bg-card/70 backdrop-blur border border-border/60 px-3 py-2.5 hidden md:block">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Tasks Done</p>
-              <p className="text-lg font-bold font-display text-secondary">{taskCompletion}%</p>
-              <Progress value={taskCompletion} className="h-1 mt-1.5" />
-            </div>
+
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-secondary-foreground/15 bg-secondary-foreground/15 sm:grid-cols-4">
+            {[
+              { label: "Attendance", value: `${attendanceRate}%`, progress: attendanceRate },
+              { label: "Punctuality", value: `${punctualityRate}%`, progress: punctualityRate },
+              { label: "Active staff", value: activeStaffToday, detail: `${offDayStaffIds.size} off today` },
+              { label: "Tasks done", value: `${taskCompletion}%`, progress: taskCompletion },
+            ].map((item) => (
+              <div key={item.label} className="min-h-24 bg-secondary/95 p-3.5">
+                <p className="text-[10px] font-semibold uppercase text-secondary-foreground/55">{item.label}</p>
+                <p className="mt-1 text-xl font-bold font-display tabular-nums">{item.value}</p>
+                {item.progress !== undefined ? (
+                  <Progress value={item.progress} className="mt-3 h-1 bg-secondary-foreground/15 [&>div]:bg-accent" />
+                ) : (
+                  <p className="mt-2 text-[11px] text-secondary-foreground/60">{item.detail}</p>
+                )}
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
       {isStaff && <LeaveBalanceCard />}
       {!isStaff && (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
-          <Card className="border border-border shadow-sm bg-gradient-to-b from-card to-muted/20">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-display flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-primary" />
-                Today Workforce Snapshot
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-xl border border-border/70 bg-background/80 p-4">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total Staff</p>
-                <p className="mt-2 text-2xl font-bold font-display">{totalStaff}</p>
-              </div>
-              <div className="rounded-xl border border-border/70 bg-background/80 p-4">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Working Today</p>
-                <p className="mt-2 text-2xl font-bold font-display text-primary">{activeStaffToday}</p>
-              </div>
-              <div className="rounded-xl border border-border/70 bg-background/80 p-4">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Off Day</p>
-                <p className="mt-2 text-2xl font-bold font-display text-destructive">{offDayStaffIds.size}</p>
-              </div>
-              <div className="rounded-xl border border-border/70 bg-background/80 p-4">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Absent Count</p>
-                <p className="mt-2 text-2xl font-bold font-display">{absentToday}</p>
-                <p className="mt-1 text-[11px] text-muted-foreground">Off-day staff excluded</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <StaffLeaveBalancesCard staff={adminStaffList} />
-        </div>
+        <section aria-labelledby="attention-title" className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+          <div className="flex flex-col gap-1 border-b border-border/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div>
+              <h2 id="attention-title" className="flex items-center gap-2 text-base font-semibold font-display">
+                <AlertTriangle className="h-4 w-4 text-warning" /> Needs Attention
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Items that may need follow-up today</p>
+            </div>
+            <Badge variant="secondary" className="mt-2 w-fit sm:mt-0">
+              {attentionItems.reduce((sum, item) => sum + item.value, 0)} open items
+            </Badge>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4">
+            {attentionItems.map((item, index) => {
+              const calm = item.value === 0;
+              const toneClass = calm
+                ? "text-success bg-success/10"
+                : item.tone === "warning"
+                  ? "text-warning bg-warning/10"
+                  : item.tone === "destructive"
+                    ? "text-destructive bg-destructive/10"
+                    : item.tone === "primary"
+                      ? "text-primary bg-primary/10"
+                      : "text-foreground bg-muted";
+              return (
+                <div
+                  key={item.label}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(item.to)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(item.to); } }}
+                  className={cn("group flex min-h-24 cursor-pointer items-center gap-3 px-4 py-4 transition-colors hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", index > 0 && "border-t border-border/70 sm:border-l", index === 2 && "sm:border-l-0 lg:border-l", index > 1 && "sm:border-t lg:border-t-0")}
+                >
+                  <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-md", toneClass)}>
+                    {calm ? <CircleCheck className="h-5 w-5" /> : <item.icon className="h-5 w-5" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-2xl font-bold font-display tabular-nums">{item.value}</p>
+                    <p className="text-xs text-muted-foreground">{calm ? `${item.label} · Clear` : item.label}</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
-      {/* Pulse Strip — at-a-glance today */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div onClick={() => navigate("/attendance")} className="group cursor-pointer rounded-xl border border-border bg-gradient-to-br from-accent/5 to-transparent p-4 hover:border-accent/40 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <CheckCircle2 className="h-4 w-4 text-accent" />
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-accent/80">On time</span>
-          </div>
-          <p className="text-2xl font-bold font-display mt-2">{onTimeToday}<span className="text-xs font-normal text-muted-foreground"> / {activeStaffToday}</span></p>
-          <p className="text-xs text-muted-foreground mt-1">Checked in punctually</p>
-        </div>
-        <div onClick={() => navigate("/attendance")} className="group cursor-pointer rounded-xl border border-border bg-gradient-to-br from-destructive/5 to-transparent p-4 hover:border-destructive/40 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Late</span>
-          </div>
-          <p className="text-2xl font-bold font-display mt-2 text-destructive">{lateToday}</p>
-          <p className="text-xs text-muted-foreground mt-1">Arrived after schedule</p>
-        </div>
-        <div onClick={() => navigate("/leave")} className="group cursor-pointer rounded-xl border border-border bg-gradient-to-br from-warning/5 to-transparent p-4 hover:border-warning/40 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <FileText className="h-4 w-4 text-warning" />
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-warning/80">On leave</span>
-          </div>
-          <p className="text-2xl font-bold font-display mt-2">{onLeaveToday}</p>
-          <p className="text-xs text-muted-foreground mt-1">Approved absences</p>
-        </div>
-        <div onClick={() => navigate("/staff")} className="group cursor-pointer rounded-xl border border-border bg-gradient-to-br from-muted/30 to-transparent p-4 hover:border-primary/40 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between">
-            <UserX className="h-4 w-4 text-muted-foreground" />
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Absent</span>
-          </div>
-          <p className="text-2xl font-bold font-display mt-2">{absentToday}</p>
-          <p className="text-xs text-muted-foreground mt-1">{isGlobalOffDay ? "Today is an off day" : "Off-day staff excluded"}</p>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-        {summaryCards.map((card) => (
-          <Card
-            key={card.label}
-            role="button"
-            tabIndex={0}
-            onClick={() => navigate(card.to)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(card.to); } }}
-            className="group relative overflow-hidden border border-border shadow-sm hover:shadow-lg hover:border-primary/40 hover:-translate-y-0.5 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40"
-          >
-            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{card.label}</span>
-                <div className="relative">
-                  <div className={cn("h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center group-hover:bg-primary/10 transition-colors")}>
-                    <card.icon className={cn("h-4 w-4", card.accent)} />
-                  </div>
-                  {hasFor(card.to) && (
-                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-card animate-pulse" />
-                  )}
-                </div>
+      {!isStaff && (
+        <section aria-labelledby="workforce-title" className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+          <Card className="overflow-hidden border border-border bg-card shadow-sm">
+            <div className={sectionHeader}>
+              <div>
+                <CardTitle id="workforce-title" className="flex items-center gap-2 text-base font-display">
+                  <Users className="h-4 w-4 text-primary" /> Today's Workforce
+                </CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">Staff availability and attendance at a glance</p>
               </div>
-              <div className="flex items-end justify-between gap-2">
-                <p className="text-xl font-bold font-display">{card.value}</p>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0 mb-1 group-hover:translate-x-0.5 group-hover:text-primary transition-all" />
+              <button onClick={() => navigate("/staff")} className="group flex min-h-10 items-center gap-1 rounded-md px-2 text-xs font-semibold text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Open staff setup">
+                View staff <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </button>
+            </div>
+            <CardContent className="p-4 sm:p-5">
+              <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border lg:grid-cols-4">
+                {[
+                  { label: "Total staff", value: totalStaff, detail: "All staff", accent: "text-foreground" },
+                  { label: "Working today", value: activeStaffToday, detail: `${attendanceRate}% present`, accent: "text-primary" },
+                  { label: "Present", value: presentToday, detail: `${onTimeToday} on time`, accent: "text-success" },
+                  { label: "Off day", value: offDayStaffIds.size, detail: isGlobalOffDay ? "Global off day" : "Not scheduled", accent: "text-muted-foreground" },
+                ].map((metric) => (
+                  <div key={metric.label} className="bg-card p-4">
+                    <p className="text-[11px] font-semibold uppercase text-muted-foreground">{metric.label}</p>
+                    <p className={cn("mt-2 text-3xl font-bold font-display tabular-nums", metric.accent)}>{metric.value}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{metric.detail}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-3 divide-x divide-border rounded-md bg-muted/45 px-2 py-3 text-center">
+                <div className="px-2"><p className="text-lg font-bold font-display tabular-nums">{onTimeToday}</p><p className="text-[11px] text-muted-foreground">On time</p></div>
+                <div className="px-2"><p className="text-lg font-bold font-display text-destructive tabular-nums">{lateToday}</p><p className="text-[11px] text-muted-foreground">Late</p></div>
+                <div className="px-2"><p className="text-lg font-bold font-display text-warning tabular-nums">{onLeaveToday}</p><p className="text-[11px] text-muted-foreground">On leave</p></div>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+          <StaffLeaveBalancesCard staff={adminStaffList} />
+        </section>
+      )}
 
-      <div className="grid md:grid-cols-2 gap-5">
-        {/* Today's Attendance */}
-        <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/attendance")}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                Today's Attendance
-              </span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+      <section className="grid gap-5 lg:grid-cols-12">
+        <Card role="button" tabIndex={0} onClick={() => navigate("/attendance")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/attendance"); } }} className={cn(interactiveCard, "overflow-hidden lg:col-span-7")}>
+          <div className={sectionHeader}>
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base font-display"><Clock className="h-4 w-4 text-primary" /> Today's Attendance</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">Live records already loaded for today</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+          </div>
+          <CardContent className="p-4 sm:p-5">
             {staffAttendance.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No attendance records yet today.</p>
+              <div className="flex min-h-32 flex-col items-center justify-center rounded-md border border-dashed border-border bg-muted/20 px-4 text-center">
+                <Clock className="mb-2 h-5 w-5 text-muted-foreground" />
+                <p className="text-sm font-medium">No attendance records yet</p>
+                <p className="mt-1 text-xs text-muted-foreground">Today’s check-ins will appear here.</p>
+              </div>
             ) : (
-              <div className="space-y-2">
-                 {staffAttendance
+              <div className="divide-y divide-border">
+                {staffAttendance
                   .filter((a) => !offDayStaffIds.has(a.user_id))
                   .map((a) => {
                   const profile = profileMap[a.user_id];
@@ -402,18 +387,18 @@ export default function Dashboard() {
                     <div
                       key={a.id}
                       onClick={(e) => { e.stopPropagation(); navigate("/attendance"); }}
-                      className="flex items-center justify-between py-2 border-b border-border last:border-0 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                       className="flex min-h-14 items-center justify-between gap-3 px-2 py-2.5 transition-colors hover:bg-muted/45"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
+                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
                           {(profile?.full_name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2)}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{profile?.full_name || "Unknown"}</p>
-                          <p className="text-xs text-muted-foreground">In: {formatTime(a.check_in_time)}</p>
+                           <p className="truncate text-sm font-semibold">{profile?.full_name || "Unknown"}</p>
+                           <p className="text-xs text-muted-foreground">Checked in · {formatTime(a.check_in_time)}</p>
                         </div>
                       </div>
-                      <Badge variant="secondary" className={cn("text-xs shrink-0", status.cls)}>
+                       <Badge variant="secondary" className={cn("shrink-0 rounded-md text-xs", status.cls)}>
                         {status.label}
                       </Badge>
                     </div>
@@ -424,56 +409,42 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Leave & Approval */}
-        <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/leave")}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                Leave & Requests
-              </span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
-              <div
-                onClick={(e) => { e.stopPropagation(); navigate("/leave"); }}
-                className="text-center p-3 rounded-lg bg-amber-50 border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors"
-              >
-                <p className="text-xl font-bold text-amber-600">{pendingRequests.length}</p>
-                <p className="text-xs text-amber-700 mt-1">Pending</p>
-              </div>
-              <div
-                onClick={(e) => { e.stopPropagation(); navigate("/leave"); }}
-                className="text-center p-3 rounded-lg bg-green-50 border border-green-200 cursor-pointer hover:bg-green-100 transition-colors"
-              >
-                <p className="text-xl font-bold text-green-600">{approvedToday.length}</p>
-                <p className="text-xs text-green-700 mt-1">Approved</p>
-              </div>
-              <div
-                onClick={(e) => { e.stopPropagation(); navigate("/leave"); }}
-                className="text-center p-3 rounded-lg bg-red-50 border border-red-200 cursor-pointer hover:bg-red-100 transition-colors"
-              >
-                <p className="text-xl font-bold text-destructive">{rejectedToday.length}</p>
-                <p className="text-xs text-red-700 mt-1">Rejected</p>
-              </div>
+        <Card role="button" tabIndex={0} onClick={() => navigate("/leave")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/leave"); } }} className={cn(interactiveCard, "overflow-hidden lg:col-span-5")}>
+          <div className={sectionHeader}>
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base font-display"><FileText className="h-4 w-4 text-warning" /> Leave & Requests</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">Review status for the current period</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+          </div>
+          <CardContent className="space-y-4 p-4 sm:p-5">
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "Pending", value: pendingRequests.length, cls: "border-warning/30 bg-warning/10 text-warning" },
+                { label: "Approved", value: approvedToday.length, cls: "border-success/25 bg-success/10 text-success" },
+                { label: "Rejected", value: rejectedToday.length, cls: "border-destructive/25 bg-destructive/10 text-destructive" },
+              ].map((item) => (
+                <div key={item.label} className={cn("rounded-md border p-3 text-center", item.cls)}>
+                  <p className="text-xl font-bold font-display tabular-nums">{item.value}</p>
+                  <p className="mt-1 text-[11px] font-medium">{item.label}</p>
+                </div>
+              ))}
             </div>
             {pendingRequests.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">Recent pending</p>
-                <div className="space-y-2">
+                <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Recent pending</p>
+                <div className="divide-y divide-border rounded-md border border-border">
                   {pendingRequests.slice(0, 3).map((r) => (
                     <div
                       key={r.id}
                       onClick={(e) => { e.stopPropagation(); navigate("/leave"); }}
-                      className="flex items-center justify-between py-1.5 border-b border-border last:border-0 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                      className="flex min-h-14 items-center justify-between gap-3 px-3 py-2 transition-colors hover:bg-muted/45"
                     >
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{profileMap[r.user_id]?.full_name || "Unknown"}</p>
+                        <p className="truncate text-sm font-semibold">{profileMap[r.user_id]?.full_name || "Unknown"}</p>
                         <p className="text-xs text-muted-foreground">{r.type} — {r.date}</p>
                       </div>
-                      <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">Pending</Badge>
+                      <Badge variant="secondary" className="rounded-md bg-warning/10 text-xs text-warning">Pending</Badge>
                     </div>
                   ))}
                 </div>
@@ -482,41 +453,35 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Salary Impact - Admin only */}
+      </section>
+
+      <section className={cn("grid gap-5", canViewSalary ? "lg:grid-cols-12" : "lg:grid-cols-1")}>
         {canViewSalary && (
-          <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/salaries-bonuses")}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-display flex items-center justify-between gap-2">
-                <span className="flex items-center gap-2">
-                  <TrendingDown className="h-4 w-4 text-muted-foreground" />
-                  Salary Impact — Today
-                </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div
-                onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
-                className="p-4 rounded-lg bg-destructive/5 border border-destructive/20 cursor-pointer hover:bg-destructive/10 transition-colors"
-              >
-                <p className="text-xs text-muted-foreground">Total Deductions Today</p>
-                <p className="text-2xl font-bold text-destructive">{todayDeductions.toLocaleString()} Ks</p>
+          <Card role="button" tabIndex={0} onClick={() => navigate("/salaries-bonuses")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/salaries-bonuses"); } }} className={cn(interactiveCard, "overflow-hidden lg:col-span-5")}>
+            <div className={sectionHeader}>
+              <div><CardTitle className="flex items-center gap-2 text-base font-display"><TrendingDown className="h-4 w-4 text-destructive" /> Salary Impact</CardTitle><p className="mt-1 text-xs text-muted-foreground">Today and current month</p></div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+            </div>
+            <CardContent className="space-y-4 p-4 sm:p-5">
+              <div className="rounded-md border border-destructive/20 bg-destructive/5 p-4">
+                <p className="text-xs font-medium text-muted-foreground">Total deductions today</p>
+                <p className="mt-1 text-2xl font-bold font-display text-destructive tabular-nums">{todayDeductions.toLocaleString()} Ks</p>
               </div>
               {topDeductions.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Top deductions this month</p>
-                  <div className="space-y-2">
+                  <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Top deductions this month</p>
+                  <div className="divide-y divide-border">
                     {topDeductions.map((d, i) => (
                       <div
                         key={d.name}
                         onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
-                        className="flex items-center justify-between py-1.5 border-b border-border last:border-0 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                        className="flex items-center justify-between gap-3 px-2 py-2.5 transition-colors hover:bg-muted/45"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}.</span>
-                          <span className="text-sm font-medium">{d.name}</span>
+                          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-bold text-muted-foreground">{i + 1}</span>
+                          <span className="text-sm font-semibold">{d.name}</span>
                         </div>
-                        <span className="text-sm font-semibold text-destructive">{d.total.toLocaleString()} Ks</span>
+                        <span className="shrink-0 text-sm font-semibold text-destructive tabular-nums">{d.total.toLocaleString()} Ks</span>
                       </div>
                     ))}
                   </div>
@@ -526,55 +491,49 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {/* Monthly Report */}
-        <Card className="border border-border shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer" onClick={() => navigate("/attendance")}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2">
-                <CalendarCheck className="h-4 w-4 text-muted-foreground" />
-                Monthly Report
-              </span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+        <Card role="button" tabIndex={0} onClick={() => navigate("/attendance")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/attendance"); } }} className={cn(interactiveCard, "overflow-hidden", canViewSalary ? "lg:col-span-7" : "w-full")}>
+          <div className={sectionHeader}>
+            <div><CardTitle className="flex items-center gap-2 text-base font-display"><CalendarCheck className="h-4 w-4 text-primary" /> Monthly Management Summary</CardTitle><p className="mt-1 text-xs text-muted-foreground">Attendance and deduction overview</p></div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+          </div>
+          <CardContent className="p-4 sm:p-5">
+            <div className={cn("grid gap-px overflow-hidden rounded-md border border-border bg-border", canViewSalary ? "grid-cols-2" : "sm:grid-cols-2")}>
               <div
                 onClick={(e) => { e.stopPropagation(); navigate("/attendance"); }}
-                className="flex items-center justify-between py-2 border-b border-border rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                className="bg-card p-4 transition-colors hover:bg-muted/35"
               >
-                <span className="text-sm text-muted-foreground">Total Attendance Days</span>
-                <span className="text-sm font-bold">{totalAttendanceDays}</span>
+                <p className="text-xs text-muted-foreground">Attendance days</p>
+                <p className="mt-2 text-2xl font-bold font-display tabular-nums">{totalAttendanceDays}</p>
               </div>
               <div
                 onClick={(e) => { e.stopPropagation(); navigate("/attendance"); }}
-                className="flex items-center justify-between py-2 border-b border-border rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                className="bg-card p-4 transition-colors hover:bg-muted/35"
               >
-                <span className="text-sm text-muted-foreground">Late Cases</span>
-                <span className="text-sm font-bold text-destructive">{totalLateCases}</span>
+                <p className="text-xs text-muted-foreground">Late cases</p>
+                <p className="mt-2 text-2xl font-bold font-display text-destructive tabular-nums">{totalLateCases}</p>
               </div>
               {canViewSalary && (
                 <>
                   <div
                     onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
-                    className="flex items-center justify-between py-2 border-b border-border rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                    className="bg-card p-4 transition-colors hover:bg-muted/35"
                   >
-                    <span className="text-sm text-muted-foreground">Total Deductions</span>
-                    <span className="text-sm font-bold text-destructive">{monthDeductions.toLocaleString()} Ks</span>
+                    <p className="text-xs text-muted-foreground">Total deductions</p>
+                    <p className="mt-2 text-xl font-bold font-display text-destructive tabular-nums">{monthDeductions.toLocaleString()} Ks</p>
                   </div>
                   <div
                     onClick={(e) => { e.stopPropagation(); navigate("/salaries-bonuses"); }}
-                    className="flex items-center justify-between py-2 rounded-md hover:bg-muted/50 px-2 -mx-2 cursor-pointer"
+                    className="bg-card p-4 transition-colors hover:bg-muted/35"
                   >
-                    <span className="text-sm text-muted-foreground flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Avg / Day</span>
-                    <span className="text-sm font-bold">{avgDailyDeduction.toLocaleString()} Ks</span>
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Activity className="h-3.5 w-3.5" /> Average / day</p>
+                    <p className="mt-2 text-xl font-bold font-display tabular-nums">{avgDailyDeduction.toLocaleString()} Ks</p>
                   </div>
                 </>
               )}
             </div>
           </CardContent>
         </Card>
-      </div>
+      </section>
     </div>
   );
 }
