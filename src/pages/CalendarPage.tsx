@@ -71,7 +71,7 @@ export default function CalendarPage() {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [filterType, setFilterType] = useState("all");
-  const [assignmentLoad, setAssignmentLoad] = useState<Record<string, { weekly: number; biweekly: number; weighted: number }>>({});
+  const [assignmentLoad, setAssignmentLoad] = useState<Record<string, { weekly: number; weighted: number }>>({});
   const [memberStats, setMemberStats] = useState<Record<string, { newTask: number; inProgress: number; submitted: number; approved: number; overdue: number; reject: number; allDone: number }>>({});
 
   const [form, setForm] = useState({
@@ -83,44 +83,44 @@ export default function CalendarPage() {
     visibility: "public",
     allStaff: true,
     assignedIds: [] as string[],
-    frequency: "weekly" as "weekly" | "biweekly",
-    assignMode: "everyone" as "everyone" | "single_private",
+    assignMode: "everyone" as "everyone" | "single_private" | "selected",
   });
 
+  // Date-only safe helpers (no UTC ISO conversion — MMT is UTC+06:30).
+  function toISODate(y: number, m: number, d: number) {
+    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
   function addDaysISO(dateStr: string, days: number) {
-    const d = new Date(dateStr + "T00:00:00");
-    d.setDate(d.getDate() + days);
-    return d.toISOString().split("T")[0];
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d + days));
+    return toISODate(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
   }
 
-  function getTaskUnitCount(startDate: string, endDate: string) {
-    const days = Math.round(
-      (new Date(endDate + "T00:00:00").getTime() - new Date(startDate + "T00:00:00").getTime()) / 86400000,
-    );
-    return days >= 12 ? 2 : 1;
+  // Weekly-only task system: every task assignment counts as exactly 1 unit.
+  function getTaskUnitCount(_startDate: string, _endDate: string) {
+    return 1;
   }
 
-  // Deadline rules (per spec, based on the task's start month):
-  //   weekly:   start + 6 days  (start + 4 in February)
-  //   biweekly: start + 13 days (start + 11 in February)
-  function computeDeadline(startDate: string, frequency: "weekly" | "biweekly") {
+  // Weekly deadline rule (inclusive, date-only, same month):
+  //   1 → 7, 8 → 14, 15 → 21, 22 → 27
+  const WEEKLY_DEADLINE_DAY: Record<number, number> = { 1: 7, 8: 14, 15: 21, 22: 27 };
+  function computeDeadline(startDate: string) {
     if (!startDate) return "";
-    const isFeb = new Date(startDate + "T00:00:00").getMonth() === 1;
-    const offset =
-      frequency === "weekly"
-        ? (isFeb ? 4 : 6)
-        : (isFeb ? 11 : 13);
-    return addDaysISO(startDate, offset);
+    const [y, m, d] = startDate.split("-").map(Number);
+    const end = WEEKLY_DEADLINE_DAY[d];
+    if (!end) return addDaysISO(startDate, 6);
+    return toISODate(y, m, end);
   }
 
   // Date-picker bounds: only the current month is selectable (today .. end of month)
   function todayISO() {
-    return new Date().toISOString().split("T")[0];
+    const now = new Date();
+    return toISODate(now.getFullYear(), now.getMonth() + 1, now.getDate());
   }
   function currentMonthEndISO() {
     const now = new Date();
     const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return last.toISOString().split("T")[0];
+    return toISODate(last.getFullYear(), last.getMonth() + 1, last.getDate());
   }
 
   const year = currentDate.getFullYear();
