@@ -71,7 +71,7 @@ export default function CalendarPage() {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [filterType, setFilterType] = useState("all");
-  const [assignmentLoad, setAssignmentLoad] = useState<Record<string, { weekly: number; biweekly: number; weighted: number }>>({});
+  const [assignmentLoad, setAssignmentLoad] = useState<Record<string, { weekly: number; weighted: number }>>({});
   const [memberStats, setMemberStats] = useState<Record<string, { newTask: number; inProgress: number; submitted: number; approved: number; overdue: number; reject: number; allDone: number }>>({});
 
   const [form, setForm] = useState({
@@ -83,44 +83,44 @@ export default function CalendarPage() {
     visibility: "public",
     allStaff: true,
     assignedIds: [] as string[],
-    frequency: "weekly" as "weekly" | "biweekly",
-    assignMode: "everyone" as "everyone" | "single_private",
+    assignMode: "everyone" as "everyone" | "single_private" | "selected",
   });
 
+  // Date-only safe helpers (no UTC ISO conversion — MMT is UTC+06:30).
+  function toISODate(y: number, m: number, d: number) {
+    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
   function addDaysISO(dateStr: string, days: number) {
-    const d = new Date(dateStr + "T00:00:00");
-    d.setDate(d.getDate() + days);
-    return d.toISOString().split("T")[0];
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d + days));
+    return toISODate(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
   }
 
-  function getTaskUnitCount(startDate: string, endDate: string) {
-    const days = Math.round(
-      (new Date(endDate + "T00:00:00").getTime() - new Date(startDate + "T00:00:00").getTime()) / 86400000,
-    );
-    return days >= 12 ? 2 : 1;
+  // Weekly-only task system: every task assignment counts as exactly 1 unit.
+  function getTaskUnitCount(_startDate: string, _endDate: string) {
+    return 1;
   }
 
-  // Deadline rules (per spec, based on the task's start month):
-  //   weekly:   start + 6 days  (start + 4 in February)
-  //   biweekly: start + 13 days (start + 11 in February)
-  function computeDeadline(startDate: string, frequency: "weekly" | "biweekly") {
+  // Weekly deadline rule (inclusive, date-only, same month):
+  //   1 → 7, 8 → 14, 15 → 21, 22 → 27
+  const WEEKLY_DEADLINE_DAY: Record<number, number> = { 1: 7, 8: 14, 15: 21, 22: 27 };
+  function computeDeadline(startDate: string) {
     if (!startDate) return "";
-    const isFeb = new Date(startDate + "T00:00:00").getMonth() === 1;
-    const offset =
-      frequency === "weekly"
-        ? (isFeb ? 4 : 6)
-        : (isFeb ? 11 : 13);
-    return addDaysISO(startDate, offset);
+    const [y, m, d] = startDate.split("-").map(Number);
+    const end = WEEKLY_DEADLINE_DAY[d];
+    if (!end) return addDaysISO(startDate, 6);
+    return toISODate(y, m, end);
   }
 
   // Date-picker bounds: only the current month is selectable (today .. end of month)
   function todayISO() {
-    return new Date().toISOString().split("T")[0];
+    const now = new Date();
+    return toISODate(now.getFullYear(), now.getMonth() + 1, now.getDate());
   }
   function currentMonthEndISO() {
     const now = new Date();
     const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return last.toISOString().split("T")[0];
+    return toISODate(last.getFullYear(), last.getMonth() + 1, last.getDate());
   }
 
   const year = currentDate.getFullYear();
@@ -239,25 +239,27 @@ export default function CalendarPage() {
     } catch { /* ignore */ }
   }
 
-  // Per-assignee monthly load: weekly=1 weighted unit, biweekly=2; cap = 4 weighted units / month / person.
+  // Weekly-only: each task assignment = 1 unit; cap = 4 units / month / person.
   const MONTHLY_WEIGHT_CAP = 4;
-  // Admin/Assistant can only assign tasks on these days of the month.
-  const ALLOWED_ASSIGN_DAYS = [1, 2, 3, 8, 9, 10, 15, 16, 17, 22, 23, 24];
+  // Admin/Assistant can only start tasks on these days of the month.
+  const ALLOWED_ASSIGN_DAYS = [1, 8, 15, 22];
   // Assignment windows for "auto All-Done if no task assigned in window".
   const ASSIGN_WINDOWS: Array<[number, number]> = [
     [1, 3], [8, 10], [15, 17], [22, 24],
   ];
   function monthBoundsFor(dateStr: string) {
-    const monthStart = (dateStr || new Date().toISOString().split("T")[0]).slice(0, 7) + "-01";
-    const d = new Date(monthStart + "T00:00:00");
-    d.setMonth(d.getMonth() + 1);
-    return { monthStart, nextMonthStart: d.toISOString().split("T")[0] };
+    const base = dateStr || todayISO();
+    const monthStart = base.slice(0, 7) + "-01";
+    const [y, m] = monthStart.split("-").map(Number);
+    const nextY = m === 12 ? y + 1 : y;
+    const nextM = m === 12 ? 1 : m + 1;
+    return { monthStart, nextMonthStart: toISODate(nextY, nextM, 1) };
   }
 
   async function loadAssignmentLoad(dateStr: string) {
     try {
       const { monthStart, nextMonthStart } = monthBoundsFor(dateStr);
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = todayISO();
       const { data: taskEvents } = await supabase
         .from("calendar_events")
         .select("id, start_date, end_date")
@@ -275,15 +277,13 @@ export default function CalendarPage() {
           .in("event_id", evList.map((e) => e.id));
         assList = (ass as any) || [];
       }
-      const load: Record<string, { weekly: number; biweekly: number; weighted: number }> = {};
+      const load: Record<string, { weekly: number; weighted: number }> = {};
       for (const a of assList) {
         const ev = evMap.get(a.event_id);
         if (!ev) continue;
-        const unit = getTaskUnitCount(ev.start_date, ev.end_date);
-        const isBiweekly = unit === 2;
-        const entry = load[a.user_id] || { weekly: 0, biweekly: 0, weighted: 0 };
-        if (isBiweekly) { entry.biweekly += 1; entry.weighted += 2; }
-        else { entry.weekly += 1; entry.weighted += 1; }
+        const entry = load[a.user_id] || { weekly: 0, weighted: 0 };
+        entry.weekly += 1;
+        entry.weighted += 1;
         load[a.user_id] = entry;
       }
       const { computeMemberStats } = await import("@/lib/taskStatusStats");
@@ -295,7 +295,7 @@ export default function CalendarPage() {
   useEffect(() => {
     if (isStaff) return;
     if (!open) return;
-    loadAssignmentLoad(form.start_date || new Date().toISOString().split("T")[0]);
+    loadAssignmentLoad(form.start_date || todayISO());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, form.start_date, isStaff, staffList]);
 
@@ -327,27 +327,31 @@ export default function CalendarPage() {
     }
 
     // (3b) Start day must be one of the allowed assignment days of the month.
-    const startDom = new Date(form.start_date + "T00:00:00").getDate();
+    const startDom = Number(form.start_date.split("-")[2]);
     if (!ALLOWED_ASSIGN_DAYS.includes(startDom)) {
       toast({
-        title: "Error: Tasks can only be assigned on days 1-3, 8-10, 15-17, or 22-24 of the month.",
+        title: "Error: Task Start Date must be day 1, 8, 15 or 22 of the month.",
         variant: "destructive",
       });
       return;
     }
 
-    const deadline = computeDeadline(form.start_date, form.frequency);
+    const deadline = computeDeadline(form.start_date);
 
-    // Per-assignee monthly cap (weekly=1 weighted unit, biweekly=2; cap 4/month).
-    const newWeight = form.frequency === "weekly" ? 1 : 2;
+    // Weekly-only monthly cap: every assignment = 1 unit, cap 4/month.
+    const newWeight = 1;
     const isEveryone = form.assignMode === "everyone";
     const candidateIds = isEveryone ? staffList.map((s) => s.id) : form.assignedIds;
     if (candidateIds.length === 0) {
       toast({ title: "Select at least one assignee", variant: "destructive" });
       return;
     }
-    if (!isEveryone && candidateIds.length !== 1) {
+    if (form.assignMode === "single_private" && candidateIds.length !== 1) {
       toast({ title: "Pick exactly one staff member for this mode", variant: "destructive" });
+      return;
+    }
+    if (form.assignMode === "selected" && candidateIds.length < 2) {
+      toast({ title: "Select at least 2 staff members", variant: "destructive" });
       return;
     }
 
