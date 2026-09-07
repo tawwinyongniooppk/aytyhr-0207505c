@@ -239,25 +239,27 @@ export default function CalendarPage() {
     } catch { /* ignore */ }
   }
 
-  // Per-assignee monthly load: weekly=1 weighted unit, biweekly=2; cap = 4 weighted units / month / person.
+  // Weekly-only: each task assignment = 1 unit; cap = 4 units / month / person.
   const MONTHLY_WEIGHT_CAP = 4;
-  // Admin/Assistant can only assign tasks on these days of the month.
-  const ALLOWED_ASSIGN_DAYS = [1, 2, 3, 8, 9, 10, 15, 16, 17, 22, 23, 24];
+  // Admin/Assistant can only start tasks on these days of the month.
+  const ALLOWED_ASSIGN_DAYS = [1, 8, 15, 22];
   // Assignment windows for "auto All-Done if no task assigned in window".
   const ASSIGN_WINDOWS: Array<[number, number]> = [
     [1, 3], [8, 10], [15, 17], [22, 24],
   ];
   function monthBoundsFor(dateStr: string) {
-    const monthStart = (dateStr || new Date().toISOString().split("T")[0]).slice(0, 7) + "-01";
-    const d = new Date(monthStart + "T00:00:00");
-    d.setMonth(d.getMonth() + 1);
-    return { monthStart, nextMonthStart: d.toISOString().split("T")[0] };
+    const base = dateStr || todayISO();
+    const monthStart = base.slice(0, 7) + "-01";
+    const [y, m] = monthStart.split("-").map(Number);
+    const nextY = m === 12 ? y + 1 : y;
+    const nextM = m === 12 ? 1 : m + 1;
+    return { monthStart, nextMonthStart: toISODate(nextY, nextM, 1) };
   }
 
   async function loadAssignmentLoad(dateStr: string) {
     try {
       const { monthStart, nextMonthStart } = monthBoundsFor(dateStr);
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = todayISO();
       const { data: taskEvents } = await supabase
         .from("calendar_events")
         .select("id, start_date, end_date")
@@ -275,15 +277,13 @@ export default function CalendarPage() {
           .in("event_id", evList.map((e) => e.id));
         assList = (ass as any) || [];
       }
-      const load: Record<string, { weekly: number; biweekly: number; weighted: number }> = {};
+      const load: Record<string, { weekly: number; weighted: number }> = {};
       for (const a of assList) {
         const ev = evMap.get(a.event_id);
         if (!ev) continue;
-        const unit = getTaskUnitCount(ev.start_date, ev.end_date);
-        const isBiweekly = unit === 2;
-        const entry = load[a.user_id] || { weekly: 0, biweekly: 0, weighted: 0 };
-        if (isBiweekly) { entry.biweekly += 1; entry.weighted += 2; }
-        else { entry.weekly += 1; entry.weighted += 1; }
+        const entry = load[a.user_id] || { weekly: 0, weighted: 0 };
+        entry.weekly += 1;
+        entry.weighted += 1;
         load[a.user_id] = entry;
       }
       const { computeMemberStats } = await import("@/lib/taskStatusStats");
@@ -295,7 +295,7 @@ export default function CalendarPage() {
   useEffect(() => {
     if (isStaff) return;
     if (!open) return;
-    loadAssignmentLoad(form.start_date || new Date().toISOString().split("T")[0]);
+    loadAssignmentLoad(form.start_date || todayISO());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, form.start_date, isStaff, staffList]);
 
