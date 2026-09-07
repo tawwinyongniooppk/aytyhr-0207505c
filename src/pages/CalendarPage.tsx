@@ -327,27 +327,31 @@ export default function CalendarPage() {
     }
 
     // (3b) Start day must be one of the allowed assignment days of the month.
-    const startDom = new Date(form.start_date + "T00:00:00").getDate();
+    const startDom = Number(form.start_date.split("-")[2]);
     if (!ALLOWED_ASSIGN_DAYS.includes(startDom)) {
       toast({
-        title: "Error: Tasks can only be assigned on days 1-3, 8-10, 15-17, or 22-24 of the month.",
+        title: "Error: Task Start Date must be day 1, 8, 15 or 22 of the month.",
         variant: "destructive",
       });
       return;
     }
 
-    const deadline = computeDeadline(form.start_date, form.frequency);
+    const deadline = computeDeadline(form.start_date);
 
-    // Per-assignee monthly cap (weekly=1 weighted unit, biweekly=2; cap 4/month).
-    const newWeight = form.frequency === "weekly" ? 1 : 2;
+    // Weekly-only monthly cap: every assignment = 1 unit, cap 4/month.
+    const newWeight = 1;
     const isEveryone = form.assignMode === "everyone";
     const candidateIds = isEveryone ? staffList.map((s) => s.id) : form.assignedIds;
     if (candidateIds.length === 0) {
       toast({ title: "Select at least one assignee", variant: "destructive" });
       return;
     }
-    if (!isEveryone && candidateIds.length !== 1) {
+    if (form.assignMode === "single_private" && candidateIds.length !== 1) {
       toast({ title: "Pick exactly one staff member for this mode", variant: "destructive" });
+      return;
+    }
+    if (form.assignMode === "selected" && candidateIds.length < 2) {
+      toast({ title: "Select at least 2 staff members", variant: "destructive" });
       return;
     }
 
