@@ -25,12 +25,11 @@ export function emptyMemberStats(): MemberStats {
   return { newTask: 0, inProgress: 0, submitted: 0, approved: 0, overdue: 0, reject: 0, allDone: 0 };
 }
 
-export function getTaskUnitCount(startDate: string, endDate: string): number {
-  const days = Math.round(
-    (new Date(endDate + "T00:00:00").getTime() - new Date(startDate + "T00:00:00").getTime()) / 86400000,
-  );
-  return days >= 12 ? 2 : 1;
+// Weekly-only task system: every task assignment counts as exactly 1 unit.
+export function getTaskUnitCount(_startDate: string, _endDate: string): number {
+  return 1;
 }
+
 
 interface EventLite { id: string; start_date: string; end_date: string }
 interface AssignmentLite {
