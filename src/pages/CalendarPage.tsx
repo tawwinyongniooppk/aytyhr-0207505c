@@ -733,6 +733,17 @@ export default function CalendarPage() {
           <p>
             မသတ်မှတ်လျှင် သတ်မှတ်ထားသည့် Bonus များမှ တပတ်ကို တခါနှုန်းဖြင့် Member များ၏ လစဉ်နောက်ဆုံးပိတ် Salary ထဲသို့ System မှ အလိုအလျောက် ပေါင်းထည့်သွားပါမည်။
           </p>
+          {!isStaff && (
+            <ul className="list-disc pl-5 space-y-1 text-[13px] text-muted-foreground">
+              <li>တစ်ပတ်လျှင် Task ၁ ခုသာ (Weekly only)</li>
+              <li>Start Date = ၁ / ၈ / ၁၅ / ၂၂ ရက်များသာ</li>
+              <li>Deadline = ၇ / ၁၄ / ၂၁ / ၂၇ ရက်များ</li>
+              <li>Staff တစ်ဦးလျှင် တစ်လအများဆုံး Task ၄ ခု</li>
+              <li>Selected Staff ဖြင့် Staff အများအပြားကို တူညီသော Task သတ်မှတ်နိုင်သည်</li>
+              <li>Selected Staff တစ်ဦးချင်းစီသည် သီးခြား (independent) assignment ဖြစ်ပြီး Submission / Approval / Deadline / Bonus သီးသန့် တွက်ချက်သည်</li>
+            </ul>
+          )}
+
         </CardContent>
       </Card>
 
