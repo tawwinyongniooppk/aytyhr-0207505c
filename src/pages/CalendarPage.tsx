@@ -479,7 +479,7 @@ export default function CalendarPage() {
           url: "/calendar",
         });
       }
-      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [], frequency: "weekly", assignMode: "everyone" });
+      setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [], assignMode: "everyone" });
       setOpen(false);
       loadEvents();
       } catch (error: any) {
@@ -587,25 +587,19 @@ export default function CalendarPage() {
                       </p>
                     )}
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Allowed assign days: 1-3, 8-10, 15-17, 22-24 of the current month — and not an Off Day or overlapping with an existing task.
+                    Task စတင်ရက် — လအတွင်း ရက် ၁၊ ၈၊ ၁၅၊ ၂၂ သာ ရွေးနိုင်သည်။ Deadline: ၁→၇၊ ၈→၁၄၊ ၁၅→၂၁၊ ၂၂→၂၇။ Off Day နှင့် ရှိပြီးသား Task နှင့် ထပ်၍ မရပါ။
                   </p>
+
                 </div>
 
-                <div>
-                  <Label>Frequency</Label>
-                  <Select value={form.frequency} onValueChange={(v) => setForm({ ...form, frequency: v as "weekly" | "biweekly" })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="weekly">1 Task per Week (max 4/month)</SelectItem>
-                      <SelectItem value="biweekly">1 Task per 2 Weeks (max 2/month)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {form.start_date && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Deadline: {computeDeadline(form.start_date, form.frequency)}
+                {form.start_date && (
+                  <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
+                    <p className="text-xs font-medium">Deadline: {computeDeadline(form.start_date)}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Task သည် အပတ်စဉ် (Weekly) သာ ဖြစ်ပါသည် — ၁ Task = ၁ Unit။
                     </p>
-                  )}
-                </div>
+                  </div>
+                )}
                 <div className="space-y-3">
                   <Label className="text-sm font-semibold">Assignment Mode</Label>
                   <RadioGroup
@@ -627,26 +621,47 @@ export default function CalendarPage() {
                         <p className="text-xs text-muted-foreground">Only the chosen staff sees this task.</p>
                       </div>
                     </label>
+                    <label className={`flex items-start gap-2 p-3 rounded-md border cursor-pointer transition ${form.assignMode === "selected" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"}`}>
+                      <RadioGroupItem value="selected" className="mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium">Assign to selected staff (2+)</p>
+                        <p className="text-xs text-muted-foreground">
+                          ရွေးချယ်ထားသော Staff တစ်ဦးချင်းစီအတွက် Submission / Approval / Deadline / Bonus သီးခြားစီ တွက်ချက်ပါသည်။
+                        </p>
+                      </div>
+                    </label>
                   </RadioGroup>
 
                   <p className="text-xs text-muted-foreground">
-                    Monthly cap per person: 4 Units (weekly = 1 Unit, bi-weekly = 2 Units). When a member reaches 4/4, only that member is blocked.
+                    တစ်လအတွင်း Staff တစ်ဦးလျှင် အများဆုံး ၄ Task (၄/၄ Units) သာ ခွင့်ပြုသည်။ ၄/၄ ပြည့်သွားသူကိုသာ ပိတ်ပါမည်။
                   </p>
+
 
                   <div className="border border-border rounded-md p-2 max-h-72 overflow-y-auto space-y-2 bg-muted/20">
                     {staffList.length === 0 && <p className="text-sm text-muted-foreground p-2">No staff found</p>}
                     {staffList.map((s) => {
-                      const l = assignmentLoad[s.id] || { weekly: 0, biweekly: 0, weighted: 0 };
+                      const l = assignmentLoad[s.id] || { weekly: 0, weighted: 0 };
                       const stats = memberStats[s.id] || { newTask: 0, inProgress: 0, submitted: 0, approved: 0, overdue: 0, reject: 0, allDone: 0 };
-                      const newWeight = form.frequency === "weekly" ? 1 : 2;
+                      const newWeight = 1;
                       const willExceed = l.weighted + newWeight > MONTHLY_WEIGHT_CAP;
                       const atCap = l.weighted >= MONTHLY_WEIGHT_CAP;
                       const selectable = form.assignMode !== "everyone";
                       const selected = form.assignedIds.includes(s.id);
                       const pickOne = () => {
                         if (atCap) return;
-                        setForm((f) => ({ ...f, assignedIds: selected ? [] : [s.id] }));
+                        setForm((f) => {
+                          if (f.assignMode === "selected") {
+                            return {
+                              ...f,
+                              assignedIds: selected
+                                ? f.assignedIds.filter((id) => id !== s.id)
+                                : [...f.assignedIds, s.id],
+                            };
+                          }
+                          return { ...f, assignedIds: selected ? [] : [s.id] };
+                        });
                       };
+
                       const cols: Array<{ label: string; value: number; cls: string }> = [
                         { label: "New Task", value: stats.newTask, cls: "bg-muted text-muted-foreground" },
                         { label: "In Progress", value: stats.inProgress, cls: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
@@ -783,14 +798,20 @@ export default function CalendarPage() {
               ].join(" ");
 
               const offHighlight = isOffDay && !isStaff;
+              const isTaskStartDay = ALLOWED_ASSIGN_DAYS.includes(day);
+              const dimForTasks = !isStaff && !isTaskStartDay;
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDate(dateStr)}
                   title={mmHoliday || (isScheduledOff ? (isStaff ? `${weekdayName} Off Day` : `Off: ${(offStaffByWeekday[weekdayName] || []).join(", ") || "Day off"}`) : undefined)}
-                  className={`relative h-14 sm:h-20 flex flex-col items-center justify-start pt-1.5 border-b border-border/40 transition-colors ${offHighlight ? "bg-destructive/15 hover:bg-destructive/20" : "hover:bg-muted/40"}`}
+                  className={`relative h-14 sm:h-20 flex flex-col items-center justify-start pt-1.5 border-b border-border/40 transition-colors ${offHighlight ? "bg-destructive/15 hover:bg-destructive/20" : "hover:bg-muted/40"} ${dimForTasks ? "opacity-60" : ""}`}
                 >
+                  {!isStaff && isTaskStartDay && (
+                    <span className="absolute top-0.5 right-1 text-[8px] font-semibold text-primary">•</span>
+                  )}
                   <span className={numClasses}>{day}</span>
+
                   <div className="flex gap-0.5 mt-auto mb-1.5 flex-wrap justify-center px-1">
                     {dayEvents.slice(0, 3).map((e) => (
                       <div key={e.id} className={`h-1 w-1 rounded-full ${EVENT_DOT_COLORS[e.event_type] || "bg-muted-foreground"}`} title={e.title} />
