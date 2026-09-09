@@ -300,20 +300,8 @@ export default function CalendarPage() {
   }, [open, form.start_date, isStaff, staffList]);
 
 
-  function isHolidayDate(dateStr: string) {
-    if (!dateStr) return false;
-    if (getMyanmarHoliday(dateStr)) return true;
-    return events.some(
-      (e) => e.event_type === "holiday" && e.start_date <= dateStr && e.end_date >= dateStr
-    );
-  }
-
   async function handleCreate() {
     if (!form.title || !form.start_date || !user) return;
-    if (isHolidayDate(form.start_date)) {
-      toast({ title: "ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ", variant: "destructive" });
-      return;
-    }
 
     // (3) Restrict to current month only — no future months allowed.
     const todayStr = todayISO();
@@ -355,26 +343,9 @@ export default function CalendarPage() {
       return;
     }
 
-    // (3a) Start day must not fall on an assignee's Off Day.
-    const startWeekday = WEEKDAY_NAMES[new Date(form.start_date + "T00:00:00").getDay()];
     const nameById: Record<string, string> = Object.fromEntries(
       staffList.map((s) => [s.id, s.full_name || "Unnamed"]),
     );
-    const offBlocked = candidateIds.filter((id) => {
-      const sched = staffList.find((s) => s.id === id)?.work_schedule as
-        | Record<string, { active: boolean }>
-        | undefined;
-      // If the day is explicitly marked inactive on their schedule → off day.
-      return sched?.[startWeekday]?.active === false;
-    });
-    if (offBlocked.length > 0) {
-      toast({
-        title: "Error: Cannot assign task. Start date falls on an Off Day.",
-        description: offBlocked.map((id) => nameById[id] || "user").join(", "),
-        variant: "destructive",
-      });
-      return;
-    }
 
     // Refresh load for the target month before validating.
     await loadAssignmentLoad(form.start_date);
@@ -577,9 +548,6 @@ export default function CalendarPage() {
                     max={currentMonthEndISO()}
                     onChange={(e) => setForm({ ...form, start_date: e.target.value })}
                   />
-                  {form.start_date && isHolidayDate(form.start_date) && (
-                    <p className="text-xs text-destructive mt-1">ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ</p>
-                  )}
                   {form.start_date &&
                     (form.start_date < todayISO() || form.start_date > currentMonthEndISO()) && (
                       <p className="text-xs text-destructive mt-1">
@@ -708,7 +676,7 @@ export default function CalendarPage() {
                     submitting ||
                     !form.title ||
                     !form.start_date ||
-                    isHolidayDate(form.start_date) ||
+                    
                     form.start_date < todayISO() ||
                     form.start_date > currentMonthEndISO() ||
                     !ALLOWED_ASSIGN_DAYS.includes(new Date(form.start_date + "T00:00:00").getDate())
