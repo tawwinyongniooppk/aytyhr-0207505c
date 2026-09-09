@@ -373,27 +373,7 @@ export default function CalendarPage() {
       }
     }
 
-    // (2) Date-range overlap with existing INCOMPLETE tasks for any selected assignee.
-    // A task is "incomplete" until its assignment row reaches 'approved'.
-    const newStart = form.start_date;
-    const newEnd = deadline;
-    const overlappedNames = new Set<string>();
-    for (const a of assRows) {
-      if (!candidateIds.includes(a.user_id)) continue;
-      if (a.submission_status === "approved") continue; // 4/4 = fully complete
-      const ev = freshMap.get(a.event_id);
-      if (!ev) continue;
-      const overlaps = ev.start_date <= newEnd && ev.end_date >= newStart;
-      if (overlaps) overlappedNames.add(nameById[a.user_id] || "user");
-    }
-    if (overlappedNames.size > 0) {
-      toast({
-        title: "Error: Cannot assign task. Dates overlap with existing or incomplete tasks.",
-        description: `Conflict for: ${Array.from(overlappedNames).join(", ")}`,
-        variant: "destructive",
-      });
-      return;
-    }
+    // Monthly cap only: previous/unfinished tasks and date overlaps do not block creation.
 
     const blocked = candidateIds.filter((id) => (freshLoad[id] || 0) + newWeight > MONTHLY_WEIGHT_CAP);
     if (blocked.length > 0) {
