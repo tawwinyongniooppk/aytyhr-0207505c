@@ -128,7 +128,18 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
     finally { setAcknowledgingId(null); }
   }
 
+  // Date-only (MMT) overdue check — no UTC conversion.
+  function isPastDeadline(dueDate?: string | null) {
+    return !!dueDate && dueDate < getMMTTodayISO();
+  }
+
   async function handleSubmitTask(taskId: string) {
+    const target = localTasks.find(t => t.id === taskId);
+    if (isPastDeadline(target?.due_date)) {
+      toast.error("Deadline ကျော်လွန်သွားပါပြီ — Submit လုပ်၍ မရတော့ပါ");
+      return;
+    }
+
     setSubmittingTaskId(taskId);
     try {
       const { error } = await supabase.from("tasks").update({ submission_status: "submitted", submitted_at: new Date().toISOString(), completed: true, rejection_reason: null, rejected_at: null, rejected_by: null }).eq("id", taskId);
@@ -141,8 +152,17 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
     finally { setSubmittingTaskId(null); }
   }
 
+  function assignmentDeadline(assignmentId: string) {
+    return myCalendarTasks.find(({ assignment }) => assignment.id === assignmentId)?.event.end_date ?? null;
+  }
+
   async function handleSubmitAssignment(assignmentId: string) {
+    if (isPastDeadline(assignmentDeadline(assignmentId))) {
+      toast.error("Deadline ကျော်လွန်သွားပါပြီ — Submit လုပ်၍ မရတော့ပါ");
+      return;
+    }
     setSubmittingId(assignmentId);
+
     try {
       const { error } = await supabase.from("calendar_event_assignments").update({ submission_status: "submitted", submitted_at: new Date().toISOString(), rejection_reason: null, rejected_at: null, rejected_by: null }).eq("id", assignmentId);
       if (error) throw error;
