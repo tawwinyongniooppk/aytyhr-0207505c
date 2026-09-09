@@ -300,20 +300,8 @@ export default function CalendarPage() {
   }, [open, form.start_date, isStaff, staffList]);
 
 
-  function isHolidayDate(dateStr: string) {
-    if (!dateStr) return false;
-    if (getMyanmarHoliday(dateStr)) return true;
-    return events.some(
-      (e) => e.event_type === "holiday" && e.start_date <= dateStr && e.end_date >= dateStr
-    );
-  }
-
   async function handleCreate() {
     if (!form.title || !form.start_date || !user) return;
-    if (isHolidayDate(form.start_date)) {
-      toast({ title: "ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ", variant: "destructive" });
-      return;
-    }
 
     // (3) Restrict to current month only — no future months allowed.
     const todayStr = todayISO();
@@ -355,26 +343,9 @@ export default function CalendarPage() {
       return;
     }
 
-    // (3a) Start day must not fall on an assignee's Off Day.
-    const startWeekday = WEEKDAY_NAMES[new Date(form.start_date + "T00:00:00").getDay()];
     const nameById: Record<string, string> = Object.fromEntries(
       staffList.map((s) => [s.id, s.full_name || "Unnamed"]),
     );
-    const offBlocked = candidateIds.filter((id) => {
-      const sched = staffList.find((s) => s.id === id)?.work_schedule as
-        | Record<string, { active: boolean }>
-        | undefined;
-      // If the day is explicitly marked inactive on their schedule → off day.
-      return sched?.[startWeekday]?.active === false;
-    });
-    if (offBlocked.length > 0) {
-      toast({
-        title: "Error: Cannot assign task. Start date falls on an Off Day.",
-        description: offBlocked.map((id) => nameById[id] || "user").join(", "),
-        variant: "destructive",
-      });
-      return;
-    }
 
     // Refresh load for the target month before validating.
     await loadAssignmentLoad(form.start_date);
@@ -402,27 +373,7 @@ export default function CalendarPage() {
       }
     }
 
-    // (2) Date-range overlap with existing INCOMPLETE tasks for any selected assignee.
-    // A task is "incomplete" until its assignment row reaches 'approved'.
-    const newStart = form.start_date;
-    const newEnd = deadline;
-    const overlappedNames = new Set<string>();
-    for (const a of assRows) {
-      if (!candidateIds.includes(a.user_id)) continue;
-      if (a.submission_status === "approved") continue; // 4/4 = fully complete
-      const ev = freshMap.get(a.event_id);
-      if (!ev) continue;
-      const overlaps = ev.start_date <= newEnd && ev.end_date >= newStart;
-      if (overlaps) overlappedNames.add(nameById[a.user_id] || "user");
-    }
-    if (overlappedNames.size > 0) {
-      toast({
-        title: "Error: Cannot assign task. Dates overlap with existing or incomplete tasks.",
-        description: `Conflict for: ${Array.from(overlappedNames).join(", ")}`,
-        variant: "destructive",
-      });
-      return;
-    }
+    // Monthly cap only: previous/unfinished tasks and date overlaps do not block creation.
 
     const blocked = candidateIds.filter((id) => (freshLoad[id] || 0) + newWeight > MONTHLY_WEIGHT_CAP);
     if (blocked.length > 0) {
@@ -577,9 +528,6 @@ export default function CalendarPage() {
                     max={currentMonthEndISO()}
                     onChange={(e) => setForm({ ...form, start_date: e.target.value })}
                   />
-                  {form.start_date && isHolidayDate(form.start_date) && (
-                    <p className="text-xs text-destructive mt-1">ပိတ်ရက်မှာ New Task လုပ်ခွင့် မပြုပါ</p>
-                  )}
                   {form.start_date &&
                     (form.start_date < todayISO() || form.start_date > currentMonthEndISO()) && (
                       <p className="text-xs text-destructive mt-1">
@@ -587,7 +535,7 @@ export default function CalendarPage() {
                       </p>
                     )}
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Task စတင်ရက် — လအတွင်း ရက် ၁၊ ၈၊ ၁၅၊ ၂၂ သာ ရွေးနိုင်သည်။ Deadline: ၁→၇၊ ၈→၁၄၊ ၁၅→၂၁၊ ၂၂→၂၇။ Off Day နှင့် ရှိပြီးသား Task နှင့် ထပ်၍ မရပါ။
+                    Task စတင်ရက် — လအတွင်း ရက် ၁၊ ၈၊ ၁၅၊ ၂၂ သာ ရွေးနိုင်သည်။ Deadline: ၁→၇၊ ၈→၁၄၊ ၁၅→၂၁၊ ၂၂→၂၇။ ပိတ်ရက်/Off Day/ရှိပြီးသား Task က ပိတ်ပင်ခြင်း မရှိပါ။
                   </p>
 
                 </div>
@@ -708,7 +656,7 @@ export default function CalendarPage() {
                     submitting ||
                     !form.title ||
                     !form.start_date ||
-                    isHolidayDate(form.start_date) ||
+                    
                     form.start_date < todayISO() ||
                     form.start_date > currentMonthEndISO() ||
                     !ALLOWED_ASSIGN_DAYS.includes(new Date(form.start_date + "T00:00:00").getDate())
