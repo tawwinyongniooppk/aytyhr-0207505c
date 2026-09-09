@@ -521,24 +521,56 @@ export default function CalendarPage() {
                 </div>
                 <div>
                   <Label>Start Date</Label>
-                  <Input
-                    type="date"
-                    value={form.start_date}
-                    min={todayISO()}
-                    max={currentMonthEndISO()}
-                    onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-                  />
-                  {form.start_date &&
-                    (form.start_date < todayISO() || form.start_date > currentMonthEndISO()) && (
-                      <p className="text-xs text-destructive mt-1">
-                        Tasks can only be assigned within the current month.
-                      </p>
-                    )}
+                  {(() => {
+                    const todayStr = todayISO();
+                    const monthEndStr = currentMonthEndISO();
+                    const [py, pm] = todayStr.split("-").map(Number);
+                    const daysInPickerMonth = new Date(py, pm, 0).getDate();
+                    const leading = new Date(py, pm - 1, 1).getDay();
+                    return (
+                      <div className="mt-1 rounded-md border border-border p-2">
+                        <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-muted-foreground mb-1">
+                          {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                            <div key={i}>{d}</div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-7 gap-1">
+                          {Array.from({ length: leading }).map((_, i) => (
+                            <div key={`b${i}`} />
+                          ))}
+                          {Array.from({ length: daysInPickerMonth }, (_, i) => i + 1).map((day) => {
+                            const iso = toISODate(py, pm, day);
+                            const allowed =
+                              ALLOWED_ASSIGN_DAYS.includes(day) && iso >= todayStr && iso <= monthEndStr;
+                            const selected = form.start_date === iso;
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                disabled={!allowed}
+                                onClick={() => allowed && setForm({ ...form, start_date: iso })}
+                                className={`h-8 rounded-md text-xs transition ${
+                                  selected
+                                    ? "bg-primary text-primary-foreground font-semibold"
+                                    : allowed
+                                    ? "border border-primary/40 bg-primary/5 text-foreground hover:bg-primary/15 font-medium"
+                                    : "text-muted-foreground/30 cursor-not-allowed"
+                                }`}
+                              >
+                                {day}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <p className="text-[11px] text-muted-foreground mt-1">
                     Task စတင်ရက် — လအတွင်း ရက် ၁၊ ၈၊ ၁၅၊ ၂၂ သာ ရွေးနိုင်သည်။ Deadline: ၁→၇၊ ၈→၁၄၊ ၁၅→၂၁၊ ၂၂→၂၇။ ပိတ်ရက်/Off Day/ရှိပြီးသား Task က ပိတ်ပင်ခြင်း မရှိပါ။
                   </p>
 
                 </div>
+
 
                 {form.start_date && (
                   <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
