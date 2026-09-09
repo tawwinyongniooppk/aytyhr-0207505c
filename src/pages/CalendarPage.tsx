@@ -535,7 +535,7 @@ export default function CalendarPage() {
                       </p>
                     )}
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Task စတင်ရက် — လအတွင်း ရက် ၁၊ ၈၊ ၁၅၊ ၂၂ သာ ရွေးနိုင်သည်။ Deadline: ၁→၇၊ ၈→၁၄၊ ၁၅→၂၁၊ ၂၂→၂၇။ Off Day နှင့် ရှိပြီးသား Task နှင့် ထပ်၍ မရပါ။
+                    Task စတင်ရက် — လအတွင်း ရက် ၁၊ ၈၊ ၁၅၊ ၂၂ သာ ရွေးနိုင်သည်။ Deadline: ၁→၇၊ ၈→၁၄၊ ၁၅→၂၁၊ ၂၂→၂၇။ ပိတ်ရက်/Off Day/ရှိပြီးသား Task က ပိတ်ပင်ခြင်း မရှိပါ။
                   </p>
 
                 </div>
