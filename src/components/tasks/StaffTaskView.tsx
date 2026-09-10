@@ -176,6 +176,11 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
 
   // "Fix & Resubmit" goes directly from Rejected → Submitted per spec.
   async function handleResubmitTask(taskId: string) {
+    const target = localTasks.find(t => t.id === taskId);
+    if (isPastDeadline(target?.due_date)) {
+      toast.error("Deadline ကျော်လွန်သွားပါပြီ — Resubmit လုပ်၍ မရတော့ပါ");
+      return;
+    }
     setSubmittingTaskId(taskId);
     try {
       const { error } = await supabase.from("tasks").update({ submission_status: "submitted", submitted_at: new Date().toISOString(), completed: true, rejection_reason: null, rejected_at: null, rejected_by: null }).eq("id", taskId);
@@ -189,6 +194,10 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
   }
 
   async function handleResubmitAssignment(assignmentId: string) {
+    if (isPastDeadline(assignmentDeadline(assignmentId))) {
+      toast.error("Deadline ကျော်လွန်သွားပါပြီ — Resubmit လုပ်၍ မရတော့ပါ");
+      return;
+    }
     setSubmittingId(assignmentId);
     try {
       const { error } = await supabase.from("calendar_event_assignments").update({ submission_status: "submitted", submitted_at: new Date().toISOString(), rejection_reason: null, rejected_at: null, rejected_by: null }).eq("id", assignmentId);
@@ -327,16 +336,24 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
                       </Button>
                     )}
                     {task.submission_status === "in_progress" && (
-                      <Button size="sm" variant="outline" className="text-xs gap-1" disabled={submittingTaskId === task.id} onClick={() => handleSubmitTask(task.id)}>
-                        {submittingTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Submit
-                      </Button>
+                      task.due_date && isPastDeadline(task.due_date) ? (
+                        <span className="text-xs text-destructive font-medium whitespace-nowrap">⏰ Deadline ကျော်လွန်ပါသည်</span>
+                      ) : (
+                        <Button size="sm" variant="outline" className="text-xs gap-1" disabled={submittingTaskId === task.id} onClick={() => handleSubmitTask(task.id)}>
+                          {submittingTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                          Submit
+                        </Button>
+                      )
                     )}
                     {task.submission_status === "rejected" && (
-                      <Button size="sm" className="text-xs gap-1" disabled={submittingTaskId === task.id} onClick={() => handleResubmitTask(task.id)}>
-                        {submittingTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Fix & Resubmit
-                      </Button>
+                      task.due_date && isPastDeadline(task.due_date) ? (
+                        <span className="text-xs text-destructive font-medium whitespace-nowrap">⏰ Deadline ကျော်လွန်ပါသည်</span>
+                      ) : (
+                        <Button size="sm" className="text-xs gap-1" disabled={submittingTaskId === task.id} onClick={() => handleResubmitTask(task.id)}>
+                          {submittingTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                          Fix & Resubmit
+                        </Button>
+                      )
                     )}
                   </div>
                 </div>
@@ -378,16 +395,24 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
                       </Button>
                     )}
                     {task.submission_status === "in_progress" && (
-                      <Button size="sm" variant="outline" className="text-xs gap-1" disabled={submittingId === task.id} onClick={() => handleSubmitAssignment(task.id)}>
-                        {submittingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Submit
-                      </Button>
+                      task.dueDate && isPastDeadline(task.dueDate) ? (
+                        <span className="text-xs text-destructive font-medium whitespace-nowrap">⏰ Deadline ကျော်လွန်ပါသည်</span>
+                      ) : (
+                        <Button size="sm" variant="outline" className="text-xs gap-1" disabled={submittingId === task.id} onClick={() => handleSubmitAssignment(task.id)}>
+                          {submittingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                          Submit
+                        </Button>
+                      )
                     )}
                     {task.submission_status === "rejected" && (
-                      <Button size="sm" className="text-xs gap-1" disabled={submittingId === task.id} onClick={() => handleResubmitAssignment(task.id)}>
-                        {submittingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Fix & Resubmit
-                      </Button>
+                      task.dueDate && isPastDeadline(task.dueDate) ? (
+                        <span className="text-xs text-destructive font-medium whitespace-nowrap">⏰ Deadline ကျော်လွန်ပါသည်</span>
+                      ) : (
+                        <Button size="sm" className="text-xs gap-1" disabled={submittingId === task.id} onClick={() => handleResubmitAssignment(task.id)}>
+                          {submittingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                          Fix & Resubmit
+                        </Button>
+                      )
                     )}
                   </div>
                 </div>
