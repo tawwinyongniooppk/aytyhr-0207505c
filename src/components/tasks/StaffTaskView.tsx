@@ -336,16 +336,24 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
                       </Button>
                     )}
                     {task.submission_status === "in_progress" && (
-                      <Button size="sm" variant="outline" className="text-xs gap-1" disabled={submittingTaskId === task.id} onClick={() => handleSubmitTask(task.id)}>
-                        {submittingTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Submit
-                      </Button>
+                      task.due_date && isPastDeadline(task.due_date) ? (
+                        <span className="text-xs text-destructive font-medium whitespace-nowrap">⏰ Deadline ကျော်လွန်ပါသည်</span>
+                      ) : (
+                        <Button size="sm" variant="outline" className="text-xs gap-1" disabled={submittingTaskId === task.id} onClick={() => handleSubmitTask(task.id)}>
+                          {submittingTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                          Submit
+                        </Button>
+                      )
                     )}
                     {task.submission_status === "rejected" && (
-                      <Button size="sm" className="text-xs gap-1" disabled={submittingTaskId === task.id} onClick={() => handleResubmitTask(task.id)}>
-                        {submittingTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Fix & Resubmit
-                      </Button>
+                      task.due_date && isPastDeadline(task.due_date) ? (
+                        <span className="text-xs text-destructive font-medium whitespace-nowrap">⏰ Deadline ကျော်လွန်ပါသည်</span>
+                      ) : (
+                        <Button size="sm" className="text-xs gap-1" disabled={submittingTaskId === task.id} onClick={() => handleResubmitTask(task.id)}>
+                          {submittingTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                          Fix & Resubmit
+                        </Button>
+                      )
                     )}
                   </div>
                 </div>
@@ -387,16 +395,24 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
                       </Button>
                     )}
                     {task.submission_status === "in_progress" && (
-                      <Button size="sm" variant="outline" className="text-xs gap-1" disabled={submittingId === task.id} onClick={() => handleSubmitAssignment(task.id)}>
-                        {submittingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Submit
-                      </Button>
+                      task.dueDate && isPastDeadline(task.dueDate) ? (
+                        <span className="text-xs text-destructive font-medium whitespace-nowrap">⏰ Deadline ကျော်လွန်ပါသည်</span>
+                      ) : (
+                        <Button size="sm" variant="outline" className="text-xs gap-1" disabled={submittingId === task.id} onClick={() => handleSubmitAssignment(task.id)}>
+                          {submittingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                          Submit
+                        </Button>
+                      )
                     )}
                     {task.submission_status === "rejected" && (
-                      <Button size="sm" className="text-xs gap-1" disabled={submittingId === task.id} onClick={() => handleResubmitAssignment(task.id)}>
-                        {submittingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        Fix & Resubmit
-                      </Button>
+                      task.dueDate && isPastDeadline(task.dueDate) ? (
+                        <span className="text-xs text-destructive font-medium whitespace-nowrap">⏰ Deadline ကျော်လွန်ပါသည်</span>
+                      ) : (
+                        <Button size="sm" className="text-xs gap-1" disabled={submittingId === task.id} onClick={() => handleResubmitAssignment(task.id)}>
+                          {submittingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                          Fix & Resubmit
+                        </Button>
+                      )
                     )}
                   </div>
                 </div>
