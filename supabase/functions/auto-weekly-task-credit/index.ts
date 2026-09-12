@@ -1,7 +1,7 @@
-// Runs at 23:55 MMT on each assignment-window CHECKPOINT day:
-//   day 3, 10, 17, 24 (the LAST day of each assignment slot).
-// For each staff who was NOT manually assigned a task whose ASSIGNMENT DATE
-// falls inside the matching slot (1-3 / 8-10 / 15-17 / 22-24), the system
+// Runs at 23:55 MMT on each weekly START day (the only allowed task start days):
+//   day 1, 8, 15, 22.
+// For each staff who was NOT assigned a task for that weekly slot
+// (start day 1 / 8 / 15 / 22, deadline 7 / 14 / 21 / 27), the system
 // credits them 1 unit (auto-approved) plus 1/4 of their monthly bonus.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -31,21 +31,19 @@ function mmtToday(): { y: number; m: number; d: number; iso: string; monthStart:
   };
 }
 
-// Assignment slots are the ONLY days admins hand out tasks:
-//   Week 1 → 1-3, Week 2 → 8-10, Week 3 → 15-17, Week 4 → 22-24.
-// Each slot's final day is the single checkpoint where the credit sweep runs
-// at 23:55 MMT.
+// Weekly-only model: tasks may start ONLY on day 1, 8, 15 or 22, and the
+// deadline is 7 / 14 / 21 / 27 respectively. The credit sweep runs at
+// 23:55 MMT on the START day itself (1, 8, 15, 22).
 export const WEEK_SLOTS = [
-  { index: 1, startDay: 1, endDay: 3, label: "Week 1" },
-  { index: 2, startDay: 8, endDay: 10, label: "Week 2" },
-  { index: 3, startDay: 15, endDay: 17, label: "Week 3" },
-  { index: 4, startDay: 22, endDay: 24, label: "Week 4" },
+  { index: 1, startDay: 1, endDay: 7, label: "Week 1" },
+  { index: 2, startDay: 8, endDay: 14, label: "Week 2" },
+  { index: 3, startDay: 15, endDay: 21, label: "Week 3" },
+  { index: 4, startDay: 22, endDay: 27, label: "Week 4" },
 ];
 
-// The sweep runs on each slot's CHECKPOINT day = the slot's last day:
-//   day 3, 10, 17, 24 at 23:55 MMT.
-export function checkpointDayFor(slotEndDay: number, _month: number) {
-  return slotEndDay;
+// Checkpoint day = the slot's START day (1, 8, 15, 22) at 23:55 MMT.
+export function checkpointDayFor(slotStartDay: number, _month: number) {
+  return slotStartDay;
 }
 
 function mkWindow(slot: typeof WEEK_SLOTS[number], year: number, month: number) {
@@ -56,7 +54,7 @@ function mkWindow(slot: typeof WEEK_SLOTS[number], year: number, month: number) 
     end: mk(slot.endDay),
     label: slot.label,
     index: slot.index,
-    checkpoint: mk(checkpointDayFor(slot.endDay, month)),
+    checkpoint: mk(checkpointDayFor(slot.startDay, month)),
   };
 }
 
@@ -64,7 +62,7 @@ function mkWindow(slot: typeof WEEK_SLOTS[number], year: number, month: number) 
 // delayed/catch-up invocation still lands on the right window).
 export function checkpointWindow(day: number, year: number, month: number) {
   for (const slot of WEEK_SLOTS) {
-    const cp = checkpointDayFor(slot.endDay, month);
+    const cp = checkpointDayFor(slot.startDay, month);
     if (day === cp || day === cp + 1) return mkWindow(slot, year, month);
   }
   return null;
@@ -85,10 +83,10 @@ function parseOverrideWindow(raw: string | null, year: number, month: number) {
   const [, y, m, d] = match;
   const mm = Number(m);
   const dd = Number(d);
-  // Accept either the slot's last day or its deadline day.
+  // Accept either the slot's start (checkpoint) day or its deadline day.
   const slot =
-    WEEK_SLOTS.find((s) => s.endDay === dd) ??
-    WEEK_SLOTS.find((s) => checkpointDayFor(s.endDay, mm) === dd);
+    WEEK_SLOTS.find((s) => checkpointDayFor(s.startDay, mm) === dd) ??
+    WEEK_SLOTS.find((s) => s.endDay === dd);
   return slot ? mkWindow(slot, Number(y), mm) : null;
 }
 
@@ -143,24 +141,12 @@ Deno.serve(async (req) => {
     }
 
     // 3) "Covered" = the staff has a task/assignment whose ASSIGNMENT DATE
-    //    (start date) falls inside THIS slot. A task that merely *ends* inside
-    //    the slot belongs to the previous slot and must NOT block this credit
-    //    — that bug credited only one account in Week 2 (2026-08-08 → 08-10),
-    //    because everyone else had a Week-1 task (started 08-03) that happened
-    //    to have its deadline on 08-08.
-    //    Exception: an active biweekly task (span ≥ 12 days) started in the
-    //    PREVIOUS slot legitimately owns this slot too (it is worth 2 units).
-    const spanDays = (start: string, end: string) =>
-      Math.round(
-        (new Date(end + "T00:00:00Z").getTime() - new Date(start + "T00:00:00Z").getTime()) / 86400000,
-      );
-
-    const ownsSlot = (start: string, end: string) => {
-      if (start >= win.start && start <= win.end) return true;
-      // A 2-unit task assigned before this slot also covers it while its
-      // deadline is still open. This prevents a second +1 system credit.
-      return start < win.start && spanDays(start, end) >= 12 && end >= win.end;
-    };
+    //    (start date) falls inside THIS weekly slot (start day → deadline day).
+    //    A task that merely *ends* inside the slot belongs to an earlier slot
+    //    and must NOT block this credit. Weekly-only model: no biweekly /
+    //    2-unit carry-over exception.
+    const ownsSlot = (start: string, _end: string) =>
+      start >= win.start && start <= win.end;
 
     const mmtDateFromTimestamp = (value: string) => {
       const timestamp = new Date(value).getTime() + (6 * 60 + 30) * 60 * 1000;
@@ -348,7 +334,7 @@ Deno.serve(async (req) => {
           amount: perUnit,
           unit_count: 1,
           deadline_date: win.end,
-          approved_date: win.end,
+          approved_date: win.checkpoint,
           auto_approved: true,
           title: creditTitle,
         });
@@ -400,7 +386,7 @@ Deno.serve(async (req) => {
             amount: perUnit,
             unit_count: 1,
             deadline_date: win.end,
-            approved_date: win.end,
+            approved_date: win.checkpoint,
             auto_approved: true,
             title: creditTitle,
           });
