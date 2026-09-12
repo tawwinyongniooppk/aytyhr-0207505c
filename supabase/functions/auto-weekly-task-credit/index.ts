@@ -31,21 +31,19 @@ function mmtToday(): { y: number; m: number; d: number; iso: string; monthStart:
   };
 }
 
-// Assignment slots are the ONLY days admins hand out tasks:
-//   Week 1 → 1-3, Week 2 → 8-10, Week 3 → 15-17, Week 4 → 22-24.
-// Each slot's final day is the single checkpoint where the credit sweep runs
-// at 23:55 MMT.
+// Weekly-only model: tasks may start ONLY on day 1, 8, 15 or 22, and the
+// deadline is 7 / 14 / 21 / 27 respectively. The credit sweep runs at
+// 23:55 MMT on the START day itself (1, 8, 15, 22).
 export const WEEK_SLOTS = [
-  { index: 1, startDay: 1, endDay: 3, label: "Week 1" },
-  { index: 2, startDay: 8, endDay: 10, label: "Week 2" },
-  { index: 3, startDay: 15, endDay: 17, label: "Week 3" },
-  { index: 4, startDay: 22, endDay: 24, label: "Week 4" },
+  { index: 1, startDay: 1, endDay: 7, label: "Week 1" },
+  { index: 2, startDay: 8, endDay: 14, label: "Week 2" },
+  { index: 3, startDay: 15, endDay: 21, label: "Week 3" },
+  { index: 4, startDay: 22, endDay: 27, label: "Week 4" },
 ];
 
-// The sweep runs on each slot's CHECKPOINT day = the slot's last day:
-//   day 3, 10, 17, 24 at 23:55 MMT.
-export function checkpointDayFor(slotEndDay: number, _month: number) {
-  return slotEndDay;
+// Checkpoint day = the slot's START day (1, 8, 15, 22) at 23:55 MMT.
+export function checkpointDayFor(slotStartDay: number, _month: number) {
+  return slotStartDay;
 }
 
 function mkWindow(slot: typeof WEEK_SLOTS[number], year: number, month: number) {
