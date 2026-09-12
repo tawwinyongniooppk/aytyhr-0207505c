@@ -386,7 +386,7 @@ Deno.serve(async (req) => {
             amount: perUnit,
             unit_count: 1,
             deadline_date: win.end,
-            approved_date: win.end,
+            approved_date: win.checkpoint,
             auto_approved: true,
             title: creditTitle,
           });
