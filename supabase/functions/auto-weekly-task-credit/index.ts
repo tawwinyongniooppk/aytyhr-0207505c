@@ -141,24 +141,12 @@ Deno.serve(async (req) => {
     }
 
     // 3) "Covered" = the staff has a task/assignment whose ASSIGNMENT DATE
-    //    (start date) falls inside THIS slot. A task that merely *ends* inside
-    //    the slot belongs to the previous slot and must NOT block this credit
-    //    — that bug credited only one account in Week 2 (2026-08-08 → 08-10),
-    //    because everyone else had a Week-1 task (started 08-03) that happened
-    //    to have its deadline on 08-08.
-    //    Exception: an active biweekly task (span ≥ 12 days) started in the
-    //    PREVIOUS slot legitimately owns this slot too (it is worth 2 units).
-    const spanDays = (start: string, end: string) =>
-      Math.round(
-        (new Date(end + "T00:00:00Z").getTime() - new Date(start + "T00:00:00Z").getTime()) / 86400000,
-      );
-
-    const ownsSlot = (start: string, end: string) => {
-      if (start >= win.start && start <= win.end) return true;
-      // A 2-unit task assigned before this slot also covers it while its
-      // deadline is still open. This prevents a second +1 system credit.
-      return start < win.start && spanDays(start, end) >= 12 && end >= win.end;
-    };
+    //    (start date) falls inside THIS weekly slot (start day → deadline day).
+    //    A task that merely *ends* inside the slot belongs to an earlier slot
+    //    and must NOT block this credit. Weekly-only model: no biweekly /
+    //    2-unit carry-over exception.
+    const ownsSlot = (start: string, _end: string) =>
+      start >= win.start && start <= win.end;
 
     const mmtDateFromTimestamp = (value: string) => {
       const timestamp = new Date(value).getTime() + (6 * 60 + 30) * 60 * 1000;
