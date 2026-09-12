@@ -15,12 +15,11 @@ function getYearlyPeriod() {
   return { start, end, startLabel: `June 1, ${startYear}`, endLabel: `May 31, ${startYear + 1}` };
 }
 
-function unitsForSpan(start: string, end: string): number {
-  const d = Math.round(
-    (new Date(end + "T00:00:00").getTime() - new Date(start + "T00:00:00").getTime()) / 86400000,
-  );
-  return d >= 12 ? 2 : 1;
+// Weekly-only task system: every task assignment counts as exactly 1 unit.
+function unitsForSpan(_start: string, _end: string): number {
+  return 1;
 }
+
 
 function qualification(percent: number, baseSalary: number) {
   if (percent >= 91)

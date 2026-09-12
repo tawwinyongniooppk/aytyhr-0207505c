@@ -32,11 +32,9 @@ function isDeadlineNight(dateStr: string) {
 }
 
 
-function getTaskUnitCount(startDate: string, endDate: string) {
-  const days = Math.round(
-    (new Date(endDate + "T00:00:00").getTime() - new Date(startDate + "T00:00:00").getTime()) / 86400000,
-  );
-  return days >= 12 ? 2 : 1;
+// Weekly-only task system: every task assignment counts as exactly 1 unit.
+function getTaskUnitCount(_startDate: string, _endDate: string) {
+  return 1;
 }
 
 async function sendCreditPushes(rows: Array<{ user_id: string; amount: number; title: string }>) {
