@@ -54,7 +54,7 @@ function mkWindow(slot: typeof WEEK_SLOTS[number], year: number, month: number) 
     end: mk(slot.endDay),
     label: slot.label,
     index: slot.index,
-    checkpoint: mk(checkpointDayFor(slot.endDay, month)),
+    checkpoint: mk(checkpointDayFor(slot.startDay, month)),
   };
 }
 
@@ -62,7 +62,7 @@ function mkWindow(slot: typeof WEEK_SLOTS[number], year: number, month: number) 
 // delayed/catch-up invocation still lands on the right window).
 export function checkpointWindow(day: number, year: number, month: number) {
   for (const slot of WEEK_SLOTS) {
-    const cp = checkpointDayFor(slot.endDay, month);
+    const cp = checkpointDayFor(slot.startDay, month);
     if (day === cp || day === cp + 1) return mkWindow(slot, year, month);
   }
   return null;
@@ -83,10 +83,10 @@ function parseOverrideWindow(raw: string | null, year: number, month: number) {
   const [, y, m, d] = match;
   const mm = Number(m);
   const dd = Number(d);
-  // Accept either the slot's last day or its deadline day.
+  // Accept either the slot's start (checkpoint) day or its deadline day.
   const slot =
-    WEEK_SLOTS.find((s) => s.endDay === dd) ??
-    WEEK_SLOTS.find((s) => checkpointDayFor(s.endDay, mm) === dd);
+    WEEK_SLOTS.find((s) => checkpointDayFor(s.startDay, mm) === dd) ??
+    WEEK_SLOTS.find((s) => s.endDay === dd);
   return slot ? mkWindow(slot, Number(y), mm) : null;
 }
 
