@@ -455,16 +455,17 @@ export default function Attendance() {
       const today = getMMTTodayISO();
       const monthStart = getMonthStart();
 
-      // Single unified profiles fetch: schedule fields + base_salary + deduction
-      // rates were previously three separate selects of the same row (merged in
-      // Phase 3A). Field usage below is unchanged.
-      const [attRes, settRes, salRes, profileRes, bonusRes, addRes, smdRes, monthAttRes, leavesRes] = await Promise.all([
+      // Profile schedule fields come from the profiles table (non-sensitive
+      // columns only). Salary base + deduction rates come from the secured
+      // get_my_salary_fields RPC — salary columns are no longer readable
+      // directly from the profiles table.
+      const [attRes, settRes, salRes, profileRes, bonusRes, addRes, smdRes, monthAttRes, leavesRes, ratesRes] = await Promise.all([
         supabase.from("attendance").select("*").eq("user_id", user!.id).eq("date", today).maybeSingle(),
         supabase.from("app_settings").select("key,value").in("key", ["start_time","end_time","grace_period_minutes","deduction_rate_per_minute","school_latitude","school_longitude","allowed_radius_meters"]),
         supabase.from("salaries").select("*").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
         supabase
           .from("profiles")
-          .select("role, full_name, work_day, check_in_time, check_out_time, work_schedule, base_salary, late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute")
+          .select("role, full_name, work_day, check_in_time, check_out_time, work_schedule")
           .eq("id", user!.id)
           .maybeSingle(),
         supabase.from("bonus_transactions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
@@ -472,7 +473,9 @@ export default function Attendance() {
         (supabase as any).from("salary_manual_deductions").select("amount, source").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("attendance").select("date, late_minutes, early_minutes").eq("user_id", user!.id).gte("date", monthStart),
         supabase.from("leave_requests").select("date, type, payment_type, status").eq("user_id", user!.id).eq("status", "approved").gte("date", monthStart),
+        (supabase as any).rpc("get_my_salary_fields"),
       ]);
+      const salaryFields = (ratesRes.data as any[] | null)?.[0] ?? null;
 
       if (attRes.data) {
         const rec = attRes.data as unknown as AttendanceRecord;
@@ -488,9 +491,9 @@ export default function Attendance() {
         const earnedBonus = (bonusRes.data as any[] | null)?.reduce((s, b) => s + (Number(b.amount) || 0), 0) ?? 0;
         const additions = (addRes.data as any[] | null)?.reduce((s, a) => s + (Number(a.amount) || 0), 0) ?? 0;
         const sal = salRes.data as any;
-        const base = Number(sal?.base_salary ?? (profileRes.data as any)?.base_salary ?? 0);
+        const base = Number(sal?.base_salary ?? salaryFields?.base_salary ?? 0);
         const manual = Number(sal?.manual_deduction ?? 0);
-        const rp = profileRes.data as any;
+        const rp = salaryFields;
         const legacyRate = Number(rp?.deduction_rate_per_minute) || 200;
         const lateRate = Number(rp?.late_deduction_per_minute) || legacyRate;
         setStaffLateRate(lateRate);
@@ -572,8 +575,8 @@ export default function Attendance() {
         .maybeSingle();
       if (existing) return existing as unknown as SalaryRecord;
 
-      const { data: profile } = await supabase.from("profiles").select("base_salary").eq("id", user!.id).single();
-      const baseSalary = (profile as any)?.base_salary ?? 300000;
+      const { data: salaryFields } = await (supabase as any).rpc("get_my_salary_fields");
+      const baseSalary = Number((salaryFields as any[] | null)?.[0]?.base_salary) || 300000;
       // Staff cannot insert salary rows directly anymore — server-side
       // edge function (apply-attendance-deduction) creates the row when needed.
       return { base_salary: baseSalary, current_salary: baseSalary, total_deductions: 0 };
@@ -589,13 +592,13 @@ export default function Attendance() {
   const computeFinalSalary = async (): Promise<number> => {
     try {
       const monthStart = getMonthStart();
-      // Phase 3A: base_salary + deduction rates come from one profiles select
-      // (previously two separate selects of the same row).
+      // Base salary + deduction rates come from the secured get_my_salary_fields
+      // RPC (profiles salary columns are no longer client-readable).
       const [salRes, bonusRes, addRes, profRes, smdRes, monthAttRes, leavesRes] = await Promise.all([
         supabase.from("salaries").select("base_salary, manual_deduction").eq("user_id", user!.id).eq("month", monthStart).maybeSingle(),
         supabase.from("bonus_transactions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("salary_manual_additions").select("amount").eq("user_id", user!.id).eq("month", monthStart),
-        supabase.from("profiles").select("base_salary, late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute").eq("id", user!.id).maybeSingle(),
+        (supabase as any).rpc("get_my_salary_fields"),
         (supabase as any).from("salary_manual_deductions").select("amount, source").eq("user_id", user!.id).eq("month", monthStart),
         supabase.from("attendance").select("date, late_minutes, early_minutes").eq("user_id", user!.id).gte("date", monthStart),
         supabase.from("leave_requests").select("date, type, payment_type, status").eq("user_id", user!.id).eq("status", "approved").gte("date", monthStart),
@@ -607,7 +610,7 @@ export default function Attendance() {
       const earnedBonus = (bonusRes.data as any[] | null)?.reduce((s, b) => s + (Number(b.amount) || 0), 0) ?? 0;
       const additions = (addRes.data as any[] | null)?.reduce((s, a) => s + (Number(a.amount) || 0), 0) ?? 0;
       const manual = Math.max(0, Number(sal?.manual_deduction ?? 0));
-      const rp = profRes.data as any;
+      const rp = (profRes.data as any[] | null)?.[0] as any;
       const legacyRate = Number(rp?.deduction_rate_per_minute) || 200;
       const lateRate = Number(rp?.late_deduction_per_minute) || legacyRate;
       const earlyRate = Number(rp?.early_deduction_per_minute) || legacyRate;

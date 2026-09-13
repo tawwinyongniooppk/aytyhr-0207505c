@@ -1,0 +1,22 @@
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM anon;
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM authenticated;
+
+GRANT EXECUTE ON FUNCTION public.admin_list_profiles() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_manage_branding() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.current_user_role() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.dashboard_monthly_attendance(date, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_leave_balance(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_leave_balances_all(uuid[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_my_salary_fields() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_profile_full(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_task_status_monitor(date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_user_rates(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin_or_assistant() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin_or_it_manager() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_it_manager() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_privileged_user() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.list_public_profiles() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.list_staff_directory() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_staff_attendance_settings(uuid, date, text, text, text, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.compute_bonus_per_unit(uuid, date) TO authenticated;

@@ -181,11 +181,9 @@ export default function SalaryPage() {
         .eq("user_id", user!.id)
         .eq("status", "approved")
         .gte("date", monthStart),
-      supabase
-        .from("profiles")
-        .select("late_deduction_per_minute, early_deduction_per_minute, deduction_rate_per_minute, base_salary")
-        .eq("id", user!.id)
-        .maybeSingle(),
+      // Salary base + deduction rates via secured RPC (profiles salary columns
+      // are no longer client-readable).
+      (supabase as any).rpc("get_my_salary_fields"),
       supabase
         .from("bonus_transactions")
         .select("id, title, amount, unit_count, deadline_date, approved_date, auto_approved")
@@ -206,9 +204,10 @@ export default function SalaryPage() {
         .order("created_at", { ascending: false }),
     ]);
 
+    const salaryFields = ((profRes as any).data as any[] | null)?.[0] ?? null;
     if (salRes.data) setSalary(salRes.data as unknown as SalaryData);
-    else if (profRes.data) {
-      const baseFromProfile = Number((profRes.data as any).base_salary) || 0;
+    else if (salaryFields) {
+      const baseFromProfile = Number(salaryFields.base_salary) || 0;
       setSalary({
         base_salary: baseFromProfile,
         current_salary: baseFromProfile,
@@ -225,11 +224,11 @@ export default function SalaryPage() {
     if (btRes.data) setBonusTxs(btRes.data as any[]);
     if (addRes.data) setManualAdditions(addRes.data as any[]);
     if ((smdRes as any).data) setManualDeductionsList((smdRes as any).data as any[]);
-    if (profRes.data) {
-      const legacy = Number((profRes.data as any).deduction_rate_per_minute) || 200;
+    if (salaryFields) {
+      const legacy = Number(salaryFields.deduction_rate_per_minute) || 200;
       setRates({
-        late: Number((profRes.data as any).late_deduction_per_minute) || legacy,
-        early: Number((profRes.data as any).early_deduction_per_minute) || legacy,
+        late: Number(salaryFields.late_deduction_per_minute) || legacy,
+        early: Number(salaryFields.early_deduction_per_minute) || legacy,
       });
     }
 
