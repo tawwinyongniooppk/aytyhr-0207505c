@@ -379,14 +379,8 @@ export function AdminTaskDashboard({
       let creditedAmount = 0;
       if (deadlineDate && deadlineDate < todayMMT) {
         const monthStart = todayMMT.slice(0, 7) + "-01";
-        let unitCount = 1;
-        if (item.source === "calendar") {
-          const days = Math.round(
-            (new Date(deadlineDate + "T00:00:00").getTime() -
-              new Date(item.startDate + "T00:00:00").getTime()) / 86400000,
-          );
-          unitCount = days >= 12 ? 2 : 1;
-        }
+        // Weekly-only model: every task assignment counts as exactly 1 unit.
+        const unitCount = 1;
 
         // Idempotency: skip if a bonus row already exists for this task/assignment.
         const existingQ = supabase.from("bonus_transactions").select("id").limit(1);
