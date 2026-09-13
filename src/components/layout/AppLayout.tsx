@@ -6,6 +6,7 @@ import { BackToDashboard } from "@/components/BackToDashboard";
 import { GlobalCarousel } from "@/components/carousel/GlobalCarousel";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useServerRole } from "@/hooks/useServerRole";
 import { Loader2 } from "lucide-react";
 import { ConfirmLogoutButton } from "@/components/ConfirmLogoutButton";
 
@@ -21,6 +22,11 @@ export function AppLayout() {
   const { user, loading } = useAuth();
   const { isAdmin, isAssistant, isStaff, canViewSalary, isItManager, isNeutralClass, loading: profileLoading, error: profileError } = useProfile();
   const location = useLocation();
+  // Privileged routes additionally verify the role with a fresh server-side
+  // call so tampered client state cannot render admin/IT-manager pages.
+  const isPrivilegedPath =
+    adminOnlyRoutes.includes(location.pathname) || itManagerOnlyRoutes.includes(location.pathname);
+  const { data: serverRole, isLoading: serverRoleLoading } = useServerRole(!!user && isPrivilegedPath);
 
   if (loading || profileLoading) {
     return (
