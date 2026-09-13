@@ -929,6 +929,17 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_my_salary_fields: {
+        Args: never
+        Returns: {
+          base_salary: number
+          deduction_rate_per_minute: number
+          early_deduction_per_minute: number
+          late_deduction_per_minute: number
+          overtime_rate_per_minute: number
+          partial_leave_deduction_per_minute: number
+        }[]
+      }
       get_profile_full: {
         Args: { p_id: string }
         Returns: {
