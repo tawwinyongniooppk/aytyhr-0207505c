@@ -113,7 +113,11 @@ export function OvertimeSection() {
       if (uids.length) {
         (staff as any[])?.filter((p) => uids.includes(p.id)).forEach((p) => (nameMap[p.id] = p.full_name));
       }
-      setAllItems(rows.map((r) => ({ ...r, profile_name: nameMap[r.user_id] || "Unknown" })));
+      // amount / rate_per_minute are no longer readable via table SELECT;
+      // admin/assistant fetch them through the secured RPC and merge by id.
+      const { data: fin } = await (supabase.rpc("get_overtime_financials") as any);
+      const finMap = new Map<string, any>(((fin as any[]) ?? []).map((f: any) => [f.id, f]));
+      setAllItems(rows.map((r) => ({ ...r, ...(finMap.get(r.id) ?? {}), profile_name: nameMap[r.user_id] || "Unknown" })));
     }
     setLoading(false);
   }

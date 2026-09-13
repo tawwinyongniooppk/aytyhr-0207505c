@@ -940,6 +940,15 @@ export type Database = {
           partial_leave_deduction_per_minute: number
         }[]
       }
+      get_overtime_financials: {
+        Args: never
+        Returns: {
+          amount: number
+          id: string
+          rate_per_minute: number
+          user_id: string
+        }[]
+      }
       get_profile_full: {
         Args: { p_id: string }
         Returns: {

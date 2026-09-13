@@ -6,6 +6,7 @@ import { BackToDashboard } from "@/components/BackToDashboard";
 import { GlobalCarousel } from "@/components/carousel/GlobalCarousel";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useServerRole } from "@/hooks/useServerRole";
 import { Loader2 } from "lucide-react";
 import { ConfirmLogoutButton } from "@/components/ConfirmLogoutButton";
 
@@ -21,8 +22,13 @@ export function AppLayout() {
   const { user, loading } = useAuth();
   const { isAdmin, isAssistant, isStaff, canViewSalary, isItManager, isNeutralClass, loading: profileLoading, error: profileError } = useProfile();
   const location = useLocation();
+  // Privileged routes additionally verify the role with a fresh server-side
+  // call so tampered client state cannot render admin/IT-manager pages.
+  const isPrivilegedPath =
+    adminOnlyRoutes.includes(location.pathname) || itManagerOnlyRoutes.includes(location.pathname);
+  const { data: serverRole, isLoading: serverRoleLoading } = useServerRole(!!user && isPrivilegedPath);
 
-  if (loading || profileLoading) {
+  if (loading || profileLoading || (isPrivilegedPath && !!user && serverRoleLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -31,6 +37,20 @@ export function AppLayout() {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+
+  // Server-verified enforcement for privileged routes. The role comes from a
+  // fresh current_user_role() RPC (read server-side from profiles), not from
+  // client state. If the server denies the role, redirect without rendering.
+  // If the RPC itself failed (no role), fall through to the profile-state
+  // guards below — data access remains server-enforced regardless.
+  if (isPrivilegedPath && serverRole) {
+    const allowed = itManagerOnlyRoutes.includes(location.pathname)
+      ? serverRole === "it_manager"
+      : serverRole === "admin" || serverRole === "assistant" || serverRole === "it_manager";
+    if (!allowed) {
+      return <Navigate to={serverRole === "admin" ? "/dashboard" : "/attendance"} replace />;
+    }
+  }
 
   if (profileError) {
     return (
