@@ -28,7 +28,7 @@ export function AppLayout() {
     adminOnlyRoutes.includes(location.pathname) || itManagerOnlyRoutes.includes(location.pathname);
   const { data: serverRole, isLoading: serverRoleLoading } = useServerRole(!!user && isPrivilegedPath);
 
-  if (loading || profileLoading) {
+  if (loading || profileLoading || (isPrivilegedPath && !!user && serverRoleLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -37,6 +37,19 @@ export function AppLayout() {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+
+  // Server-verified enforcement for privileged routes. The role comes from a
+  // fresh current_user_role() RPC (read server-side from profiles), not from
+  // client state. If the server denies the role, redirect without rendering.
+  if (isPrivilegedPath) {
+    if (!serverRole) return <Navigate to="/login" replace />;
+    const allowed = itManagerOnlyRoutes.includes(location.pathname)
+      ? serverRole === "it_manager"
+      : serverRole === "admin" || serverRole === "assistant" || serverRole === "it_manager";
+    if (!allowed) {
+      return <Navigate to={serverRole === "admin" ? "/dashboard" : "/attendance"} replace />;
+    }
+  }
 
   if (profileError) {
     return (
