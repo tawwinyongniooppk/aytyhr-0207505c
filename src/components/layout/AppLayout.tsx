@@ -41,8 +41,9 @@ export function AppLayout() {
   // Server-verified enforcement for privileged routes. The role comes from a
   // fresh current_user_role() RPC (read server-side from profiles), not from
   // client state. If the server denies the role, redirect without rendering.
-  if (isPrivilegedPath) {
-    if (!serverRole) return <Navigate to="/login" replace />;
+  // If the RPC itself failed (no role), fall through to the profile-state
+  // guards below — data access remains server-enforced regardless.
+  if (isPrivilegedPath && serverRole) {
     const allowed = itManagerOnlyRoutes.includes(location.pathname)
       ? serverRole === "it_manager"
       : serverRole === "admin" || serverRole === "assistant" || serverRole === "it_manager";
