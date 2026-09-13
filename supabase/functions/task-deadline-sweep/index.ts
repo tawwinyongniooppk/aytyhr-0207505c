@@ -1,6 +1,6 @@
 // Runs at 23:55 MMT on the WEEKLY DEADLINE nights ONLY (not daily):
-//   February     → day 7, 14, 21, 28   (assignment slot last day + 4)
-//   other months → day 8, 15, 22, 29   (assignment slot last day + 5)
+//   day 7, 14, 21, 27 — the deadlines of the weekly slots that start on
+//   day 1, 8, 15 and 22 respectively (same days in every month, incl. February).
 // (A) Auto-approve tasks whose deadline has arrived and status = submitted → credit 1 unit bonus.
 // (B) Auto-approve calendar assignments whose event ended and status = submitted → credit unit_count bonus.
 // (C) Mark overdue tasks (deadline < today, status not submitted/approved/overdue OR rejected) → insert 0-amount bonus row.
@@ -23,12 +23,11 @@ function monthStart(dateStr: string) {
   return dateStr.slice(0, 7) + "-01";
 }
 
-// Weekly deadline nights: slot last day (3/10/17/24) + 5 days, or + 4 in February.
+// Weekly deadline nights: 7 / 14 / 21 / 27 (weekly slots 1→7, 8→14, 15→21, 22→27).
+// No February special-casing: these days exist in every month.
 function isDeadlineNight(dateStr: string) {
-  const month = Number(dateStr.slice(5, 7));
   const day = Number(dateStr.slice(8, 10));
-  const offset = month === 2 ? 4 : 5;
-  return [3, 10, 17, 24].some((slotEnd) => slotEnd + offset === day);
+  return [7, 14, 21, 27].includes(day);
 }
 
 
@@ -83,9 +82,8 @@ Deno.serve(async (req) => {
     );
 
     const today = yangonDateAt(0);
-    // Only the 4 weekly deadline nights matter. The cron fires on 7,8,14,15,21,
-    // 22,28,29 (pg_cron cannot branch on February), so the non-matching days
-    // exit immediately and cost nothing. `x-force-run: 1` allows a manual sweep.
+    // Only the 4 weekly deadline nights matter: 7, 14, 21, 27 — exactly the
+    // days the cron fires on. `x-force-run: 1` allows a manual sweep.
     if (!isDeadlineNight(today) && req.headers.get("x-force-run") !== "1") {
       return new Response(JSON.stringify({ skipped: true, reason: "not a weekly deadline night", today }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
