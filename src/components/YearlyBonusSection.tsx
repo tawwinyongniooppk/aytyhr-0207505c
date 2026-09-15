@@ -125,7 +125,6 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
 
       const tasks = (tasksRes.data as any[]) || [];
       for (const t of tasks) {
-        if (t.submission_status === "rejected") continue;
         const createdStr = String(t.created_at).slice(0, 10);
         if (createdStr < liveStart) continue;
         assignedUnits += 1;
@@ -139,7 +138,6 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
         const ev = r.calendar_events;
         if (!ev || ev.event_type !== "task") continue;
         if (ev.start_date < liveStart || ev.start_date >= period.end) continue;
-        if (r.submission_status === "rejected") continue;
         const u = unitsForSpan(ev.start_date, ev.end_date);
         assignedUnits += u;
         const deadlinePassed = ev.end_date < todayStr || creditedAssignments.has(r.id);
