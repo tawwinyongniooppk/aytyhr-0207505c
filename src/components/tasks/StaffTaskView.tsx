@@ -340,7 +340,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
                   <div className="flex items-center gap-2 sm:shrink-0 flex-wrap w-full sm:w-auto sm:justify-end">
                     {task.status === "in_progress" && <Progress value={50} className="w-16 h-2" />}
                     {getStatusBadge(task.status)}
-                    {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && (
+                    {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && !isPastDeadline(task.due_date) && (
                       <Button size="sm" className="text-xs gap-1" disabled={acknowledgingId === task.id} onClick={() => handleAcknowledgeTask(task.id)}>
                         {acknowledgingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ThumbsUp className="h-3 w-3" />}
                         I understand, I will do it
@@ -399,7 +399,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
                   <div className="flex items-center gap-2 sm:shrink-0 flex-wrap w-full sm:w-auto sm:justify-end">
                     {task.status === "in_progress" && <Progress value={50} className="w-16 h-2" />}
                     {getStatusBadge(task.status)}
-                    {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && (
+                    {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && !isPastDeadline(task.dueDate) && (
                       <Button size="sm" className="text-xs gap-1" disabled={acknowledgingId === task.id} onClick={() => handleAcknowledgeAssignment(task.id)}>
                         {acknowledgingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ThumbsUp className="h-3 w-3" />}
                         I understand, I will do it
