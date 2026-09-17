@@ -107,6 +107,11 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
   }, [localTasks, myCalendarTasks]);
 
   async function handleAcknowledgeTask(taskId: string) {
+    const target = localTasks.find(t => t.id === taskId);
+    if (isPastDeadline(target?.due_date)) {
+      toast.error("Deadline ကျော်လွန်သွားပါပြီ — ဤ Task ကို လက်ခံ၍ မရတော့ပါ");
+      return;
+    }
     setAcknowledgingId(taskId);
     try {
       const { error } = await supabase.from("tasks").update({ submission_status: "in_progress" }).eq("id", taskId);
@@ -118,6 +123,10 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
   }
 
   async function handleAcknowledgeAssignment(assignmentId: string) {
+    if (isPastDeadline(assignmentDeadline(assignmentId))) {
+      toast.error("Deadline ကျော်လွန်သွားပါပြီ — ဤ Task ကို လက်ခံ၍ မရတော့ပါ");
+      return;
+    }
     setAcknowledgingId(assignmentId);
     try {
       const { error } = await supabase.from("calendar_event_assignments").update({ submission_status: "in_progress" }).eq("id", assignmentId);
