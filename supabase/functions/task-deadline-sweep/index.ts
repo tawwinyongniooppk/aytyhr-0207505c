@@ -267,7 +267,7 @@ Deno.serve(async (req) => {
     const { data: overdueTasks } = await supabase
       .from("tasks")
       .select("id, assignee_id, title, due_date")
-      .lt("due_date", today)
+      .lte("due_date", today)
       .in("submission_status", ["not_started", "in_progress", "not_submitted", "rejected"]);
 
     if (overdueTasks && overdueTasks.length > 0) {
@@ -319,7 +319,7 @@ Deno.serve(async (req) => {
 
       const toOverdue = openAssigns.filter((a: any) => {
         const ev: any = evMap2.get(a.event_id);
-        return ev && ev.end_date < today;
+        return ev && ev.end_date <= today;
       });
 
       if (toOverdue.length) {

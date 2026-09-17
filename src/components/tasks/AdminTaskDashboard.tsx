@@ -177,11 +177,18 @@ export function AdminTaskDashboard({
   }
 
   function getItemStatus(submissionStatus: string, dueDate?: string | null): UnifiedItem["status"] {
+    // Terminal states are never overridden by the deadline.
     if (submissionStatus === "approved") return "approved";
-    if (submissionStatus === "rejected") return "rejected";
     if (submissionStatus === "submitted") return "submitted";
+    // After the deadline (date-only, MMT convention: past when dueDate < today),
+    // unresolved states display as Overdue.
+    if (dueDate && dueDate < nowDate
+        && (submissionStatus === "not_started" || submissionStatus === "not_submitted"
+            || submissionStatus === "in_progress" || submissionStatus === "rejected")) {
+      return "overdue";
+    }
+    if (submissionStatus === "rejected") return "rejected";
     if (submissionStatus === "in_progress") return "in_progress";
-    if (dueDate && dueDate < nowDate) return "overdue";
     return "not_started";
   }
 
@@ -319,6 +326,8 @@ export function AdminTaskDashboard({
         if (i.status === "approved") return false;
         if (!i.dueDate) return false;
         const d = new Date(i.dueDate + "T23:59:59");
+        // Lower bound: deadlines that have already passed leave the active view.
+        if (d.getTime() < now.getTime()) return false;
         return d.getTime() <= cutoff.getTime();
       })
       .sort((a, b) => {
