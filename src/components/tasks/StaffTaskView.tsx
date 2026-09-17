@@ -224,10 +224,11 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
     ...t,
     dueDate: t.due_date,
     status: t.submission_status === "approved" ? "approved"
-      : t.submission_status === "rejected" ? "rejected"
       : t.submission_status === "submitted" ? "submitted"
+      : (t.due_date && t.due_date < now) ? "overdue"
+      : t.submission_status === "rejected" ? "rejected"
       : t.submission_status === "in_progress" ? "in_progress"
-      : (t.due_date && t.due_date < now) ? "overdue" : "not_started",
+      : "not_started",
   }));
   const sortedTasks = sortByDeadline(normalizedTasks);
 
@@ -243,10 +244,11 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
     submission_status: assignment.submission_status,
     rejection_reason: (assignment as any).rejection_reason || null,
     status: assignment.submission_status === "approved" ? "approved"
-      : assignment.submission_status === "rejected" ? "rejected"
       : assignment.submission_status === "submitted" ? "submitted"
+      : (event.end_date && event.end_date < now) ? "overdue"
+      : assignment.submission_status === "rejected" ? "rejected"
       : assignment.submission_status === "in_progress" ? "in_progress"
-      : (event.end_date && event.end_date < now) ? "overdue" : "not_started",
+      : "not_started",
   }));
   const sortedCalTasks = sortByDeadline(normalizedCalTasks);
 
