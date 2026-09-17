@@ -107,6 +107,11 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
   }, [localTasks, myCalendarTasks]);
 
   async function handleAcknowledgeTask(taskId: string) {
+    const target = localTasks.find(t => t.id === taskId);
+    if (isPastDeadline(target?.due_date)) {
+      toast.error("Deadline ကျော်လွန်သွားပါပြီ — ဤ Task ကို လက်ခံ၍ မရတော့ပါ");
+      return;
+    }
     setAcknowledgingId(taskId);
     try {
       const { error } = await supabase.from("tasks").update({ submission_status: "in_progress" }).eq("id", taskId);
@@ -118,6 +123,10 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
   }
 
   async function handleAcknowledgeAssignment(assignmentId: string) {
+    if (isPastDeadline(assignmentDeadline(assignmentId))) {
+      toast.error("Deadline ကျော်လွန်သွားပါပြီ — ဤ Task ကို လက်ခံ၍ မရတော့ပါ");
+      return;
+    }
     setAcknowledgingId(assignmentId);
     try {
       const { error } = await supabase.from("calendar_event_assignments").update({ submission_status: "in_progress" }).eq("id", assignmentId);
@@ -215,10 +224,11 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
     ...t,
     dueDate: t.due_date,
     status: t.submission_status === "approved" ? "approved"
-      : t.submission_status === "rejected" ? "rejected"
       : t.submission_status === "submitted" ? "submitted"
+      : (t.due_date && t.due_date < now) ? "overdue"
+      : t.submission_status === "rejected" ? "rejected"
       : t.submission_status === "in_progress" ? "in_progress"
-      : (t.due_date && t.due_date < now) ? "overdue" : "not_started",
+      : "not_started",
   }));
   const sortedTasks = sortByDeadline(normalizedTasks);
 
@@ -234,10 +244,11 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
     submission_status: assignment.submission_status,
     rejection_reason: (assignment as any).rejection_reason || null,
     status: assignment.submission_status === "approved" ? "approved"
-      : assignment.submission_status === "rejected" ? "rejected"
       : assignment.submission_status === "submitted" ? "submitted"
+      : (event.end_date && event.end_date < now) ? "overdue"
+      : assignment.submission_status === "rejected" ? "rejected"
       : assignment.submission_status === "in_progress" ? "in_progress"
-      : (event.end_date && event.end_date < now) ? "overdue" : "not_started",
+      : "not_started",
   }));
   const sortedCalTasks = sortByDeadline(normalizedCalTasks);
 
@@ -329,7 +340,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
                   <div className="flex items-center gap-2 sm:shrink-0 flex-wrap w-full sm:w-auto sm:justify-end">
                     {task.status === "in_progress" && <Progress value={50} className="w-16 h-2" />}
                     {getStatusBadge(task.status)}
-                    {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && (
+                    {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && !isPastDeadline(task.due_date) && (
                       <Button size="sm" className="text-xs gap-1" disabled={acknowledgingId === task.id} onClick={() => handleAcknowledgeTask(task.id)}>
                         {acknowledgingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ThumbsUp className="h-3 w-3" />}
                         I understand, I will do it
@@ -388,7 +399,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
                   <div className="flex items-center gap-2 sm:shrink-0 flex-wrap w-full sm:w-auto sm:justify-end">
                     {task.status === "in_progress" && <Progress value={50} className="w-16 h-2" />}
                     {getStatusBadge(task.status)}
-                    {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && (
+                    {(task.submission_status === "not_started" || task.submission_status === "not_submitted") && !isPastDeadline(task.dueDate) && (
                       <Button size="sm" className="text-xs gap-1" disabled={acknowledgingId === task.id} onClick={() => handleAcknowledgeAssignment(task.id)}>
                         {acknowledgingId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ThumbsUp className="h-3 w-3" />}
                         I understand, I will do it
