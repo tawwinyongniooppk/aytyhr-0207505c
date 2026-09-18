@@ -52,14 +52,14 @@ export function BottomNav() {
     return true;
   });
 
-  // When crowded (admin/assistant), switch to left vertical drawer
-  const useDrawer = (isAdmin || isAssistant) && navItems.length > 4;
+  // Use the same left-side navigation drawer for every role.
+  const useDrawer = navItems.length > 0;
 
   if (useDrawer) {
     return (
       <>
         <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card shadow-lg">
-          <div className="flex items-center justify-between h-16 px-3">
+          <div className="flex items-center h-16 px-3">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
                 <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm">
@@ -96,7 +96,6 @@ export function BottomNav() {
                 </div>
               </SheetContent>
             </Sheet>
-            <ConfirmLogoutButton className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-destructive transition-colors" iconClassName="h-5 w-5" />
           </div>
         </nav>
       </>
@@ -123,7 +122,6 @@ export function BottomNav() {
             <span>{item.label}</span>
           </NavLink>
         ))}
-        <ConfirmLogoutButton className="flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg text-[10px] font-medium text-muted-foreground hover:text-destructive transition-colors flex-1 min-w-[3rem] shrink-0" iconClassName="h-5 w-5" />
       </div>
     </nav>
   );
