@@ -86,11 +86,17 @@ export function OvertimeSection() {
 
   async function load() {
     setLoading(true);
+    // Financial columns (amount, rate_per_minute) are restricted by the security
+    // model; selecting them via table SELECT causes the whole query to fail.
+    // Select only the permitted non-financial columns. Admin/assistant still
+    // merge financial fields via get_overtime_financials() below.
+    const OT_COLUMNS =
+      "id,user_id,title,description,reason,start_at,end_at,minutes,status,reviewed_by,reviewed_at,created_at";
     const myP = canSubmit
-      ? supabase.from("overtime_requests").select("*").eq("user_id", user!.id).order("created_at", { ascending: false })
+      ? supabase.from("overtime_requests").select(OT_COLUMNS).eq("user_id", user!.id).order("created_at", { ascending: false })
       : Promise.resolve({ data: [] as any[] });
     const allP = canManage
-      ? supabase.from("overtime_requests").select("*").order("created_at", { ascending: false })
+      ? supabase.from("overtime_requests").select(OT_COLUMNS).order("created_at", { ascending: false })
       : Promise.resolve({ data: [] as any[] });
     const staffP = canManage
       ? fetchStaffDirectory(queryClient)
