@@ -103,7 +103,12 @@ export function OvertimeSection() {
       : Promise.resolve([] as any[]);
 
     const [my, all, staff] = await Promise.all([myP, allP, staffP]);
-    if (my.data) setMyItems(my.data as any);
+    // Surface query failures instead of silently rendering an empty list.
+    if (my.error) {
+      toast({ title: "Failed to load your overtime", description: my.error.message, variant: "destructive" });
+    } else if (my.data) {
+      setMyItems(my.data as any);
+    }
     if (canManage) {
       setStaffList(
         (staff as any[])
@@ -112,18 +117,22 @@ export function OvertimeSection() {
       );
     }
 
-    if (canManage && all.data) {
-      const rows = all.data as any[];
-      const uids = [...new Set(rows.map((r) => r.user_id))];
-      let nameMap: Record<string, string> = {};
-      if (uids.length) {
-        (staff as any[])?.filter((p) => uids.includes(p.id)).forEach((p) => (nameMap[p.id] = p.full_name));
+    if (canManage) {
+      if (all.error) {
+        toast({ title: "Failed to load overtime requests", description: all.error.message, variant: "destructive" });
+      } else if (all.data) {
+        const rows = all.data as any[];
+        const uids = [...new Set(rows.map((r) => r.user_id))];
+        let nameMap: Record<string, string> = {};
+        if (uids.length) {
+          (staff as any[])?.filter((p) => uids.includes(p.id)).forEach((p) => (nameMap[p.id] = p.full_name));
+        }
+        // amount / rate_per_minute are no longer readable via table SELECT;
+        // admin/assistant fetch them through the secured RPC and merge by id.
+        const { data: fin } = await (supabase.rpc("get_overtime_financials") as any);
+        const finMap = new Map<string, any>(((fin as any[]) ?? []).map((f: any) => [f.id, f]));
+        setAllItems(rows.map((r) => ({ ...r, ...(finMap.get(r.id) ?? {}), profile_name: nameMap[r.user_id] || "Unknown" })));
       }
-      // amount / rate_per_minute are no longer readable via table SELECT;
-      // admin/assistant fetch them through the secured RPC and merge by id.
-      const { data: fin } = await (supabase.rpc("get_overtime_financials") as any);
-      const finMap = new Map<string, any>(((fin as any[]) ?? []).map((f: any) => [f.id, f]));
-      setAllItems(rows.map((r) => ({ ...r, ...(finMap.get(r.id) ?? {}), profile_name: nameMap[r.user_id] || "Unknown" })));
     }
     setLoading(false);
   }
