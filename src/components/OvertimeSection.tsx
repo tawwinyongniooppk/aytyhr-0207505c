@@ -92,12 +92,13 @@ export function OvertimeSection() {
     // merge financial fields via get_overtime_financials() below.
     const OT_COLUMNS =
       "id,user_id,title,description,reason,start_at,end_at,minutes,status,reviewed_by,reviewed_at,created_at";
+    const emptyRes = { data: [] as any[], error: null as any };
     const myP = canSubmit
       ? supabase.from("overtime_requests").select(OT_COLUMNS).eq("user_id", user!.id).order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] as any[] });
+      : Promise.resolve(emptyRes);
     const allP = canManage
       ? supabase.from("overtime_requests").select(OT_COLUMNS).order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] as any[] });
+      : Promise.resolve(emptyRes);
     const staffP = canManage
       ? fetchStaffDirectory(queryClient)
       : Promise.resolve([] as any[]);
