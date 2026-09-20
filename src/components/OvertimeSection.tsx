@@ -218,22 +218,64 @@ export function OvertimeSection() {
       if (decision === "approved" && amount > 0) {
         const parts = getMMTDateParts(item.start_at);
         const monthStart = `${parts.year}-${parts.month}-01`;
-        const { error: addErr } = await supabase.from("salary_manual_additions").insert({
-          user_id: item.user_id,
-          created_by: user.id,
-          month: monthStart,
-          title: `Overtime Payment: ${item.title}`,
-          amount,
-          kind: "auto",
-        });
-        if (addErr) {
-          toast({ title: "Salary addition failed", description: addErr.message, variant: "destructive" });
+        const additionTitle = `Overtime Payment: ${item.title}`;
+
+        // Idempotency: never create a second salary addition for the same
+        // approved overtime (e.g. after a retry following a failed insert).
+        const { data: existing, error: checkErr } = await supabase
+          .from("salary_manual_additions")
+          .select("id")
+          .eq("user_id", item.user_id)
+          .eq("month", monthStart)
+          .eq("title", additionTitle)
+          .eq("amount", amount)
+          .limit(1);
+
+        if (checkErr) {
+          // Could not verify — do not risk a duplicate and do not leave the
+          // request silently approved without payment: roll the review back.
+          await supabase.from("overtime_requests")
+            .update({ status: "pending", reviewed_by: null, reviewed_at: null })
+            .eq("id", item.id);
+          toast({
+            title: "Approval rolled back",
+            description: `Could not verify the salary addition (${checkErr.message}). Please try again.`,
+            variant: "destructive",
+          });
+          void load();
+          return;
+        }
+
+        if (!existing || existing.length === 0) {
+          const { error: addErr } = await supabase.from("salary_manual_additions").insert({
+            user_id: item.user_id,
+            created_by: user.id,
+            month: monthStart,
+            title: additionTitle,
+            amount,
+            kind: "auto",
+          });
+          if (addErr) {
+            // Salary addition failed: roll the approval back so the request
+            // stays actionable instead of being approved without payment.
+            await supabase.from("overtime_requests")
+              .update({ status: "pending", reviewed_by: null, reviewed_at: null })
+              .eq("id", item.id);
+            toast({
+              title: "Approval rolled back — salary addition failed",
+              description: `${addErr.message}. The request is still pending; please approve again.`,
+              variant: "destructive",
+            });
+            void load();
+            return;
+          }
         }
       }
 
       toast({
         title: decision === "approved" ? `OT approved — +${amount.toLocaleString()} MMK` : "OT rejected",
       });
+
 
       sendPush({
         user_ids: [item.user_id],
