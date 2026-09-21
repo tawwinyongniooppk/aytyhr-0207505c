@@ -351,34 +351,86 @@ export default function Leave() {
         return;
       }
 
-      // Partial Leave approval → auto-create a salary transaction (minutes × per-min rate)
+      // Partial Leave approval → auto-create a salary transaction (minutes × per-min rate).
+      // Approval and its deduction must succeed together: on any financial failure the
+      // request is rolled back to pending and no approval notification is sent.
       if (
         decision === "approved" &&
         selectedRequest.type === "partial_leave" &&
         selectedRequest.start_time &&
         selectedRequest.end_time
       ) {
+        const rollbackApproval = async (logLabel: string, err?: unknown) => {
+          console.error(`[partial-leave] ${logLabel}`, err);
+          await supabase
+            .from("leave_requests")
+            .update({ status: "pending", reviewed_by: null, reviewed_at: null, payment_type: null })
+            .eq("id", requestId);
+          toast({
+            title: "Partial Leave approval failed",
+            description:
+              "Salary deduction could not be recorded. The request remains Pending. Please try again.",
+            variant: "destructive",
+          });
+          setSelectedRequest(null);
+          loadData();
+        };
+
         try {
           const [sh, sm] = selectedRequest.start_time.slice(0, 5).split(":").map(Number);
           const [eh, em] = selectedRequest.end_time.slice(0, 5).split(":").map(Number);
           const minutes = Math.max(0, eh * 60 + em - (sh * 60 + sm));
-          const { data: rates } = await (supabase.rpc("get_user_rates", { p_user_id: selectedRequest.user_id }) as any);
+
+          const { data: rates, error: rateError } = await (supabase.rpc("get_user_rates", {
+            p_user_id: selectedRequest.user_id,
+          }) as any);
           const rateRow = Array.isArray(rates) ? rates[0] : rates;
           const rate =
             Number((rateRow as any)?.partial_leave_deduction_per_minute) ||
             Number((rateRow as any)?.deduction_rate_per_minute) ||
-            200;
+            0;
+          if (rateError || !rateRow || !Number.isFinite(rate) || rate <= 0) {
+            await rollbackApproval("rate lookup failed", rateError);
+            return;
+          }
+
           const amount = minutes * rate;
           if (amount > 0) {
             const monthStart = `${selectedRequest.date.slice(0, 7)}-01`;
-            await (supabase as any).from("salary_manual_deductions").insert({
-              user_id: selectedRequest.user_id,
-              month: monthStart,
-              title: `Partial Leave (${selectedRequest.date} ${selectedRequest.start_time.slice(0,5)}–${selectedRequest.end_time.slice(0,5)}, ${minutes} min)`,
-              amount,
-              source: "partial_leave",
-              created_by: user.id,
-            });
+            const title = `Partial Leave (${selectedRequest.date} ${selectedRequest.start_time.slice(0, 5)}–${selectedRequest.end_time.slice(0, 5)}, ${minutes} min)`;
+
+            // Idempotency: an identical partial-leave deduction for this staff/month/title
+            // means this approval was already processed — do not insert a second one.
+            const { data: existing, error: existingError } = await (supabase as any)
+              .from("salary_manual_deductions")
+              .select("id")
+              .eq("user_id", selectedRequest.user_id)
+              .eq("month", monthStart)
+              .eq("source", "partial_leave")
+              .eq("title", title)
+              .limit(1);
+            if (existingError) {
+              await rollbackApproval("duplicate check failed", existingError);
+              return;
+            }
+
+            if (!existing || existing.length === 0) {
+              const { error: insertError } = await (supabase as any)
+                .from("salary_manual_deductions")
+                .insert({
+                  user_id: selectedRequest.user_id,
+                  month: monthStart,
+                  title,
+                  amount,
+                  source: "partial_leave",
+                  created_by: user.id,
+                });
+              if (insertError) {
+                await rollbackApproval("deduction insert failed", insertError);
+                return;
+              }
+            }
+
             sendPush({
               user_ids: [selectedRequest.user_id],
               title: "Partial Leave approved",
@@ -387,7 +439,8 @@ export default function Leave() {
             });
           }
         } catch (e) {
-          console.error("[partial-leave] deduction insert failed", e);
+          await rollbackApproval("deduction processing failed", e);
+          return;
         }
       }
 
