@@ -7,7 +7,7 @@ import { GlobalCarousel } from "@/components/carousel/GlobalCarousel";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useServerRole } from "@/hooks/useServerRole";
-import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmLogoutButton } from "@/components/ConfirmLogoutButton";
 
 const dashboardDetailRoutes = ["/staff", "/attendance", "/leave", "/tasks", "/salaries-bonuses", "/calendar"];
@@ -30,8 +30,24 @@ export function AppLayout() {
 
   if (loading || profileLoading || (isPrivilegedPath && !!user && serverRoleLoading)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex min-h-screen bg-background" aria-busy="true" aria-label="Loading application">
+        <div className="hidden w-60 border-r border-border bg-secondary p-5 md:block">
+          <Skeleton className="h-10 w-40 bg-secondary-foreground/10" />
+          <div className="mt-8 space-y-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Skeleton key={index} className="h-11 w-full bg-secondary-foreground/10" />
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 p-4 md:p-6">
+          <Skeleton className="h-14 w-full" />
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="loading-shell h-28" />
+            ))}
+          </div>
+          <Skeleton className="loading-shell mt-5 h-64 w-full" />
+        </div>
       </div>
     );
   }

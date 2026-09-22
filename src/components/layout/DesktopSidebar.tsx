@@ -49,35 +49,35 @@ export function DesktopSidebar() {
   });
 
   return (
-    <aside className="w-60 bg-secondary text-secondary-foreground flex flex-col min-h-screen">
-      <div className="p-5 flex items-center gap-3 border-b border-sidebar-border">
-        <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
+    <aside className="flex min-h-screen w-60 flex-col border-r border-sidebar-border bg-secondary text-secondary-foreground shadow-sm">
+      <div className="flex items-center gap-3 border-b border-sidebar-border p-5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary shadow-sm">
           <GraduationCap className="h-5 w-5 text-primary-foreground" />
         </div>
         <h1 className="font-display text-lg font-bold">AYTY Smart HR</h1>
       </div>
 
       {profile && (
-        <div className="px-5 py-3 border-b border-sidebar-border">
-          <p className="text-sm font-medium truncate">{profile.full_name || "User"}</p>
+        <div className="border-b border-sidebar-border px-5 py-3.5">
+          <p className="truncate text-sm font-semibold">{profile.full_name || "User"}</p>
         </div>
       )}
 
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => (
           <NavLink
             key={`${item.to}-${item.staffOnly ? "s" : item.adminOnly ? "a" : "all"}`}
             to={item.to}
             className={({ isActive }) =>
               cn(
-                "relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-[color,background-color,box-shadow,transform] duration-200 ease-out before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:origin-center before:scale-y-0 before:rounded-full before:bg-indicator before:transition-transform before:duration-200 active:scale-[0.99]",
+                "group relative flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-[color,background-color,box-shadow,transform] duration-200 ease-out before:absolute before:inset-y-2 before:left-0 before:w-1 before:origin-center before:scale-y-0 before:rounded-r-full before:bg-indicator before:transition-transform before:duration-200 active:scale-[0.99]",
                 isActive
                   ? "bg-selected text-selected-foreground shadow-sm before:scale-y-100"
                   : "text-secondary-foreground/70 hover:bg-sidebar-accent hover:text-secondary-foreground"
               )
             }
           >
-            <item.icon className="h-4 w-4" />
+            <item.icon className="h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-105" />
             <span>{item.label}</span>
           </NavLink>
         ))}

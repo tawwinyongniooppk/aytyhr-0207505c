@@ -226,6 +226,7 @@
     font-family: var(--font-body);
     line-height: 1.6;
     letter-spacing: 0;
+    text-rendering: optimizeLegibility;
     transition: background-color 200ms ease-out, color 200ms ease-out;
   }
 
@@ -239,6 +240,8 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
+    @apply text-foreground;
+    letter-spacing: 0;
   }
 
   /* Lightweight interaction defaults for native controls not wrapped by the design system. */
@@ -293,6 +296,63 @@
 
   .theme-preview-swatch {
     background-color: hsl(var(--theme-preview));
+  }
+
+  .page-heading {
+    @apply font-display text-2xl font-bold leading-tight text-foreground;
+  }
+
+  .page-description {
+    @apply mt-1 text-sm leading-relaxed text-muted-foreground;
+  }
+
+  .section-heading {
+    @apply font-display text-base font-semibold leading-tight text-foreground;
+  }
+
+  .section-description {
+    @apply mt-1 text-xs leading-relaxed text-muted-foreground;
+  }
+
+  .section-divider {
+    @apply border-border/70;
+  }
+
+  .premium-surface {
+    @apply rounded-lg border border-border/80 bg-card text-card-foreground;
+    box-shadow: 0 1px 2px hsl(var(--foreground) / 0.04);
+  }
+
+  .metric-label {
+    @apply text-[11px] font-semibold uppercase text-muted-foreground;
+  }
+
+  .metric-value {
+    @apply font-display text-2xl font-bold tabular-nums text-foreground;
+  }
+
+  .empty-state {
+    @apply flex min-h-32 flex-col items-center justify-center rounded-md border border-dashed border-subtle-border bg-muted/20 px-5 py-8 text-center;
+  }
+
+  .empty-state-icon {
+    @apply mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-primary-soft text-primary-strong;
+  }
+
+  .empty-state-title {
+    @apply text-sm font-semibold text-foreground;
+  }
+
+  .empty-state-description {
+    @apply mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground;
+  }
+
+  .status-pill {
+    @apply inline-flex min-h-6 items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold leading-none;
+  }
+
+  .loading-shell {
+    @apply rounded-lg border border-border/60 bg-card shadow-sm;
   }
 }
 
