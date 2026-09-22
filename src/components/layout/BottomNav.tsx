@@ -58,11 +58,11 @@ export function BottomNav() {
   if (useDrawer) {
     return (
       <>
-        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card shadow-lg">
-          <div className="flex items-center h-16 px-3">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-card shadow-lg [padding-bottom:env(safe-area-inset-bottom)]">
+          <div className="flex h-16 items-center px-3">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
-                <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm transition-[transform,opacity,box-shadow] duration-150 ease-out active:scale-[0.97] active:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                <button className="flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-[transform,opacity,box-shadow] duration-150 ease-out hover:shadow-md active:scale-[0.97] active:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2">
                   <Menu className="h-5 w-5" />
                   <span>Menu</span>
                 </button>
@@ -79,14 +79,14 @@ export function BottomNav() {
                       onClick={() => setOpen(false)}
                       className={({ isActive }) =>
                         cn(
-                          "relative flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-[color,background-color,box-shadow,transform] duration-200 ease-out before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:origin-center before:scale-y-0 before:rounded-full before:bg-indicator before:transition-transform before:duration-200 active:scale-[0.99]",
+                          "group relative flex min-h-12 items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-[color,background-color,box-shadow,transform] duration-200 ease-out before:absolute before:inset-y-2 before:left-0 before:w-1 before:origin-center before:scale-y-0 before:rounded-r-full before:bg-indicator before:transition-transform before:duration-200 active:scale-[0.99]",
                           isActive
                             ? "bg-selected text-selected-foreground shadow-sm before:scale-y-100"
                             : "text-foreground hover:bg-muted"
                         )
                       }
                     >
-                      <item.icon className="h-5 w-5" />
+                      <item.icon className="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-105" />
                       <span>{item.fullLabel}</span>
                     </NavLink>
                   ))}
@@ -103,17 +103,17 @@ export function BottomNav() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card shadow-lg">
-      <div className="flex items-center justify-between gap-0.5 h-16 px-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-card shadow-lg [padding-bottom:env(safe-area-inset-bottom)]">
+      <div className="flex h-16 items-center justify-between gap-0.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {navItems.map((item) => (
           <NavLink
             key={`${item.to}-${item.staffOnly ? "s" : item.adminOnly ? "a" : "all"}`}
             to={item.to}
             className={({ isActive }) =>
               cn(
-                "flex flex-col items-center justify-center gap-0.5 px-2 py-2 rounded-lg text-[10px] font-medium transition-all duration-200 flex-1 min-w-[3rem] shrink-0",
+                "relative flex min-w-[3.25rem] flex-1 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-2 text-[10px] font-semibold transition-[color,background-color,transform] duration-200 after:absolute after:bottom-1 after:h-0.5 after:w-4 after:scale-x-0 after:rounded-full after:bg-indicator after:transition-transform active:scale-[0.98]",
                 isActive
-                  ? "text-primary bg-primary/10"
+                  ? "bg-selected text-selected-foreground after:scale-x-100"
                   : "text-muted-foreground"
               )
             }

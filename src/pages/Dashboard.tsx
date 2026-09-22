@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Clock, AlertTriangle, FileText, TrendingDown, CalendarCheck, Loader2, ListChecks, ChevronRight, Activity, CheckCircle2, UserX, CalendarDays, ArrowUpRight, CircleCheck, BriefcaseBusiness } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -198,12 +200,12 @@ export default function Dashboard() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold font-display">Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1">Loading overview...</p>
+          <h1 className="page-heading">Dashboard</h1>
+          <p className="page-description">Loading overview...</p>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
+            <Skeleton key={i} className="loading-shell h-24" />
           ))}
         </div>
         <div className="flex items-center justify-center py-8">
@@ -229,7 +231,7 @@ export default function Dashboard() {
     { label: "Pending tasks", value: pendingTasks, icon: ListChecks, to: "/tasks", tone: "primary" },
   ] as const;
 
-  const interactiveCard = "group cursor-pointer border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+  const interactiveCard = "interactive group cursor-pointer border-border/80 bg-card focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2";
   const sectionHeader = "flex items-center justify-between gap-3 border-b border-border/70 px-4 py-4 sm:px-5";
 
   return (
@@ -330,9 +332,9 @@ export default function Dashboard() {
                 </CardTitle>
                 <p className="mt-1 text-xs text-muted-foreground">Staff availability and attendance at a glance</p>
               </div>
-              <button onClick={() => navigate("/staff")} className="group flex min-h-10 items-center gap-1 rounded-md px-2 text-xs font-semibold text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Open staff setup">
+              <Button variant="ghost" size="sm" onClick={() => navigate("/staff")} className="group text-primary" aria-label="Open staff setup">
                 View staff <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-              </button>
+              </Button>
             </div>
             <CardContent className="p-4 sm:p-5">
               <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border lg:grid-cols-4">
@@ -371,10 +373,10 @@ export default function Dashboard() {
           </div>
           <CardContent className="p-4 sm:p-5">
             {staffAttendance.length === 0 ? (
-              <div className="flex min-h-32 flex-col items-center justify-center rounded-md border border-dashed border-border bg-muted/20 px-4 text-center">
-                <Clock className="mb-2 h-5 w-5 text-muted-foreground" />
-                <p className="text-sm font-medium">No attendance records yet</p>
-                <p className="mt-1 text-xs text-muted-foreground">Today’s check-ins will appear here.</p>
+              <div className="empty-state motion-safe:animate-content-in">
+                <div className="empty-state-icon"><Clock className="h-5 w-5" /></div>
+                <p className="empty-state-title">No attendance records yet</p>
+                <p className="empty-state-description">Today’s check-ins will appear here.</p>
               </div>
             ) : (
               <div className="divide-y divide-border">
