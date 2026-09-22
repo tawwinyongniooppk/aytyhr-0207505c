@@ -17,6 +17,8 @@
 
     --primary: 224 76% 45%;
     --primary-foreground: 0 0% 100%;
+    --primary-soft: 216 82% 95%;
+    --primary-strong: 218 84% 34%;
 
     --secondary: 222 38% 18%;
     --secondary-foreground: 0 0% 100%;
@@ -26,6 +28,11 @@
 
     --accent: 168 72% 32%;
     --accent-foreground: 0 0% 100%;
+    --accent-soft: 190 70% 93%;
+    --selected-background: 216 82% 95%;
+    --selected-foreground: 218 84% 30%;
+    --active-indicator: 216 78% 45%;
+    --subtle-border: 216 32% 82%;
 
     --destructive: 0 70% 48%;
     --destructive-foreground: 0 0% 100%;
@@ -68,6 +75,8 @@
 
     --primary: 224 80% 62%;
     --primary-foreground: 222 44% 10%;
+    --primary-soft: 216 45% 19%;
+    --primary-strong: 213 92% 72%;
 
     --secondary: 222 30% 20%;
     --secondary-foreground: 220 28% 96%;
@@ -77,6 +86,11 @@
 
     --accent: 168 62% 46%;
     --accent-foreground: 222 44% 10%;
+    --accent-soft: 188 38% 18%;
+    --selected-background: 216 45% 19%;
+    --selected-foreground: 213 92% 76%;
+    --active-indicator: 213 92% 68%;
+    --subtle-border: 216 30% 29%;
 
     --destructive: 0 68% 58%;
     --destructive-foreground: 222 44% 10%;
@@ -100,6 +114,104 @@
     --sidebar-border: 222 30% 20%;
     --sidebar-ring: 224 80% 62%;
   }
+
+  /* FE-2 color themes. Status colors stay independent above. */
+  :root[data-color-theme="ocean"] {
+    --primary: 216 78% 45%; --primary-foreground: 0 0% 100%; --primary-soft: 216 82% 95%; --primary-strong: 218 84% 34%;
+    --accent: 190 82% 32%; --accent-foreground: 0 0% 100%; --accent-soft: 190 70% 93%;
+    --ring: 216 78% 45%; --selected-background: 216 82% 95%; --selected-foreground: 218 84% 30%; --active-indicator: 216 78% 45%; --subtle-border: 216 32% 82%;
+    --sidebar-primary: 213 92% 68%; --sidebar-primary-foreground: 222 44% 10%; --sidebar-ring: 213 92% 68%;
+  }
+  :root.dark[data-color-theme="ocean"] {
+    --primary: 213 92% 68%; --primary-foreground: 222 44% 10%; --primary-soft: 216 45% 19%; --primary-strong: 213 92% 76%;
+    --accent: 188 79% 48%; --accent-foreground: 222 44% 10%; --accent-soft: 188 38% 18%;
+    --ring: 213 92% 68%; --selected-background: 216 45% 19%; --selected-foreground: 213 92% 76%; --active-indicator: 213 92% 68%; --subtle-border: 216 30% 29%;
+    --sidebar-primary: 213 92% 68%; --sidebar-primary-foreground: 222 44% 10%; --sidebar-ring: 213 92% 68%;
+  }
+  :root[data-color-theme="violet"] {
+    --primary: 265 73% 52%; --primary-foreground: 0 0% 100%; --primary-soft: 266 76% 95%; --primary-strong: 267 72% 40%;
+    --accent: 278 65% 48%; --accent-foreground: 0 0% 100%; --accent-soft: 278 70% 94%;
+    --ring: 265 73% 52%; --selected-background: 266 76% 95%; --selected-foreground: 267 72% 38%; --active-indicator: 265 73% 52%; --subtle-border: 265 28% 83%;
+    --sidebar-primary: 263 86% 72%; --sidebar-primary-foreground: 265 48% 12%; --sidebar-ring: 263 86% 72%;
+  }
+  :root.dark[data-color-theme="violet"] {
+    --primary: 263 86% 72%; --primary-foreground: 265 48% 12%; --primary-soft: 265 36% 21%; --primary-strong: 263 90% 80%;
+    --accent: 278 75% 68%; --accent-foreground: 265 48% 12%; --accent-soft: 278 30% 20%;
+    --ring: 263 86% 72%; --selected-background: 265 36% 21%; --selected-foreground: 263 90% 82%; --active-indicator: 263 86% 72%; --subtle-border: 265 26% 30%;
+    --sidebar-primary: 263 86% 72%; --sidebar-primary-foreground: 265 48% 12%; --sidebar-ring: 263 86% 72%;
+  }
+  :root[data-color-theme="emerald"] {
+    --primary: 158 73% 32%; --primary-foreground: 0 0% 100%; --primary-soft: 152 63% 94%; --primary-strong: 160 80% 24%;
+    --accent: 171 70% 30%; --accent-foreground: 0 0% 100%; --accent-soft: 168 58% 93%;
+    --ring: 158 73% 32%; --selected-background: 152 63% 94%; --selected-foreground: 160 80% 23%; --active-indicator: 158 73% 32%; --subtle-border: 158 27% 80%;
+    --sidebar-primary: 157 70% 48%; --sidebar-primary-foreground: 160 45% 9%; --sidebar-ring: 157 70% 48%;
+  }
+  :root.dark[data-color-theme="emerald"] {
+    --primary: 157 70% 48%; --primary-foreground: 160 45% 9%; --primary-soft: 158 38% 17%; --primary-strong: 156 72% 62%;
+    --accent: 171 68% 44%; --accent-foreground: 160 45% 9%; --accent-soft: 170 32% 17%;
+    --ring: 157 70% 48%; --selected-background: 158 38% 17%; --selected-foreground: 156 72% 66%; --active-indicator: 157 70% 48%; --subtle-border: 158 25% 27%;
+    --sidebar-primary: 157 70% 48%; --sidebar-primary-foreground: 160 45% 9%; --sidebar-ring: 157 70% 48%;
+  }
+  :root[data-color-theme="sky"] {
+    --primary: 199 88% 42%; --primary-foreground: 0 0% 100%; --primary-soft: 198 92% 94%; --primary-strong: 201 92% 31%;
+    --accent: 187 82% 36%; --accent-foreground: 0 0% 100%; --accent-soft: 187 72% 93%;
+    --ring: 199 88% 42%; --selected-background: 198 92% 94%; --selected-foreground: 201 92% 29%; --active-indicator: 199 88% 42%; --subtle-border: 199 32% 81%;
+    --sidebar-primary: 198 92% 58%; --sidebar-primary-foreground: 201 55% 9%; --sidebar-ring: 198 92% 58%;
+  }
+  :root.dark[data-color-theme="sky"] {
+    --primary: 198 92% 58%; --primary-foreground: 201 55% 9%; --primary-soft: 200 42% 18%; --primary-strong: 197 94% 70%;
+    --accent: 187 82% 48%; --accent-foreground: 201 55% 9%; --accent-soft: 188 36% 17%;
+    --ring: 198 92% 58%; --selected-background: 200 42% 18%; --selected-foreground: 197 94% 72%; --active-indicator: 198 92% 58%; --subtle-border: 199 26% 28%;
+    --sidebar-primary: 198 92% 58%; --sidebar-primary-foreground: 201 55% 9%; --sidebar-ring: 198 92% 58%;
+  }
+  :root[data-color-theme="rose"] {
+    --primary: 347 73% 46%; --primary-foreground: 0 0% 100%; --primary-soft: 350 78% 95%; --primary-strong: 348 78% 34%;
+    --accent: 334 67% 44%; --accent-foreground: 0 0% 100%; --accent-soft: 334 68% 94%;
+    --ring: 347 73% 46%; --selected-background: 350 78% 95%; --selected-foreground: 348 78% 32%; --active-indicator: 347 73% 46%; --subtle-border: 347 28% 82%;
+    --sidebar-primary: 347 84% 66%; --sidebar-primary-foreground: 348 48% 11%; --sidebar-ring: 347 84% 66%;
+  }
+  :root.dark[data-color-theme="rose"] {
+    --primary: 347 84% 66%; --primary-foreground: 348 48% 11%; --primary-soft: 347 36% 20%; --primary-strong: 346 88% 76%;
+    --accent: 334 76% 64%; --accent-foreground: 348 48% 11%; --accent-soft: 334 31% 19%;
+    --ring: 347 84% 66%; --selected-background: 347 36% 20%; --selected-foreground: 346 88% 78%; --active-indicator: 347 84% 66%; --subtle-border: 347 25% 29%;
+    --sidebar-primary: 347 84% 66%; --sidebar-primary-foreground: 348 48% 11%; --sidebar-ring: 347 84% 66%;
+  }
+  :root[data-color-theme="amber"] {
+    --primary: 32 94% 39%; --primary-foreground: 0 0% 100%; --primary-soft: 42 95% 92%; --primary-strong: 28 93% 29%;
+    --accent: 20 88% 42%; --accent-foreground: 0 0% 100%; --accent-soft: 25 88% 92%;
+    --ring: 32 94% 39%; --selected-background: 42 95% 92%; --selected-foreground: 28 93% 27%; --active-indicator: 32 94% 39%; --subtle-border: 35 35% 78%;
+    --sidebar-primary: 38 92% 58%; --sidebar-primary-foreground: 25 62% 9%; --sidebar-ring: 38 92% 58%;
+  }
+  :root.dark[data-color-theme="amber"] {
+    --primary: 38 92% 58%; --primary-foreground: 25 62% 9%; --primary-soft: 34 40% 18%; --primary-strong: 42 96% 68%;
+    --accent: 24 90% 58%; --accent-foreground: 25 62% 9%; --accent-soft: 24 34% 18%;
+    --ring: 38 92% 58%; --selected-background: 34 40% 18%; --selected-foreground: 42 96% 70%; --active-indicator: 38 92% 58%; --subtle-border: 35 25% 28%;
+    --sidebar-primary: 38 92% 58%; --sidebar-primary-foreground: 25 62% 9%; --sidebar-ring: 38 92% 58%;
+  }
+  :root[data-color-theme="pink"] {
+    --primary: 326 72% 46%; --primary-foreground: 0 0% 100%; --primary-soft: 326 78% 95%; --primary-strong: 327 78% 34%;
+    --accent: 310 64% 43%; --accent-foreground: 0 0% 100%; --accent-soft: 310 68% 94%;
+    --ring: 326 72% 46%; --selected-background: 326 78% 95%; --selected-foreground: 327 78% 32%; --active-indicator: 326 72% 46%; --subtle-border: 326 27% 82%;
+    --sidebar-primary: 326 80% 68%; --sidebar-primary-foreground: 327 48% 11%; --sidebar-ring: 326 80% 68%;
+  }
+  :root.dark[data-color-theme="pink"] {
+    --primary: 326 80% 68%; --primary-foreground: 327 48% 11%; --primary-soft: 326 34% 20%; --primary-strong: 325 84% 78%;
+    --accent: 310 72% 65%; --accent-foreground: 327 48% 11%; --accent-soft: 310 29% 19%;
+    --ring: 326 80% 68%; --selected-background: 326 34% 20%; --selected-foreground: 325 84% 80%; --active-indicator: 326 80% 68%; --subtle-border: 326 24% 29%;
+    --sidebar-primary: 326 80% 68%; --sidebar-primary-foreground: 327 48% 11%; --sidebar-ring: 326 80% 68%;
+  }
+  :root[data-color-theme="slate"] {
+    --primary: 215 25% 36%; --primary-foreground: 0 0% 100%; --primary-soft: 214 28% 94%; --primary-strong: 216 30% 25%;
+    --accent: 197 32% 36%; --accent-foreground: 0 0% 100%; --accent-soft: 198 27% 93%;
+    --ring: 215 25% 36%; --selected-background: 214 28% 94%; --selected-foreground: 216 30% 24%; --active-indicator: 215 25% 36%; --subtle-border: 215 18% 79%;
+    --sidebar-primary: 214 25% 68%; --sidebar-primary-foreground: 218 35% 9%; --sidebar-ring: 214 25% 68%;
+  }
+  :root.dark[data-color-theme="slate"] {
+    --primary: 214 25% 68%; --primary-foreground: 218 35% 9%; --primary-soft: 215 24% 20%; --primary-strong: 214 28% 78%;
+    --accent: 197 34% 62%; --accent-foreground: 218 35% 9%; --accent-soft: 198 22% 19%;
+    --ring: 214 25% 68%; --selected-background: 215 24% 20%; --selected-foreground: 214 28% 80%; --active-indicator: 214 25% 68%; --subtle-border: 215 20% 29%;
+    --sidebar-primary: 214 25% 68%; --sidebar-primary-foreground: 218 35% 9%; --sidebar-ring: 214 25% 68%;
+  }
 }
 
 
@@ -114,6 +226,7 @@
     font-family: var(--font-body);
     line-height: 1.6;
     letter-spacing: 0;
+    transition: background-color 200ms ease-out, color 200ms ease-out;
   }
 
   p, li, label, span {
@@ -156,7 +269,7 @@
 
   /* Cards / interactive containers opt-in via .interactive */
   .interactive {
-    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
   }
   .interactive:hover {
     transform: translateY(-1px);
@@ -165,6 +278,21 @@
 
   [aria-invalid="true"] {
     transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+  }
+}
+
+@layer components {
+  [data-preview-theme="ocean"] { --theme-preview: 216 78% 45%; }
+  [data-preview-theme="violet"] { --theme-preview: 265 73% 52%; }
+  [data-preview-theme="emerald"] { --theme-preview: 158 73% 32%; }
+  [data-preview-theme="sky"] { --theme-preview: 199 88% 42%; }
+  [data-preview-theme="rose"] { --theme-preview: 347 73% 46%; }
+  [data-preview-theme="amber"] { --theme-preview: 32 94% 46%; }
+  [data-preview-theme="pink"] { --theme-preview: 326 72% 52%; }
+  [data-preview-theme="slate"] { --theme-preview: 215 25% 42%; }
+
+  .theme-preview-swatch {
+    background-color: hsl(var(--theme-preview));
   }
 }
 
