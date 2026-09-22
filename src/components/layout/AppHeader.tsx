@@ -81,10 +81,10 @@ export function AppHeader() {
     .slice(0, 2);
 
   return (
-    <header className="sticky top-0 z-30 bg-background/90 backdrop-blur border-b border-border">
+    <header className="sticky top-0 z-30 border-b border-border/80 bg-background/95 shadow-sm">
       <div className="flex items-center justify-between gap-3 px-4 md:px-6 py-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-10 w-10 md:h-11 md:w-11 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0 border border-border">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/80 bg-muted shadow-sm md:h-11 md:w-11">
             {logoUrl ? (
               <img src={logoUrl} alt="Company logo" className="h-full w-full object-contain" />
             ) : (
@@ -92,8 +92,8 @@ export function AppHeader() {
             )}
           </div>
           <div className="min-w-0">
-            <p className="text-xs text-muted-foreground leading-tight">{getGreeting()}</p>
-            <p className="text-sm md:text-base font-semibold font-display truncate leading-tight">
+            <p className="text-xs font-medium leading-tight text-muted-foreground">{getGreeting()}</p>
+            <p className="truncate font-display text-sm font-semibold leading-tight md:text-base">
               {profile.full_name || "Welcome"}
             </p>
           </div>
@@ -143,7 +143,7 @@ export function AppHeader() {
               </Button>
             </>
           )}
-          <div className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold overflow-hidden border border-border">
+          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-primary-soft text-xs font-bold text-primary-strong shadow-sm md:h-10 md:w-10">
             {profile.avatar_url ? (
               <img src={profile.avatar_url} alt={profile.full_name} className="h-full w-full object-cover" />
             ) : (
