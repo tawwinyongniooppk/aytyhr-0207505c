@@ -172,6 +172,27 @@ export function OvertimeSection() {
         status: "pending",
       });
       if (error) {
+        // The database enforces that one staff member cannot have two active
+        // (pending/approved) overtime requests with overlapping time ranges.
+        const raw = `${error.message ?? ""} ${(error as any).details ?? ""}`;
+        const isOverlap =
+          (error as any).code === "23P01" || raw.includes("overtime_requests_no_active_overlap");
+        if (isOverlap) {
+          const isExact = myItems.some(
+            (r) =>
+              (r.status === "pending" || r.status === "approved") &&
+              new Date(r.start_at).getTime() === new Date(startISO).getTime() &&
+              new Date(r.end_at).getTime() === new Date(endISO).getTime(),
+          );
+          toast({
+            title: isExact
+              ? "This Overtime period has already been submitted."
+              : "This Overtime time overlaps with an existing Overtime request.",
+            description: "Please check your existing overtime requests and adjust the time range.",
+            variant: "destructive",
+          });
+          return;
+        }
         toast({ title: "Submit failed", description: error.message, variant: "destructive" });
         return;
       }
