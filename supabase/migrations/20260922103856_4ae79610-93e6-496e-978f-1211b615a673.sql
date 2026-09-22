@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Assistant can insert auto salary additions" ON public.salary_manual_additions;
