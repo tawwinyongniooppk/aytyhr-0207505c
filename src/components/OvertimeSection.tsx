@@ -255,7 +255,14 @@ export function OvertimeSection() {
           })
           .eq("id", item.id);
         if (error) {
-          toast({ title: "Review failed", description: error.message, variant: "destructive" });
+          const raw = error.message ?? "";
+          const description = /OT_APPROVED_IMMUTABLE/.test(raw)
+            ? "This request is already approved and is final. It cannot be changed."
+            : /OT_REJECTED_IMMUTABLE/.test(raw)
+              ? "This request is already rejected and is final. It cannot be changed."
+              : raw;
+          toast({ title: "Review failed", description, variant: "destructive" });
+          void load();
           return;
         }
       }
