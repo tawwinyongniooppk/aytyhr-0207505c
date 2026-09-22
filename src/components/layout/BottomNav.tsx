@@ -79,9 +79,9 @@ export function BottomNav() {
                       onClick={() => setOpen(false)}
                       className={({ isActive }) =>
                         cn(
-                          "relative flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-[color,background-color,box-shadow,transform] duration-200 ease-out before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:origin-center before:scale-y-0 before:rounded-full before:bg-primary-foreground before:transition-transform before:duration-200 active:scale-[0.99]",
+                          "relative flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-[color,background-color,box-shadow,transform] duration-200 ease-out before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:origin-center before:scale-y-0 before:rounded-full before:bg-indicator before:transition-transform before:duration-200 active:scale-[0.99]",
                           isActive
-                            ? "bg-primary text-primary-foreground shadow-sm before:scale-y-100"
+                            ? "bg-selected text-selected-foreground shadow-sm before:scale-y-100"
                             : "text-foreground hover:bg-muted"
                         )
                       }
