@@ -720,6 +720,7 @@ export type Database = {
           id: string
           kind: string
           month: string
+          overtime_request_id: string | null
           title: string
           user_id: string
         }
@@ -731,6 +732,7 @@ export type Database = {
           id?: string
           kind?: string
           month?: string
+          overtime_request_id?: string | null
           title: string
           user_id: string
         }
@@ -742,10 +744,19 @@ export type Database = {
           id?: string
           kind?: string
           month?: string
+          overtime_request_id?: string | null
           title?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "salary_manual_additions_overtime_request_id_fkey"
+            columns: ["overtime_request_id"]
+            isOneToOne: false
+            referencedRelation: "overtime_requests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       salary_manual_deductions: {
         Row: {
@@ -904,6 +915,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      approve_overtime_request: {
+        Args: { p_overtime_id: string }
+        Returns: Json
       }
       can_manage_branding: { Args: never; Returns: boolean }
       compute_bonus_per_unit: {
