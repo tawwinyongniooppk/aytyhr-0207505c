@@ -231,9 +231,13 @@ export function OvertimeSection() {
               ? "This request no longer exists. Please refresh."
               : /OT_APPROVED_WITHOUT_PAYMENT/.test(raw)
                 ? "This request is approved but its salary payment is missing. Please contact IT."
-                : /FORBIDDEN|UNAUTHENTICATED/.test(raw)
-                  ? "You are not allowed to approve overtime requests."
-                  : raw;
+                : /OT_RATE_NOT_CONFIGURED/.test(raw)
+                  ? "This staff member has no overtime rate configured. Set the rate first, then approve."
+                  : /OT_RATE_INVALID/.test(raw)
+                    ? "This staff member's overtime rate is invalid (must be greater than 0). Fix the rate, then approve."
+                    : /FORBIDDEN|UNAUTHENTICATED/.test(raw)
+                      ? "You are not allowed to approve overtime requests."
+                      : raw;
           toast({ title: "Approval failed", description, variant: "destructive" });
           void load();
           return;
