@@ -103,7 +103,9 @@ export function AppLayout() {
         <AppHeader />
         <GlobalCarousel position="middle" />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-24 md:pb-6">
-          <Outlet />
+          <div key={location.pathname} className="motion-safe:animate-content-in">
+            <Outlet />
+          </div>
         </main>
         <div className="mb-16 md:mb-0">
           <GlobalCarousel position="bottom" />
