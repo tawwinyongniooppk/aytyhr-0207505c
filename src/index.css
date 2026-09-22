@@ -113,7 +113,7 @@
     @apply bg-background text-foreground;
     font-family: var(--font-body);
     line-height: 1.6;
-            letter-spacing: 0.01em;
+    letter-spacing: 0;
   }
 
   p, li, label, span {
@@ -128,7 +128,7 @@
     font-family: var(--font-display);
   }
 
-  /* Global interactive polish: smooth transitions for clickable elements */
+  /* Lightweight interaction defaults for native controls not wrapped by the design system. */
   button,
   a,
   [role="button"],
@@ -140,19 +140,13 @@
   input[type="button"],
   input[type="submit"],
   input[type="reset"] {
-    transition: transform 0.2s ease, box-shadow 0.25s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
-  }
-
-  /* Subtle lift on hover for buttons & links — skip disabled and ghost-y states */
-  button:not(:disabled):not([data-no-lift]):hover,
-  [role="button"]:not([aria-disabled="true"]):not([data-no-lift]):hover,
-  a:not([data-no-lift]):hover {
-    transform: translateY(-1px);
+    transition: transform 150ms ease-out, box-shadow 180ms ease-out, background-color 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out, opacity 150ms ease-out;
   }
 
   button:not(:disabled):not([data-no-lift]):active,
   [role="button"]:not([aria-disabled="true"]):not([data-no-lift]):active {
-    transform: translateY(0) scale(0.98);
+    transform: scale(0.98);
+    opacity: 0.92;
   }
 
   /* Soft shadow lift for solid/elevated buttons */
@@ -165,8 +159,30 @@
     transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.2s ease;
   }
   .interactive:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 24px -12px hsl(var(--foreground) / 0.18);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px -12px hsl(var(--foreground) / 0.2);
+  }
+
+  [aria-invalid="true"] {
+    transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  button,
+  a,
+  [role="button"],
+  .interactive {
+    transform: none !important;
   }
 }
 

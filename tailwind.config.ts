@@ -88,11 +88,27 @@ export default {
           "0%, 100%": { transform: "scale(1)" },
           "50%": { transform: "scale(0.95)" },
         },
+        "content-in": {
+          from: { opacity: "0", transform: "translateY(3px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "control-in": {
+          from: { opacity: "0", transform: "scale(0.8)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
+        "error-nudge": {
+          "0%, 100%": { transform: "translateX(0)" },
+          "35%": { transform: "translateX(-2px)" },
+          "70%": { transform: "translateX(2px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "press": "press 0.2s ease-out",
+        "content-in": "content-in 180ms ease-out",
+        "control-in": "control-in 150ms ease-out",
+        "error-nudge": "error-nudge 180ms ease-out",
       },
     },
   },

@@ -62,7 +62,7 @@ export function BottomNav() {
           <div className="flex items-center h-16 px-3">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
-                <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm">
+                <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm transition-[transform,opacity,box-shadow] duration-150 ease-out active:scale-[0.97] active:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                   <Menu className="h-5 w-5" />
                   <span>Menu</span>
                 </button>
@@ -79,9 +79,9 @@ export function BottomNav() {
                       onClick={() => setOpen(false)}
                       className={({ isActive }) =>
                         cn(
-                          "flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all",
+                          "relative flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-[color,background-color,box-shadow,transform] duration-200 ease-out before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:origin-center before:scale-y-0 before:rounded-full before:bg-primary-foreground before:transition-transform before:duration-200 active:scale-[0.99]",
                           isActive
-                            ? "bg-primary text-primary-foreground shadow-sm"
+                            ? "bg-primary text-primary-foreground shadow-sm before:scale-y-100"
                             : "text-foreground hover:bg-muted"
                         )
                       }
