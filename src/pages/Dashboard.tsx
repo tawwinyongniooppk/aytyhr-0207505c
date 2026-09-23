@@ -396,7 +396,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {staffAttendance
+                {sortedStaffAttendance
                   .filter((a) => !offDayStaffIds.has(a.user_id))
                   .map((a) => {
                   const profile = profileMap[a.user_id];
