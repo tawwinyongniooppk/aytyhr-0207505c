@@ -1,0 +1,3 @@
+DROP TRIGGER IF EXISTS trg_guard_task_assignment_overlap_on_tasks ON public.tasks;
+DROP TRIGGER IF EXISTS trg_guard_task_assignment_overlap_on_calendar_assignments ON public.calendar_event_assignments;
+DROP TRIGGER IF EXISTS trg_prevent_duplicate_task_assignment ON public.tasks;
