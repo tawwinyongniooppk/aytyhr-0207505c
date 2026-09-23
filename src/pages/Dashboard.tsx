@@ -430,8 +430,8 @@ export default function Dashboard() {
         <Card role="button" tabIndex={0} onClick={() => navigate("/leave")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/leave"); } }} className={cn(interactiveCard, "overflow-hidden lg:col-span-5")}>
           <div className={sectionHeader}>
             <div>
-              <CardTitle className="flex items-center gap-2 text-base font-display"><FileText className="h-4 w-4 text-warning" /> Leave & Requests</CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">Review status for the current period</p>
+              <CardTitle className="flex items-center gap-2 text-base font-display"><FileText className="h-4 w-4 text-warning" /> Leave &amp; OT Requests</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">Leave status for the current period</p>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
           </div>
