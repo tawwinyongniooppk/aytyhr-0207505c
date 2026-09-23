@@ -85,7 +85,8 @@ export default function Dashboard() {
       supabase.rpc("dashboard_monthly_attendance", { p_month_start: monthStart, p_month_end: monthEnd }),
       supabase.from("leave_requests").select("*").gte("date", monthStart).lte("date", monthEnd),
       supabase.from("app_settings").select("value").eq("key", "deduction_rate").maybeSingle(),
-      supabase.from("tasks").select("completed").gte("created_at", monthStart),
+      // Replaces (not adds to) the legacy tasks.completed query — same query count.
+      supabase.rpc("get_task_status_monitor", { p_month_start: monthStart }),
     ]);
 
     setProfiles(profilesRes.data ?? []);
