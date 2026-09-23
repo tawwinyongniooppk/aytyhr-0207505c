@@ -147,6 +147,13 @@ export default function Dashboard() {
   const profileMap = Object.fromEntries(profiles.map((p) => [p.id, p]));
   const totalStaff = staffProfiles.length;
   const staffAttendance = todayAttendance.filter((a) => staffIds.has(a.user_id));
+  // Display-only local sort: earliest check-in first, missing check-in last.
+  const sortedStaffAttendance = [...staffAttendance].sort((a, b) => {
+    if (!a.check_in_time && !b.check_in_time) return 0;
+    if (!a.check_in_time) return 1;
+    if (!b.check_in_time) return -1;
+    return a.check_in_time < b.check_in_time ? -1 : a.check_in_time > b.check_in_time ? 1 : 0;
+  });
   const presentToday = staffAttendance.filter((a) => a.check_in_time).length;
   const lateToday = staffAttendance.filter((a) => a.late_minutes > 0).length;
 
