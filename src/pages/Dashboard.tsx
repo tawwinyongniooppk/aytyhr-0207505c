@@ -85,7 +85,8 @@ export default function Dashboard() {
       supabase.rpc("dashboard_monthly_attendance", { p_month_start: monthStart, p_month_end: monthEnd }),
       supabase.from("leave_requests").select("*").gte("date", monthStart).lte("date", monthEnd),
       supabase.from("app_settings").select("value").eq("key", "deduction_rate").maybeSingle(),
-      supabase.from("tasks").select("completed").gte("created_at", monthStart),
+      // Replaces (not adds to) the legacy tasks.completed query — same query count.
+      supabase.rpc("get_task_status_monitor", { p_month_start: monthStart }),
     ]);
 
     setProfiles(profilesRes.data ?? []);
@@ -93,9 +94,17 @@ export default function Dashboard() {
     setMonthStats((monthStatsRes.data ?? []) as any);
     setLeaveRequests(leaveRes.data ?? []);
     if (settingsRes.data?.value) setDeductionRate(Number(settingsRes.data.value));
-    const taskRows = (tasksRes.data ?? []) as { completed: boolean }[];
-    setPendingTasks(taskRows.filter((t) => !t.completed).length);
-    setCompletedTasks(taskRows.filter((t) => t.completed).length);
+    // Pending / Needs Attention = New + In Progress + Submitted + Overdue + Rejected
+    // Done = Approved + All Done. Derived locally from the single monitor result.
+    const monitorRows = (tasksRes.data ?? []) as any[];
+    let pend = 0;
+    let done = 0;
+    for (const r of monitorRows) {
+      pend += Number(r.new_task || 0) + Number(r.in_progress || 0) + Number(r.submitted || 0) + Number(r.overdue || 0) + Number(r.reject || 0);
+      done += Number(r.approved || 0) + Number(r.all_done || 0);
+    }
+    setPendingTasks(pend);
+    setCompletedTasks(done);
 
     const mmHoliday = getMyanmarHoliday(today);
     if (mmHoliday) {
@@ -138,6 +147,13 @@ export default function Dashboard() {
   const profileMap = Object.fromEntries(profiles.map((p) => [p.id, p]));
   const totalStaff = staffProfiles.length;
   const staffAttendance = todayAttendance.filter((a) => staffIds.has(a.user_id));
+  // Display-only local sort: earliest check-in first, missing check-in last.
+  const sortedStaffAttendance = [...staffAttendance].sort((a, b) => {
+    if (!a.check_in_time && !b.check_in_time) return 0;
+    if (!a.check_in_time) return 1;
+    if (!b.check_in_time) return -1;
+    return a.check_in_time < b.check_in_time ? -1 : a.check_in_time > b.check_in_time ? 1 : 0;
+  });
   const presentToday = staffAttendance.filter((a) => a.check_in_time).length;
   const lateToday = staffAttendance.filter((a) => a.late_minutes > 0).length;
 
@@ -380,7 +396,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {staffAttendance
+                {sortedStaffAttendance
                   .filter((a) => !offDayStaffIds.has(a.user_id))
                   .map((a) => {
                   const profile = profileMap[a.user_id];
@@ -414,8 +430,8 @@ export default function Dashboard() {
         <Card role="button" tabIndex={0} onClick={() => navigate("/leave")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate("/leave"); } }} className={cn(interactiveCard, "overflow-hidden lg:col-span-5")}>
           <div className={sectionHeader}>
             <div>
-              <CardTitle className="flex items-center gap-2 text-base font-display"><FileText className="h-4 w-4 text-warning" /> Leave & Requests</CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">Review status for the current period</p>
+              <CardTitle className="flex items-center gap-2 text-base font-display"><FileText className="h-4 w-4 text-warning" /> Leave &amp; OT Requests</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">Leave status for the current period</p>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
           </div>
