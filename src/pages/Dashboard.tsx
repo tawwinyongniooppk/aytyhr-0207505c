@@ -94,9 +94,17 @@ export default function Dashboard() {
     setMonthStats((monthStatsRes.data ?? []) as any);
     setLeaveRequests(leaveRes.data ?? []);
     if (settingsRes.data?.value) setDeductionRate(Number(settingsRes.data.value));
-    const taskRows = (tasksRes.data ?? []) as { completed: boolean }[];
-    setPendingTasks(taskRows.filter((t) => !t.completed).length);
-    setCompletedTasks(taskRows.filter((t) => t.completed).length);
+    // Pending / Needs Attention = New + In Progress + Submitted + Overdue + Rejected
+    // Done = Approved + All Done. Derived locally from the single monitor result.
+    const monitorRows = (tasksRes.data ?? []) as any[];
+    let pend = 0;
+    let done = 0;
+    for (const r of monitorRows) {
+      pend += Number(r.new_task || 0) + Number(r.in_progress || 0) + Number(r.submitted || 0) + Number(r.overdue || 0) + Number(r.reject || 0);
+      done += Number(r.approved || 0) + Number(r.all_done || 0);
+    }
+    setPendingTasks(pend);
+    setCompletedTasks(done);
 
     const mmHoliday = getMyanmarHoliday(today);
     if (mmHoliday) {
