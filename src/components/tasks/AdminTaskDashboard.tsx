@@ -726,8 +726,8 @@ function ItemRow({ item, showStaff, approvingId, onApprove, onReject, onEdit, no
   const assignedByName = item.assignedById ? (staffNames?.[item.assignedById] || "Admin") : "Admin";
   const canEdit = onEdit && item.status === "not_started";
   return (
-    <div className={`flex items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(item, nowDate)}`}>
-      <div className="flex-1 min-w-0">
+    <div className={`flex flex-col sm:flex-row sm:items-start gap-3 py-3 px-3 rounded-lg border-b border-border last:border-0 ${getRowBg(item, nowDate)}`}>
+      <div className="flex-1 min-w-0 w-full">
         <div className="flex items-center gap-2 flex-wrap">
           <p className={`text-sm font-medium ${item.status === "approved" ? "line-through text-muted-foreground" : ""}`}>{item.title}</p>
           <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${TYPE_COLORS[item.type] || ""}`}>{item.type}</Badge>
@@ -735,7 +735,7 @@ function ItemRow({ item, showStaff, approvingId, onApprove, onReject, onEdit, no
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground" title="Locked once member accepts">🔒 Locked</Badge>
           )}
         </div>
-        {item.description && <p className={`text-xs text-muted-foreground mt-1 ${detailed ? "" : "line-clamp-2"}`}>{item.description}</p>}
+        {item.description && <p className={`text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words ${detailed ? "" : "line-clamp-2"}`}>{item.description}</p>}
         {item.status === "rejected" && item.rejectionReason && (
           <p className="text-xs mt-1 text-red-700 dark:text-red-400"><span className="font-semibold">Rejection reason:</span> {item.rejectionReason}</p>
         )}
