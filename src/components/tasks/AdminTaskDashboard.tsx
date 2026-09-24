@@ -746,7 +746,7 @@ function ItemRow({ item, showStaff, approvingId, onApprove, onReject, onEdit, no
           {item.dueDate && <span>⏰ End: {item.dueDate}</span>}
         </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto sm:shrink-0 sm:justify-end">
         {item.status === "in_progress" && (
           <Progress value={50} className="w-16 h-2" />
         )}
