@@ -35,11 +35,11 @@ export async function applyUpdate() {
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.addEventListener(
           "controllerchange",
-          () => window.location.reload(),
+          () => reloadOnce(),
           { once: true }
         );
       }
-      window.setTimeout(() => window.location.reload(), 3000);
+      window.setTimeout(() => reloadOnce(), 3000);
       await pendingUpdateSW(true);
       return;
     }
