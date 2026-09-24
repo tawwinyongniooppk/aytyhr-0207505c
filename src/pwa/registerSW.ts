@@ -49,34 +49,79 @@ export async function applyUpdate() {
   window.location.reload();
 }
 
+let reloading = false;
+function reloadOnce() {
+  if (reloading) return;
+  reloading = true;
+  window.location.reload();
+}
+
+/** Resolve when `sw` reaches installed/activated (or fails). Single bounded wait, no polling. */
+function waitForInstalled(sw: ServiceWorker, timeoutMs = 30000): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (sw.state === "installed" || sw.state === "activated") return resolve(true);
+    if (sw.state === "redundant") return resolve(false);
+    const timer = window.setTimeout(() => {
+      sw.removeEventListener("statechange", onChange);
+      resolve(false);
+    }, timeoutMs);
+    function onChange() {
+      if (sw.state === "installed" || sw.state === "activating" || sw.state === "activated") {
+        window.clearTimeout(timer);
+        sw.removeEventListener("statechange", onChange);
+        resolve(true);
+      } else if (sw.state === "redundant") {
+        window.clearTimeout(timer);
+        sw.removeEventListener("statechange", onChange);
+        resolve(false);
+      }
+    }
+    sw.addEventListener("statechange", onChange);
+  });
+}
+
 /**
- * Manually ask the browser for a newer build.
- * Returns true when a new version was found (the page then reloads itself).
+ * Manually ask the browser for a newer build (user-initiated only).
+ * Returns true when a new version was found (the page then reloads once).
  */
 export async function checkForUpdate(): Promise<boolean> {
-  if (updateAvailable) {
-    void applyUpdate();
-    return true;
-  }
-  if (!("serviceWorker" in navigator)) {
-    window.location.reload();
-    return false;
-  }
+  if (!("serviceWorker" in navigator)) return false;
   try {
     const reg =
       swRegistration ?? (await navigator.serviceWorker.getRegistration("/"));
-    if (!reg) {
-      window.location.reload();
-      return false;
-    }
-    await reg.update();
-    // Give the browser a moment to surface a waiting worker.
-    await new Promise((r) => window.setTimeout(r, 1200));
-    if (updateAvailable || reg.waiting) {
-      void applyUpdate();
+    if (!reg) return false;
+
+    const hadController = !!navigator.serviceWorker.controller;
+    // Arm a one-time reload when the new worker takes control.
+    const onControllerChange = () => {
+      if (hadController) reloadOnce();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange, { once: true });
+
+    // Already-waiting worker from an earlier download.
+    if (reg.waiting) {
+      reg.waiting.postMessage({ type: "SKIP_WAITING" });
+      window.setTimeout(reloadOnce, 4000); // safety net, one-shot
       return true;
     }
-    return false;
+
+    await reg.update();
+
+    const incoming = reg.installing || reg.waiting;
+    if (!incoming) {
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      return false;
+    }
+
+    const ok = await waitForInstalled(incoming);
+    if (!ok) {
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      return false;
+    }
+    // skipWaiting is configured, but nudge a waiting worker just in case.
+    if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+    window.setTimeout(reloadOnce, 4000); // safety net if controllerchange is missed
+    return true;
   } catch {
     return false;
   }
