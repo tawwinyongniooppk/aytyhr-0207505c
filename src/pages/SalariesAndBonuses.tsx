@@ -293,8 +293,8 @@ export default function SalariesAndBonuses() {
   const handleAdd = async () => {
     if (!addOpenFor || !user) return;
     const amt = Number(addForm.amount);
-    if (!addForm.title.trim() || !Number.isFinite(amt) || amt <= 0 || !inCurrentMonth(addForm.date)) {
-      toast({ title: "Invalid input", description: "Enter a description, a positive amount and a date inside this month.", variant: "destructive" });
+    if (!addForm.title.trim() || addForm.amount.trim() === "" || !Number.isFinite(amt) || amt < 0 || !inCurrentMonth(addForm.date)) {
+      toast({ title: "Invalid input", description: "Enter a description, an amount (0 or more) and a date inside this month.", variant: "destructive" });
       return;
     }
     setAddSaving(true);
@@ -614,7 +614,7 @@ export default function SalariesAndBonuses() {
             </div>
             <div>
               <Label>Amount (kyats)</Label>
-              <Input type="number" min={1} value={addForm.amount} onChange={(e) => setAddForm({ ...addForm, amount: e.target.value })} placeholder="0" />
+              <Input type="number" min={0} value={addForm.amount} onChange={(e) => setAddForm({ ...addForm, amount: e.target.value })} placeholder="0" />
             </div>
             <div>
               <Label>Date (this month)</Label>
