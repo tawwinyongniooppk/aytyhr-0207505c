@@ -18,12 +18,16 @@ Deno.serve(async (req) => {
 
   // Accept CRON_SECRET, service-role, or internal pg_cron (anon apikey).
   // Destructive guard: ?force=1 still requires CRON_SECRET / service-role.
-  const cronSecret = Deno.env.get("CRON_SECRET");
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const authHeader = req.headers.get("Authorization") ?? "";
-  const isPrivileged =
-    (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
-    (serviceRole && authHeader === `Bearer ${serviceRole}`);
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  let isPrivileged = !!(serviceRole && authHeader === `Bearer ${serviceRole}`);
+  if (!isPrivileged && bearer) {
+    // Verify against the rotated vault secret (same source pg_cron uses).
+    const verifier = createClient(Deno.env.get("SUPABASE_URL")!, serviceRole!);
+    const { data: ok } = await verifier.rpc("verify_cron_secret", { p_candidate: bearer });
+    isPrivileged = ok === true;
+  }
   if (!isPrivileged) {
     console.warn("[monthly-reset] 401 — invalid/missing CRON_SECRET");
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
