@@ -197,7 +197,6 @@ export default function SignatureSlipDialog(props: Props) {
       const pageHeight = 297;
       const margin = 14;
       const contentWidth = pageWidth - margin * 2;
-      const signatureReserve = 42;
       const money = (value: number) => `${value.toLocaleString()} MMK`;
       const amount = (value: number) => `${value >= 0 ? "+" : "-"}${Math.abs(value).toLocaleString()}`;
       let y = 14;
@@ -419,7 +418,7 @@ export default function SignatureSlipDialog(props: Props) {
           });
           const descriptionHeight = descriptionImage ? Math.max(4.5, descriptionImage.heightMm * 0.72) : 5;
           const rowHeight = Math.max(10, descriptionHeight + 4);
-          if (y + rowHeight > pageHeight - signatureReserve - 10) addNewTransactionPage();
+          if (y + rowHeight > pageHeight - 22) addNewTransactionPage();
           if (index % 2 === 1) {
             setRgb(SOFT, "fill");
             pdf.rect(margin, y, contentWidth, rowHeight, "F");
@@ -442,13 +441,13 @@ export default function SignatureSlipDialog(props: Props) {
         }
       }
 
-      const signatureTop = pageHeight - signatureReserve;
-      if (y > signatureTop - 8) {
+      if (y > pageHeight - 55) {
         addFooter();
         pdf.addPage();
         pageNumber += 1;
         addDocumentHeader(true);
       }
+      const signatureTop = Math.max(y + 10, pageHeight - 52);
       setRgb(MUTED, "text");
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(7.5);
