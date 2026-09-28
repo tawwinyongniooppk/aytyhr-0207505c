@@ -126,17 +126,8 @@ Deno.serve(async (req) => {
       const isPrivileged = ["admin", "assistant", "it_manager"].includes(callerRole);
 
       if (!isPrivileged) {
-        const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-        const { data: targetProfiles } = await admin
-          .from("profiles")
-          .select("id, role")
-          .in("id", userIds);
-        const validTargets = new Set(
-          ((targetProfiles as { id: string; role: string }[]) ?? [])
-            .filter((p) => p.id === callerId || ["admin", "assistant", "it_manager"].includes(p.role))
-            .map((p) => p.id),
-        );
-        const allAllowed = userIds.every((id) => validTargets.has(id));
+        // Non-privileged users may only send pushes to themselves (e.g. test pushes).
+        const allAllowed = userIds.every((id) => id === callerId);
         if (!allAllowed) {
           return new Response(JSON.stringify({ error: "forbidden_targets" }), {
             status: 403,
