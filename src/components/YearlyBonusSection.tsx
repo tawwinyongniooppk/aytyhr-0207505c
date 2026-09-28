@@ -55,7 +55,28 @@ function qualification(percent: number, baseSalary: number) {
   };
 }
 
-export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
+export interface YearlyBonusSummary {
+  assigned: number;
+  done: number;
+  percent: number;
+  rate: number;
+  baseSalary: number;
+  basePortion: number;
+  bonusAmount: number;
+  total: number;
+  cycleLabel: string;
+  loading: boolean;
+}
+
+export function YearlyBonusSection({
+  baseSalary,
+  bonusAmount = 0,
+  onSummary,
+}: {
+  baseSalary: number;
+  bonusAmount?: number;
+  onSummary?: (s: YearlyBonusSummary) => void;
+}) {
   const { user } = useAuth();
   const period = useMemo(getYearlyPeriod, []);
   const [loading, setLoading] = useState(true);
@@ -199,6 +220,19 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
 
   const percent = assigned > 0 ? Math.min(100, Math.round((done / assigned) * 100)) : 0;
   const qual = qualification(percent, baseSalary);
+  const bonusPart = Math.max(0, Number(bonusAmount) || 0);
+  const basePortion = qual.amount;
+  const yearlyTotal = basePortion + bonusPart;
+  const baseDiff = basePortion - baseSalary;
+
+  useEffect(() => {
+    onSummary?.({
+      assigned, done, percent, rate: qual.rate, baseSalary, basePortion,
+      bonusAmount: bonusPart, total: yearlyTotal,
+      cycleLabel: `${period.startLabel} - ${period.endLabel}`, loading,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assigned, done, percent, qual.rate, baseSalary, basePortion, bonusPart, yearlyTotal, loading]);
 
   // Smooth count-up animation for percent
   useEffect(() => {
@@ -259,11 +293,26 @@ export function YearlyBonusSection({ baseSalary }: { baseSalary: number }) {
                 Bonus Qualification
               </div>
               <p className="text-sm font-medium leading-relaxed">{qual.message}</p>
-              {qual.qualified && baseSalary > 0 && (
-                <div className="mt-2 text-xs opacity-95">
-                  Estimated: <span className="font-bold">{qual.amount.toLocaleString()} Ks</span>
+              <div className="mt-3 rounded-lg bg-black/15 px-3 py-2 text-xs space-y-1">
+                <div className="flex justify-between gap-2">
+                  <span className="opacity-90">Base Salary ({qual.rate}%)</span>
+                  <span className="font-semibold tabular-nums">{basePortion.toLocaleString()} Ks</span>
                 </div>
-              )}
+                {baseDiff !== 0 && baseSalary > 0 && (
+                  <div className="flex justify-between gap-2 opacity-80 text-[11px]">
+                    <span>Base {baseSalary.toLocaleString()} Ks မှ</span>
+                    <span className="tabular-nums">{baseDiff > 0 ? "+" : "-"}{Math.abs(baseDiff).toLocaleString()} Ks</span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-2">
+                  <span className="opacity-90">+ Bonus</span>
+                  <span className="font-semibold tabular-nums">{bonusPart.toLocaleString()} Ks</span>
+                </div>
+                <div className="flex justify-between gap-2 border-t border-white/40 pt-1 text-sm">
+                  <span className="font-bold">= Total</span>
+                  <span className="font-extrabold tabular-nums">{yearlyTotal.toLocaleString()} Ks</span>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">

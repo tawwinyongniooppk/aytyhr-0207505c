@@ -8,7 +8,8 @@ import { useVisibleRefresh } from "@/hooks/useVisibleRefresh";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { formatMMTMonthLabel, getMMTDateParts, getMMTMonthStartISO } from "@/lib/mmt";
-import { YearlyBonusSection } from "@/components/YearlyBonusSection";
+import { YearlyBonusSection, type YearlyBonusSummary } from "@/components/YearlyBonusSection";
+import { useLeaveBalance } from "@/hooks/useLeaveBalances";
 import SignatureSlipDialog from "@/components/SignatureSlipDialog";
 
 type LedgerType = "salary" | "bonus" | "auto_deduction" | "manual_deduction" | "manual_addition" | "auto_addition";
@@ -110,6 +111,8 @@ export default function SalaryPage() {
   const { slipEnabled, slipUntil, refreshSlipSetting } = useSlipSetting();
   const [nowMs, setNowMs] = useState(Date.now());
   const [signOpen, setSignOpen] = useState(false);
+  const [yearlySummary, setYearlySummary] = useState<YearlyBonusSummary | null>(null);
+  const { data: leaveBalance } = useLeaveBalance(isStaff ? user?.id : undefined);
 
   useEffect(() => {
     const t = setInterval(() => setNowMs(Date.now()), 30_000);
@@ -472,7 +475,7 @@ export default function SalaryPage() {
       </div>
 
       {isStaff && !isNeutralClass && (
-        <YearlyBonusSection baseSalary={baseSalary} />
+        <YearlyBonusSection baseSalary={baseSalary} bonusAmount={monthlyBonusPot} onSummary={setYearlySummary} />
       )}
 
 
@@ -681,6 +684,8 @@ export default function SalaryPage() {
         totalDeductions={totalDeductions}
         finalSalary={finalSalary}
         ledger={ledger.map(l => ({ date: l.date, type: l.type, description: l.description, amount: l.amount }))}
+        yearly={isStaff && !isNeutralClass ? yearlySummary : null}
+        leaveBalance={isStaff && typeof leaveBalance === "number" ? leaveBalance : null}
       />
     </div>
   );
