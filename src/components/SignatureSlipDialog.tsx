@@ -25,12 +25,19 @@ interface Props {
   totalDeductions: number;
   finalSalary: number;
   ledger: LedgerRow[];
+  yearly?: {
+    assigned: number; done: number; percent: number; rate: number;
+    baseSalary: number; basePortion: number; bonusAmount: number; total: number;
+    cycleLabel: string; loading: boolean;
+  } | null;
+  leaveBalance?: number | null;
 }
 
 export default function SignatureSlipDialog(props: Props) {
   const {
     open, onOpenChange, staffName, monthStartISO,
     baseSalary, totalBonus, totalAdditions, totalDeductions, finalSalary, ledger,
+    yearly, leaveBalance,
   } = props;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
@@ -214,6 +221,57 @@ export default function SignatureSlipDialog(props: Props) {
       y += 8;
       pdf.line(marginX, y, pageW - marginX, y);
       y += 6;
+
+      // Yearly Bonus + Leave Balance cards
+      const showYearly = !!yearly && !yearly.loading;
+      const showLeave = typeof leaveBalance === "number";
+      if (showYearly || showLeave) {
+        const gap = 4;
+        const fullW = pageW - marginX * 2;
+        const leaveW = showLeave ? (showYearly ? 52 : fullW) : 0;
+        const yearW = showYearly ? fullW - (showLeave ? leaveW + gap : 0) : 0;
+        const cardH = 40;
+        if (showYearly && yearly) {
+          pdf.setFillColor(255, 247, 230);
+          pdf.setDrawColor(245, 180, 80);
+          pdf.roundedRect(marginX, y, yearW, cardH, 2, 2, "FD");
+          pdf.setTextColor(180, 90, 0);
+          pdf.setFont("helvetica", "bold"); pdf.setFontSize(11);
+          pdf.text("My Yearly Bonus", marginX + 4, y + 6);
+          pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5);
+          pdf.setTextColor(110);
+          pdf.text(`Cycle: ${yearly.cycleLabel}`, marginX + yearW - 4, y + 6, { align: "right" });
+          pdf.text(`Assigned ${yearly.assigned}  |  All Done ${yearly.done}  |  Performance ${yearly.percent}%  |  Rate ${yearly.rate}%`, marginX + 4, y + 11);
+          pdf.setTextColor(30); pdf.setFontSize(9);
+          const cx = marginX + 4, rx = marginX + yearW - 4;
+          let ly = y + 18;
+          pdf.text(`Base Salary (${yearly.rate}% of ${yearly.baseSalary.toLocaleString()})`, cx, ly);
+          pdf.text(`${yearly.basePortion.toLocaleString()} MMK`, rx, ly, { align: "right" }); ly += 5;
+          pdf.text("+ Bonus", cx, ly);
+          pdf.text(`${yearly.bonusAmount.toLocaleString()} MMK`, rx, ly, { align: "right" }); ly += 3;
+          pdf.setDrawColor(245, 180, 80); pdf.line(cx, ly, rx, ly); ly += 5;
+          pdf.setFont("helvetica", "bold"); pdf.setFontSize(11);
+          pdf.setTextColor(180, 90, 0);
+          pdf.text("= Total", cx, ly);
+          pdf.text(`${yearly.total.toLocaleString()} MMK`, rx, ly, { align: "right" });
+        }
+        if (showLeave) {
+          const lx = marginX + (showYearly ? yearW + gap : 0);
+          pdf.setFillColor(232, 244, 255);
+          pdf.setDrawColor(120, 170, 230);
+          pdf.roundedRect(lx, y, leaveW, cardH, 2, 2, "FD");
+          pdf.setTextColor(30, 80, 150);
+          pdf.setFont("helvetica", "bold"); pdf.setFontSize(11);
+          pdf.text("Leave Balance", lx + leaveW / 2, y + 7, { align: "center" });
+          pdf.setFontSize(24);
+          pdf.text(String(leaveBalance), lx + leaveW / 2, y + 23, { align: "center" });
+          pdf.setFont("helvetica", "normal"); pdf.setFontSize(9);
+          pdf.setTextColor(90);
+          pdf.text("days remaining", lx + leaveW / 2, y + 31, { align: "center" });
+        }
+        pdf.setTextColor(0); pdf.setDrawColor(180);
+        y += cardH + 8;
+      }
 
       // Transactions
       pdf.setFont("helvetica", "bold");
