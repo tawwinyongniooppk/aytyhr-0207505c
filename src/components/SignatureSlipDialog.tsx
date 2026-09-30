@@ -163,9 +163,10 @@ export default function SignatureSlipDialog(props: Props) {
     }
     if (line || lines.length === 0) lines.push(line);
     const padX = 4;
-    const padY = 3;
+    const padY = Math.ceil(fontPx * 0.45);
+    const widest = Math.max(...lines.map((entry) => measure.measureText(entry).width), 2);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.ceil(maxWidth) + padX * 2;
+    canvas.width = Math.ceil(Math.max(options.maxWidthPx ? widest : maxWidth, 2)) + padX * 2;
     canvas.height = Math.ceil(lines.length * fontPx * lineHeight) + padY * 2;
     const context = canvas.getContext("2d");
     if (!context) return null;
@@ -274,9 +275,10 @@ export default function SignatureSlipDialog(props: Props) {
         pdf.text("PAY PERIOD", margin + 112, y + 6);
         const nameImage = renderTextImage(staffName, { fontPx: 27, bold: true, maxWidthPx: 520 });
         if (nameImage) {
-          const imageHeight = 5.4;
-          const imageWidth = Math.min(100, nameImage.widthMm * imageHeight / nameImage.heightMm);
-          pdf.addImage(nameImage.dataUrl, "PNG", margin + 4.5, y + 9, imageWidth, imageHeight);
+          let imageHeight = 7.2;
+          let imageWidth = nameImage.widthMm * imageHeight / nameImage.heightMm;
+          if (imageWidth > 100) { imageHeight = imageHeight * 100 / imageWidth; imageWidth = 100; }
+          pdf.addImage(nameImage.dataUrl, "PNG", margin + 4.5, y + 8, imageWidth, imageHeight);
         }
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(11);
@@ -416,7 +418,8 @@ export default function SignatureSlipDialog(props: Props) {
             maxWidthPx: 590,
             lineHeight: 1.5,
           });
-          const descriptionHeight = descriptionImage ? Math.max(4.5, descriptionImage.heightMm * 0.72) : 5;
+          const descriptionHeight = descriptionImage ? descriptionImage.heightMm * 0.72 : 5;
+          const descriptionWidth = descriptionImage ? Math.min(98, descriptionImage.widthMm * 0.72) : 0;
           const rowHeight = Math.max(10, descriptionHeight + 4);
           if (y + rowHeight > pageHeight - 22) addNewTransactionPage();
           if (index % 2 === 1) {
@@ -430,7 +433,7 @@ export default function SignatureSlipDialog(props: Props) {
           pdf.text(`Day ${day}`, margin + 3, y + 6);
           pdf.text((entry.type || "—").replace(/_/g, " "), margin + 26, y + 6);
           if (descriptionImage) {
-            pdf.addImage(descriptionImage.dataUrl, "PNG", margin + 56, y + 2, 98, descriptionHeight);
+            pdf.addImage(descriptionImage.dataUrl, "PNG", margin + 56, y + 2, descriptionWidth, descriptionHeight);
           }
           pdf.setFont("helvetica", "bold");
           setRgb(entry.amount < 0 ? "#a93434" : TEAL, "text");
@@ -462,8 +465,9 @@ export default function SignatureSlipDialog(props: Props) {
       pdf.text("EMPLOYEE SIGNATURE", signatureX + signatureWidth / 2, signatureTop + 21, { align: "center" });
       const signatureName = renderTextImage(staffName, { fontPx: 20, maxWidthPx: 330, color: MUTED });
       if (signatureName) {
-        const nameHeight = 3.8;
-        const nameWidth = Math.min(signatureWidth - 4, signatureName.widthMm * nameHeight / signatureName.heightMm);
+        let nameHeight = 5.2;
+        let nameWidth = signatureName.widthMm * nameHeight / signatureName.heightMm;
+        if (nameWidth > signatureWidth - 4) { nameHeight = nameHeight * (signatureWidth - 4) / nameWidth; nameWidth = signatureWidth - 4; }
         pdf.addImage(signatureName.dataUrl, "PNG", signatureX + (signatureWidth - nameWidth) / 2, signatureTop + 23, nameWidth, nameHeight);
       }
       addFooter();
