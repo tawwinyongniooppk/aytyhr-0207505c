@@ -163,9 +163,10 @@ export default function SignatureSlipDialog(props: Props) {
     }
     if (line || lines.length === 0) lines.push(line);
     const padX = 4;
-    const padY = 3;
+    const padY = Math.ceil(fontPx * 0.45);
+    const widest = Math.max(...lines.map((entry) => measure.measureText(entry).width), 2);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.ceil(maxWidth) + padX * 2;
+    canvas.width = Math.ceil(Math.max(options.maxWidthPx ? widest : maxWidth, 2)) + padX * 2;
     canvas.height = Math.ceil(lines.length * fontPx * lineHeight) + padY * 2;
     const context = canvas.getContext("2d");
     if (!context) return null;
