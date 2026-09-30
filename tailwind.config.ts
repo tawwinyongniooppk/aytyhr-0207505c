@@ -105,6 +105,10 @@ export default {
           from: { opacity: "0", transform: "scale(0.8)" },
           to: { opacity: "1", transform: "scale(1)" },
         },
+        "id-in": {
+          from: { opacity: "0", transform: "translateY(8px) scale(0.98)" },
+          to: { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
         "error-nudge": {
           "0%, 100%": { transform: "translateX(0)" },
           "35%": { transform: "translateX(-2px)" },
@@ -118,6 +122,7 @@ export default {
         "content-in": "content-in 180ms ease-out",
         "control-in": "control-in 150ms ease-out",
         "error-nudge": "error-nudge 180ms ease-out",
+        "id-in": "id-in 220ms ease-out",
       },
     },
   },

@@ -400,3 +400,22 @@
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
 }
+
+/* ---- Virtual ID card (My ID) — CSS-only glass effect ---- */
+.virtual-id {
+  background: linear-gradient(160deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.86));
+  border: 1px solid hsl(var(--primary) / 0.28);
+  box-shadow: 0 0 0 1px hsl(var(--card) / 0.6) inset, 0 18px 50px -18px hsl(var(--primary) / 0.45), 0 0 24px -6px hsl(var(--primary) / 0.25);
+  backdrop-filter: blur(12px);
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+.virtual-id-band { background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--primary) / 0.72)); }
+.virtual-id-sheen {
+  position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: linear-gradient(115deg, transparent 35%, hsl(0 0% 100% / 0.18) 50%, transparent 65%);
+  transform: translateX(-100%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .virtual-id-sheen { animation: id-sheen 1.4s ease-out 0.2s 1 forwards; }
+}
+@keyframes id-sheen { to { transform: translateX(100%); } }
