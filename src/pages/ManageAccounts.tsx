@@ -22,6 +22,7 @@ interface Account {
   avatar_url: string | null;
   sequence: number;
   class: string;
+  internal_name?: string | null;
 }
 
 const CLASS_OPTIONS = ["Beginner", "Junior", "Senior", "Neutral"] as const;
@@ -50,7 +51,7 @@ export default function ManageAccounts() {
   const [editOpen, setEditOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [editAccount, setEditAccount] = useState<Account | null>(null);
-  const [editForm, setEditForm] = useState({ full_name: "", emailPrefix: "", password: "", role: "staff", sequence: 100, class: "Neutral" });
+  const [editForm, setEditForm] = useState({ full_name: "", emailPrefix: "", password: "", role: "staff", sequence: 100, class: "Neutral", internal_name: "" });
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -112,7 +113,7 @@ export default function ManageAccounts() {
 
   const openEdit = (account: Account) => {
     setEditAccount(account);
-    setEditForm({ full_name: account.full_name, emailPrefix: "", password: "", role: account.role, sequence: account.sequence ?? 100, class: account.class ?? "Neutral" });
+    setEditForm({ full_name: account.full_name, emailPrefix: "", password: "", role: account.role, sequence: account.sequence ?? 100, class: account.class ?? "Neutral", internal_name: account.internal_name ?? "" });
     setAvatarPreview(account.avatar_url);
     setAvatarFile(null);
     setEditOpen(true);
@@ -203,6 +204,8 @@ export default function ManageAccounts() {
       }
 
       const profileUpdate: any = { sequence: editForm.sequence };
+      const nextInternal = editForm.internal_name.trim() || null;
+      if (nextInternal !== (editAccount.internal_name ?? null)) profileUpdate.internal_name = nextInternal;
       if (newAvatarUrl) profileUpdate.avatar_url = newAvatarUrl;
 
       const { error: pErr } = await supabase.from("profiles").update(profileUpdate).eq("id", editAccount.id);
@@ -362,6 +365,11 @@ export default function ManageAccounts() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">Instructional grouping. Only IT Manager can change.</p>
+            </div>
+            <div>
+              <Label>Internal Name</Label>
+              <Input value={editForm.internal_name} maxLength={80} placeholder="Optional" onChange={(e) => setEditForm({ ...editForm, internal_name: e.target.value })} />
+              <p className="text-xs text-muted-foreground mt-1">Shown on the staff member's Virtual ID. Only IT Manager can change.</p>
             </div>
             <div>
               <Label>Sequence (1–100)</Label>
