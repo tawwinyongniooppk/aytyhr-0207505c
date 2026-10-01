@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { readCachedSchoolContact } from "@/hooks/useAppSettingsCache";
 import { toast } from "sonner";
 import {
   Download, Loader2, Hash, Briefcase, CalendarDays, Phone, Mail, PhoneCall, Building2, MapPin, UserRound,
@@ -35,6 +36,7 @@ export default function MyIdPage() {
   const [saving, setSaving] = useState(false);
   const [photoFailed, setPhotoFailed] = useState(false);
   const logoUrl = readCachedLogo();
+  const school = readCachedSchoolContact();
 
   if (loading) {
     return (
@@ -45,21 +47,21 @@ export default function MyIdPage() {
   }
   if (!profile) return <p className="text-muted-foreground">No profile found.</p>;
 
-  const p = profile as typeof profile & { emergency_phone?: string | null };
+  const p = profile as typeof profile & { emergency_phone?: string | null; internal_name?: string | null };
   const initials = (p.full_name || "U").split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
   const position = [ROLE_LABEL[p.role] ?? p.role, p.class && p.class !== "Neutral" ? p.class : null]
     .filter(Boolean)
     .join(" · ");
 
   const fields: Field[] = [
-    { icon: UserRound, label: "Internal Name", value: "—" },
+    { icon: UserRound, label: "Internal Name", value: p.internal_name || "—" },
     { icon: Briefcase, label: "Position", value: position || "—" },
     { icon: CalendarDays, label: "Join Date", value: p.join_date || "—" },
     { icon: Phone, label: "Phone", value: p.phone || "—" },
     { icon: Mail, label: "Email", value: user?.email ?? "—" },
     { icon: PhoneCall, label: "Emergency", value: p.emergency_phone || "—" },
-    { icon: Building2, label: "School Phone", value: "—" },
-    { icon: MapPin, label: "School Address", value: "—" },
+    { icon: Building2, label: "School Phone", value: school.phone || "—" },
+    { icon: MapPin, label: "School Address", value: school.address || "—" },
   ];
 
   const handleSave = async () => {

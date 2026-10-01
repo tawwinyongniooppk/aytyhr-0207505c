@@ -47,14 +47,32 @@ export function useSlipSetting() {
 }
 
 const LOGO_CACHE_KEY = "ayty:company_logo_url";
+export const SCHOOL_PHONE_CACHE_KEY = "ayty:school_phone";
+export const SCHOOL_ADDRESS_CACHE_KEY = "ayty:school_address";
 
+function cacheLocal(key: string, value: string | null) {
+  try {
+    if (value) localStorage.setItem(key, value);
+    else localStorage.removeItem(key);
+  } catch {
+    /* best-effort */
+  }
+}
+
+// Same single request as before; it now also returns the two school-wide
+// contact values so My ID can read them from local cache with zero requests.
 async function fetchCompanyLogo(): Promise<string | null> {
   const { data } = await supabase
     .from("app_settings")
-    .select("value")
-    .eq("key", "company_logo_url")
-    .maybeSingle();
-  const url = (data as any)?.value ?? null;
+    .select("key, value")
+    .in("key", ["company_logo_url", "school_phone", "school_address"]);
+  const rows = ((data as any[]) || []) as { key: string; value: string }[];
+  const get = (k: string) => rows.find((r) => r.key === k)?.value || null;
+  if (data) {
+    cacheLocal(SCHOOL_PHONE_CACHE_KEY, get("school_phone"));
+    cacheLocal(SCHOOL_ADDRESS_CACHE_KEY, get("school_address"));
+  }
+  const url = get("company_logo_url");
   try {
     if (url) localStorage.setItem(LOGO_CACHE_KEY, url);
     else localStorage.removeItem(LOGO_CACHE_KEY);
@@ -93,4 +111,30 @@ export function useCompanyLogo() {
   };
 
   return { logoUrl: query.data ?? initial ?? null, setLogoUrl };
+}
+
+/** IT Manager save for school phone/address; updates local cache, no refetch. */
+export async function saveSchoolContact(phone: string, address: string) {
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("app_settings").upsert(
+    [
+      { key: "school_phone", value: phone, updated_at: now },
+      { key: "school_address", value: address, updated_at: now },
+    ],
+    { onConflict: "key" },
+  );
+  if (error) throw error;
+  cacheLocal(SCHOOL_PHONE_CACHE_KEY, phone || null);
+  cacheLocal(SCHOOL_ADDRESS_CACHE_KEY, address || null);
+}
+
+export function readCachedSchoolContact() {
+  try {
+    return {
+      phone: localStorage.getItem(SCHOOL_PHONE_CACHE_KEY),
+      address: localStorage.getItem(SCHOOL_ADDRESS_CACHE_KEY),
+    };
+  } catch {
+    return { phone: null, address: null };
+  }
 }
