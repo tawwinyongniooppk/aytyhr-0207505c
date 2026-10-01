@@ -614,6 +614,7 @@ export type Database = {
           emergency_phone: string | null
           full_name: string
           id: string
+          internal_name: string | null
           join_date: string | null
           late_deduction_per_minute: number
           overtime_rate_per_minute: number
@@ -637,6 +638,7 @@ export type Database = {
           emergency_phone?: string | null
           full_name?: string
           id: string
+          internal_name?: string | null
           join_date?: string | null
           late_deduction_per_minute?: number
           overtime_rate_per_minute?: number
@@ -660,6 +662,7 @@ export type Database = {
           emergency_phone?: string | null
           full_name?: string
           id?: string
+          internal_name?: string | null
           join_date?: string | null
           late_deduction_per_minute?: number
           overtime_rate_per_minute?: number
@@ -899,6 +902,7 @@ export type Database = {
           emergency_phone: string | null
           full_name: string
           id: string
+          internal_name: string | null
           join_date: string | null
           late_deduction_per_minute: number
           overtime_rate_per_minute: number
@@ -979,6 +983,7 @@ export type Database = {
           emergency_phone: string | null
           full_name: string
           id: string
+          internal_name: string | null
           join_date: string | null
           late_deduction_per_minute: number
           overtime_rate_per_minute: number

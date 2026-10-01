@@ -3,9 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Upload, Building2, RefreshCw } from "lucide-react";
+import { Upload, Building2, RefreshCw, Phone } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { checkForUpdate } from "@/pwa/registerSW";
-import { useCompanyLogo } from "@/hooks/useAppSettingsCache";
+import { useCompanyLogo, saveSchoolContact, readCachedSchoolContact } from "@/hooks/useAppSettingsCache";
 import { ThemeColorPicker } from "@/components/ThemeColorPicker";
 
 const MAX_LOGO_SIZE = 2 * 1024 * 1024;
@@ -26,6 +30,30 @@ export function AppHeader() {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [schoolOpen, setSchoolOpen] = useState(false);
+  const [schoolPhone, setSchoolPhone] = useState("");
+  const [schoolAddress, setSchoolAddress] = useState("");
+  const [savingSchool, setSavingSchool] = useState(false);
+
+  const openSchool = () => {
+    const c = readCachedSchoolContact();
+    setSchoolPhone(c.phone ?? "");
+    setSchoolAddress(c.address ?? "");
+    setSchoolOpen(true);
+  };
+
+  const onSaveSchool = async () => {
+    setSavingSchool(true);
+    try {
+      await saveSchoolContact(schoolPhone.trim(), schoolAddress.trim());
+      toast({ title: "School info saved" });
+      setSchoolOpen(false);
+    } catch (err: any) {
+      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingSchool(false);
+    }
+  };
 
   const onCheckUpdate = async () => {
     setCheckingUpdate(true);
@@ -141,6 +169,37 @@ export function AppHeader() {
               >
                 <Upload className="h-4 w-4" />
               </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={openSchool}
+                className="h-9 w-9"
+                aria-label="School phone and address"
+                title="School phone and address"
+              >
+                <Phone className="h-4 w-4" />
+              </Button>
+              <Dialog open={schoolOpen} onOpenChange={setSchoolOpen}>
+                <DialogContent className="max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>School Info</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <div>
+                      <Label>School Phone</Label>
+                      <Input value={schoolPhone} maxLength={40} onChange={(e) => setSchoolPhone(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>School Address</Label>
+                      <Textarea value={schoolAddress} maxLength={200} rows={3} onChange={(e) => setSchoolAddress(e.target.value)} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Shown on every staff member's Virtual ID.</p>
+                    <Button onClick={onSaveSchool} disabled={savingSchool} className="w-full">
+                      {savingSchool ? "Saving..." : "Save"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </>
           )}
           <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-primary-soft text-xs font-bold text-primary-strong shadow-sm md:h-10 md:w-10">
