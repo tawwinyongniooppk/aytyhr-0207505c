@@ -367,11 +367,6 @@ export default function ManageAccounts() {
               <p className="text-xs text-muted-foreground mt-1">Instructional grouping. Only IT Manager can change.</p>
             </div>
             <div>
-              <Label>Internal Name</Label>
-              <Input value={editForm.internal_name} maxLength={80} placeholder="Optional" onChange={(e) => setEditForm({ ...editForm, internal_name: e.target.value })} />
-              <p className="text-xs text-muted-foreground mt-1">Shown on the staff member's Virtual ID. Only IT Manager can change.</p>
-            </div>
-            <div>
               <Label>Sequence (1–100)</Label>
               <Input
                 type="number"
@@ -481,6 +476,11 @@ export default function ManageAccounts() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">Instructional grouping. Only IT Manager can change.</p>
+            </div>
+            <div>
+              <Label>Internal Name</Label>
+              <Input value={editForm.internal_name} maxLength={80} placeholder="Optional" onChange={(e) => setEditForm({ ...editForm, internal_name: e.target.value })} />
+              <p className="text-xs text-muted-foreground mt-1">Shown on the staff member's Virtual ID. Only IT Manager can change.</p>
             </div>
             <div>
               <Label>Sequence (1–100)</Label>
