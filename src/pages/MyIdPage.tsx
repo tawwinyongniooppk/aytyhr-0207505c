@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { readCachedSchoolContact } from "@/hooks/useAppSettingsCache";
 import { toast } from "sonner";
 import {
-  Download, Loader2, Hash, Briefcase, CalendarDays, Phone, Mail, PhoneCall, Building2, MapPin, UserRound,
+  Download, Loader2, Hash, Briefcase, CalendarDays, Phone, Mail, PhoneCall, Building2, MapPin, UserRound, GraduationCap,
 } from "lucide-react";
 
 // Frontend-only Virtual ID. Renders from the existing cached useProfile() data
@@ -55,7 +55,8 @@ export default function MyIdPage() {
 
   const fields: Field[] = [
     { icon: UserRound, label: "Internal Name", value: p.internal_name || "—" },
-    { icon: Briefcase, label: "Position", value: position || "—" },
+    { icon: Briefcase, label: "Role", value: ROLE_LABEL[p.role] ?? p.role ?? "—" },
+    { icon: GraduationCap, label: "Class", value: p.class || "—" },
     { icon: CalendarDays, label: "Join Date", value: p.join_date || "—" },
     { icon: Phone, label: "Phone", value: p.phone || "—" },
     { icon: Mail, label: "Email", value: user?.email ?? "—" },
@@ -132,7 +133,7 @@ export default function MyIdPage() {
 
           <dl className="mt-3 w-full divide-y divide-border/60 text-left text-[13px]">
             {fields.map(({ icon: Icon, label, value }) => (
-              <div key={label} className="flex items-start gap-2 py-1.5">
+              <div key={label} className="flex items-start gap-2 py-1">
                 <Icon className="h-3.5 w-3.5 mt-[3px] shrink-0 text-primary" />
                 <dt className="w-28 shrink-0 text-muted-foreground">{label}</dt>
                 <dd className="flex-1 min-w-0 font-medium text-foreground break-words">{value}</dd>
@@ -171,7 +172,7 @@ async function renderIdImage(o: {
   name: string; position: string; idNo: string; initials: string;
   avatarUrl: string | null; logoUrl: string | null; fields: Field[];
 }): Promise<Blob> {
-  const W = 400, H = 720, S = 3;
+  const W = 400, H = 800, S = 3;
   const c = document.createElement("canvas");
   c.width = W * S; c.height = H * S;
   const ctx = c.getContext("2d")!;
