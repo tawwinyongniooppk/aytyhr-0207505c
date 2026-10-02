@@ -1,0 +1,1 @@
+GRANT SELECT (internal_name), UPDATE (internal_name) ON public.profiles TO authenticated;
