@@ -172,7 +172,7 @@ async function renderIdImage(o: {
   name: string; position: string; idNo: string; initials: string;
   avatarUrl: string | null; logoUrl: string | null; fields: Field[];
 }): Promise<Blob> {
-  const W = 400, H = 720, S = 3;
+  const W = 400, H = 800, S = 3;
   const c = document.createElement("canvas");
   c.width = W * S; c.height = H * S;
   const ctx = c.getContext("2d")!;
