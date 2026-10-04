@@ -353,7 +353,7 @@ export default function CalendarPage() {
           const lines = msg.split("TASK_VALIDATION_FAILED|")[1].split("||");
           toast({
             title: "Cannot create this Task",
-            description: lines.join("\n") + "\n\nNo Task or Assignment was created.",
+            description: <div className="whitespace-pre-line">{lines.join("\n") + "\n\nNo Task or Assignment was created."}</div>,
             variant: "destructive",
           });
         } else if (msg.includes("DUPLICATE_TASK")) {
