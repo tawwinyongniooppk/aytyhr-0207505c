@@ -335,6 +335,10 @@ export default function CalendarPage() {
         toast({ title: "Select at least 2 staff members", variant: "destructive" });
         return;
       }
+      if (form.assignMode === "selected" && candidateIds.length >= staffList.length) {
+        toast({ title: "Use the All Staff mode to assign everyone.", variant: "destructive" });
+        return;
+      }
 
       // One atomic server call: validates every selected staff (4/4 cap + exact
       // same-window duplicate) and creates the task + all assignments together.
@@ -569,6 +573,9 @@ export default function CalendarPage() {
                         if (atCap) return;
                         setForm((f) => {
                           if (f.assignMode === "selected") {
+                            // Multiple Staff mode: cannot select every staff member —
+                            // use All Staff mode instead.
+                            if (!selected && f.assignedIds.length >= staffList.length - 1) return f;
                             return {
                               ...f,
                               assignedIds: selected
