@@ -929,6 +929,17 @@ export type Database = {
         Args: { p_month: string; p_user_id: string }
         Returns: number
       }
+      create_task_with_assignments: {
+        Args: {
+          p_assigned_to_all: boolean
+          p_description: string
+          p_end: string
+          p_start: string
+          p_title: string
+          p_user_ids: string[]
+        }
+        Returns: string
+      }
       current_user_role: { Args: never; Returns: string }
       dashboard_monthly_attendance: {
         Args: { p_month_end: string; p_month_start: string }
