@@ -300,152 +300,87 @@ export default function CalendarPage() {
   }, [open, form.start_date, isStaff, staffList]);
 
 
+  const createLockRef = useRef(false);
   async function handleCreate() {
     if (!form.title || !form.start_date || !user) return;
-
-    // (3) Restrict to current month only — no future months allowed.
-    const todayStr = todayISO();
-    const monthEndStr = currentMonthEndISO();
-    if (form.start_date < todayStr || form.start_date > monthEndStr) {
-      toast({
-        title: "Error: Start date must be within the current month.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // (3b) Start day must be one of the allowed assignment days of the month.
-    const startDom = Number(form.start_date.split("-")[2]);
-    if (!ALLOWED_ASSIGN_DAYS.includes(startDom)) {
-      toast({
-        title: "Error: Task Start Date must be day 1, 8, 15 or 22 of the month.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const deadline = computeDeadline(form.start_date);
-
-    // Weekly-only monthly cap: every assignment = 1 unit, cap 4/month.
-    const newWeight = 1;
-    const isEveryone = form.assignMode === "everyone";
-    const candidateIds = isEveryone ? staffList.map((s) => s.id) : form.assignedIds;
-    if (candidateIds.length === 0) {
-      toast({ title: "Select at least one assignee", variant: "destructive" });
-      return;
-    }
-    if (form.assignMode === "single_private" && candidateIds.length !== 1) {
-      toast({ title: "Pick exactly one staff member for this mode", variant: "destructive" });
-      return;
-    }
-    if (form.assignMode === "selected" && candidateIds.length < 2) {
-      toast({ title: "Select at least 2 staff members", variant: "destructive" });
-      return;
-    }
-
-    const nameById: Record<string, string> = Object.fromEntries(
-      staffList.map((s) => [s.id, s.full_name || "Unnamed"]),
-    );
-
-    // Refresh load for the target month before validating.
-    await loadAssignmentLoad(form.start_date);
-    const { monthStart: ms, nextMonthStart: nms } = monthBoundsFor(form.start_date);
-    const { data: freshEvents } = await supabase
-      .from("calendar_events")
-      .select("id, start_date, end_date")
-      .eq("event_type", "task")
-      .gte("start_date", ms)
-      .lt("start_date", nms);
-    const freshList = (freshEvents as { id: string; start_date: string; end_date: string }[]) || [];
-    const freshMap = new Map(freshList.map((e) => [e.id, e]));
-    const freshLoad: Record<string, number> = {};
-    let assRows: Array<{ user_id: string; event_id: string; submission_status: string }> = [];
-    if (freshList.length) {
-      const { data: ass } = await supabase
-        .from("calendar_event_assignments")
-        .select("user_id, event_id, submission_status")
-        .in("event_id", freshList.map((e) => e.id));
-      assRows = (ass as any) || [];
-      for (const a of assRows) {
-        const ev = freshMap.get(a.event_id);
-        if (!ev) continue;
-        freshLoad[a.user_id] = (freshLoad[a.user_id] || 0) + getTaskUnitCount(ev.start_date, ev.end_date);
-      }
-    }
-
-    // Monthly cap only: previous/unfinished tasks and date overlaps do not block creation.
-
-    const blocked = candidateIds.filter((id) => (freshLoad[id] || 0) + newWeight > MONTHLY_WEIGHT_CAP);
-    if (blocked.length > 0) {
-      toast({
-        title: "Monthly assignment limit reached (4/4)",
-        description: `Blocked: ${blocked.map((id) => nameById[id] || "user").join(", ")}. Other staff can still be assigned.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-
+    // Immediate lock: block rapid repeated clicks before any validation runs.
+    if (createLockRef.current) return;
+    createLockRef.current = true;
     setSubmitting(true);
+    let ok = false;
     try {
-      // Mode → visibility:
-      //  - everyone: assigned to all staff (private record, but every staff has an assignment)
-      //  - single_private: assigned to one staff, only that staff sees it
-      const visibility = "private";
+      const todayStr = todayISO();
+      const monthEndStr = currentMonthEndISO();
+      if (form.start_date < todayStr || form.start_date > monthEndStr) {
+        toast({ title: "Error: Start date must be within the current month.", variant: "destructive" });
+        return;
+      }
+      const startDom = Number(form.start_date.split("-")[2]);
+      if (!ALLOWED_ASSIGN_DAYS.includes(startDom)) {
+        toast({ title: "Error: Task Start Date must be day 1, 8, 15 or 22 of the month.", variant: "destructive" });
+        return;
+      }
+      const deadline = computeDeadline(form.start_date);
       const isAllStaff = form.assignMode === "everyone";
+      const candidateIds = isAllStaff ? staffList.map((s) => s.id) : form.assignedIds;
+      if (candidateIds.length === 0) {
+        toast({ title: "Select at least one assignee", variant: "destructive" });
+        return;
+      }
+      if (form.assignMode === "single_private" && candidateIds.length !== 1) {
+        toast({ title: "Pick exactly one staff member for this mode", variant: "destructive" });
+        return;
+      }
+      if (form.assignMode === "selected" && candidateIds.length < 2) {
+        toast({ title: "Select at least 2 staff members", variant: "destructive" });
+        return;
+      }
 
-      const { data: ev, error } = await supabase
-        .from("calendar_events")
-        .insert({
-          title: form.title,
-          description: form.description,
-          start_date: form.start_date,
-          end_date: deadline,
-          event_type: "task",
-          visibility,
-          created_by: user.id,
-          assigned_to_all: isAllStaff,
-        } as any)
-        .select()
-        .single();
-      if (error) throw error;
-
-      if (ev) {
-        const ids = isAllStaff ? staffList.map((s) => s.id) : form.assignedIds;
-        if (ids.length > 0) {
-          const { error: assignErr } = await supabase.from("calendar_event_assignments").insert(
-            ids.map((uid) => ({ event_id: ev.id, user_id: uid, submission_status: "not_started" }))
-          );
-          if (assignErr) throw assignErr;
+      // One atomic server call: validates every selected staff (4/4 cap + exact
+      // same-window duplicate) and creates the task + all assignments together.
+      // Any failure rolls back everything — no orphan task, no partial set.
+      const { error } = await (supabase.rpc as any)("create_task_with_assignments", {
+        p_title: form.title,
+        p_description: form.description,
+        p_start: form.start_date,
+        p_end: deadline,
+        p_assigned_to_all: isAllStaff,
+        p_user_ids: candidateIds,
+      });
+      if (error) {
+        const msg = String(error.message || "");
+        if (msg.includes("TASK_VALIDATION_FAILED|")) {
+          const lines = msg.split("TASK_VALIDATION_FAILED|")[1].split("||");
+          toast({
+            title: "Cannot create this Task",
+            description: <div className="whitespace-pre-line">{lines.join("\n") + "\n\nNo Task or Assignment was created."}</div>,
+            variant: "destructive",
+          });
+        } else if (msg.includes("DUPLICATE_TASK")) {
+          toast({ title: "Cannot create this Task", description: "A selected staff member already has a task for this week. No Task or Assignment was created.", variant: "destructive" });
+        } else {
+          toast({ title: "Error", description: "Failed to create task. No Task or Assignment was created.", variant: "destructive" });
         }
+        return;
       }
 
+      ok = true;
       toast({ title: "Task created successfully" });
-      const recipientIds = isAllStaff ? staffList.map((s) => s.id) : form.assignedIds;
-      if (recipientIds.length > 0) {
-        sendPush({
-          user_ids: recipientIds,
-          title: form.event_type === "task" ? "New task assigned" : "New calendar event",
-          body: `${form.title} — due ${deadline}`,
-          url: "/calendar",
-        });
-      }
+      sendPush({
+        user_ids: candidateIds,
+        title: "New task assigned",
+        body: `${form.title} — due ${deadline}`,
+        url: "/calendar",
+      });
       setForm({ title: "", description: "", start_date: "", end_date: "", event_type: "task", visibility: "private", allStaff: true, assignedIds: [], assignMode: "everyone" });
       setOpen(false);
       loadEvents();
-      } catch (error: any) {
-      const message = String(error?.message || "");
-      if (message.includes("DUPLICATE_TASK")) {
-        toast({
-          title: "Error",
-          description: "ဤ Staff အတွက် တူညီသော ရက်စွဲ သို့မဟုတ် Deadline နှင့် ထပ်နေသော Task ရှိပြီးသား ဖြစ်ပါသည်",
-          variant: "destructive",
-        });
-      } else {
-        toast({ title: "Error", description: "Failed to create task", variant: "destructive" });
-      }
+    } catch {
+      toast({ title: "Error", description: "Failed to create task. No Task or Assignment was created.", variant: "destructive" });
     } finally {
+      createLockRef.current = false;
       setSubmitting(false);
+      if (!ok) void loadAssignmentLoad(form.start_date);
     }
   }
 
@@ -590,21 +525,21 @@ export default function CalendarPage() {
                     <label className={`flex items-start gap-2 p-3 rounded-md border cursor-pointer transition ${form.assignMode === "everyone" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"}`}>
                       <RadioGroupItem value="everyone" className="mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium">Assign to everyone</p>
+                        <p className="text-sm font-medium">All Staff</p>
                         <p className="text-xs text-muted-foreground">Every staff member gets this task.</p>
                       </div>
                     </label>
                     <label className={`flex items-start gap-2 p-3 rounded-md border cursor-pointer transition ${form.assignMode === "single_private" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"}`}>
                       <RadioGroupItem value="single_private" className="mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium">Assign to one person only</p>
+                        <p className="text-sm font-medium">Single Staff</p>
                         <p className="text-xs text-muted-foreground">Only the chosen staff sees this task.</p>
                       </div>
                     </label>
                     <label className={`flex items-start gap-2 p-3 rounded-md border cursor-pointer transition ${form.assignMode === "selected" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"}`}>
                       <RadioGroupItem value="selected" className="mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium">Assign to selected staff (2+)</p>
+                        <p className="text-sm font-medium">Assign to Multiple Staff</p>
                         <p className="text-xs text-muted-foreground">
                           ရွေးချယ်ထားသော Staff တစ်ဦးချင်းစီအတွက် Submission / Approval / Deadline / Bonus သီးခြားစီ တွက်ချက်ပါသည်။
                         </p>
@@ -612,6 +547,9 @@ export default function CalendarPage() {
                     </label>
                   </RadioGroup>
 
+                  {form.assignMode !== "everyone" && (
+                    <p className="text-xs font-medium text-foreground">Selected: {form.assignedIds.length} / {staffList.length}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     တစ်လအတွင်း Staff တစ်ဦးလျှင် အများဆုံး ၄ Task (၄/၄ Units) သာ ခွင့်ပြုသည်။ ၄/၄ ပြည့်သွားသူကိုသာ ပိတ်ပါမည်။
                   </p>
