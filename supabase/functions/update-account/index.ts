@@ -34,7 +34,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { user_id, full_name, role, email, password, class: klass } = await req.json();
+    const body = await req.json();
+    const { user_id, full_name, role, email, password, class: klass } = body;
     if (!user_id || !full_name) {
       return new Response(JSON.stringify({ error: "user_id and full_name are required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -103,6 +104,12 @@ Deno.serve(async (req) => {
     const profileUpdate: Record<string, unknown> = { full_name };
     if (role) profileUpdate.role = role;
     if (klass) profileUpdate.class = klass;
+    if (Number.isInteger(body.sequence) && body.sequence >= 1 && body.sequence <= 100) profileUpdate.sequence = body.sequence;
+    if ("internal_name" in body) {
+      const v = typeof body.internal_name === "string" ? body.internal_name.trim().slice(0, 80) : "";
+      profileUpdate.internal_name = v || null;
+    }
+    if (typeof body.avatar_url === "string" && body.avatar_url.startsWith(supabaseUrl)) profileUpdate.avatar_url = body.avatar_url;
 
     const { data: updated, error: profileErr } = await adminClient
       .from("profiles")
