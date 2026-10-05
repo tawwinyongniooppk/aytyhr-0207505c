@@ -180,7 +180,12 @@ export default function ManageAccounts() {
 
     setEditLoading(true);
     try {
-      // 1. Update name/email/password/role via edge function
+      // Upload avatar first (storage), then save all account/profile fields via the secured edge function
+      let newAvatarUrl: string | null | undefined;
+      if (avatarFile) {
+        newAvatarUrl = await uploadAvatar(editAccount.id);
+      }
+      const nextInternal = editForm.internal_name.trim() || null;
       const res = await supabase.functions.invoke("update-account", {
         body: {
           user_id: editAccount.id,
@@ -189,28 +194,13 @@ export default function ManageAccounts() {
           email: editForm.emailPrefix ? editForm.emailPrefix + DOMAIN : undefined,
           password: editForm.password || undefined,
           class: editForm.class,
+          sequence: editForm.sequence,
+          ...(nextInternal !== (editAccount.internal_name ?? null) ? { internal_name: nextInternal } : {}),
+          ...(newAvatarUrl ? { avatar_url: newAvatarUrl } : {}),
         },
       });
       if (res.error || res.data?.error) {
         toast({ title: "Update failed", description: res.data?.error || res.error?.message, variant: "destructive" });
-        setEditLoading(false);
-        return;
-      }
-
-      // 2. Upload avatar if changed + update sequence/avatar in profiles
-      let newAvatarUrl: string | null | undefined;
-      if (avatarFile) {
-        newAvatarUrl = await uploadAvatar(editAccount.id);
-      }
-
-      const profileUpdate: any = { sequence: editForm.sequence };
-      const nextInternal = editForm.internal_name.trim() || null;
-      if (nextInternal !== (editAccount.internal_name ?? null)) profileUpdate.internal_name = nextInternal;
-      if (newAvatarUrl) profileUpdate.avatar_url = newAvatarUrl;
-
-      const { error: pErr } = await supabase.from("profiles").update(profileUpdate).eq("id", editAccount.id);
-      if (pErr) {
-        toast({ title: "Profile update failed", description: pErr.message, variant: "destructive" });
         setEditLoading(false);
         return;
       }
