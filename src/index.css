@@ -409,13 +409,70 @@
   backdrop-filter: blur(12px);
   transition: box-shadow 200ms ease, transform 200ms ease;
 }
+.virtual-id::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  width: 34px;
+  height: 2px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.72), transparent);
+  box-shadow: 0 0 8px hsl(var(--primary) / 0.32);
+  opacity: 0;
+  offset-path: inset(1px round 27px);
+  offset-distance: 0%;
+  offset-rotate: auto;
+}
 .virtual-id-band { background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--primary) / 0.72)); }
 .virtual-id-sheen {
   position: absolute; inset: 0; pointer-events: none; z-index: 1;
-  background: linear-gradient(115deg, transparent 35%, hsl(0 0% 100% / 0.18) 50%, transparent 65%);
-  transform: translateX(-100%);
+  background: linear-gradient(115deg, transparent 43%, hsl(var(--primary-foreground) / 0.1) 49%, hsl(var(--primary-foreground) / 0.14) 50%, hsl(var(--primary-foreground) / 0.1) 51%, transparent 57%);
+  transform: translateX(-115%);
+  opacity: 0;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .virtual-id-sheen { animation: id-sheen 1.4s ease-out 0.2s 1 forwards; }
+  .virtual-id {
+    animation: id-glass-breathe 9s ease-in-out infinite;
+  }
+
+  .virtual-id::before {
+    animation: id-edge-flare 10s linear infinite;
+  }
+
+  .virtual-id-sheen {
+    animation: id-sheen 12s ease-in-out 1.4s infinite;
+  }
 }
-@keyframes id-sheen { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .virtual-id,
+  .virtual-id::before,
+  .virtual-id-sheen {
+    animation: none !important;
+  }
+
+  .virtual-id::before,
+  .virtual-id-sheen {
+    opacity: 0;
+  }
+}
+@keyframes id-edge-flare {
+  0%, 100% { offset-distance: 0%; opacity: 0.22; }
+  8%, 92% { opacity: 0.62; }
+  50% { opacity: 0.48; }
+  99.9% { offset-distance: 100%; }
+}
+@keyframes id-glass-breathe {
+  0%, 100% {
+    box-shadow: 0 0 0 1px hsl(var(--card) / 0.6) inset, 0 18px 50px -18px hsl(var(--primary) / 0.42), 0 0 22px -7px hsl(var(--primary) / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 1px hsl(var(--card) / 0.68) inset, 0 18px 50px -18px hsl(var(--primary) / 0.48), 0 0 25px -6px hsl(var(--primary) / 0.28);
+  }
+}
+@keyframes id-sheen {
+  0%, 10% { transform: translateX(-115%); opacity: 0; }
+  13% { opacity: 0.3; }
+  25% { transform: translateX(115%); opacity: 0; }
+  100% { transform: translateX(115%); opacity: 0; }
+}
