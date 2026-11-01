@@ -149,10 +149,18 @@ async function renderIdImage(o: {
   const font = getComputedStyle(document.body).fontFamily;
   const setFont = (size: number, weight = 500) => { ctx.font = `${weight} ${size}px ${font}`; };
   // Segment by grapheme so unspaced emails and Myanmar combining marks wrap safely.
-  const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+  const Segmenter = (Intl as typeof Intl & {
+    Segmenter?: new (locale?: string, options?: { granularity: string }) => {
+      segment: (text: string) => Iterable<{ segment: string }>;
+    };
+  }).Segmenter;
+  const segmenter = Segmenter ? new Segmenter(undefined, { granularity: "grapheme" }) : null;
   const wrap = (text: string, width: number) => {
     const lines: string[] = []; let line = "";
-    for (const { segment } of segmenter.segment(text || "—")) {
+    const segments = segmenter
+      ? Array.from(segmenter.segment(text || "—"), part => part.segment)
+      : (text || "—").match(/\P{Mark}\p{Mark}*|\p{Mark}+/gu) || ["—"];
+    for (const segment of segments) {
       if (segment === "\n") { lines.push(line); line = ""; continue; }
       if (line && ctx.measureText(line + segment).width > width) { lines.push(line.trimEnd()); line = ""; }
       line += segment;
