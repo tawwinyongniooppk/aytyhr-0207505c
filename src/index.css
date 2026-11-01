@@ -60,6 +60,12 @@
 
     --font-display: 'Outfit', 'Noto Sans Myanmar', 'Padauk', 'Myanmar Text', sans-serif;
     --font-body: 'Inter', 'Noto Sans Myanmar', 'Padauk', 'Myanmar Text', sans-serif;
+    --id-print-paper: 0 0% 100%;
+    --id-print-ink: 210 22% 15%;
+    --id-print-muted: 210 10% 40%;
+    --id-print-accent: 195 38% 32%;
+    --id-print-rule: 210 15% 87%;
+    --id-print-photo: 210 12% 94%;
   }
 
   /* Dark Mode — same Modern Office palette, deep navy surfaces */
@@ -401,78 +407,57 @@
   to { transform: translateX(-50%); }
 }
 
-/* ---- Virtual ID card (My ID) — CSS-only glass effect ---- */
+/* My ID: lighting layers only; print rendering uses opaque tokens above. */
 .virtual-id {
-  background: linear-gradient(160deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.86));
-  border: 1px solid hsl(var(--primary) / 0.28);
-  box-shadow: 0 0 0 1px hsl(var(--card) / 0.6) inset, 0 18px 50px -18px hsl(var(--primary) / 0.45), 0 0 24px -6px hsl(var(--primary) / 0.25);
-  backdrop-filter: blur(12px);
-  transition: box-shadow 200ms ease, transform 200ms ease;
+  isolation: isolate;
+  background: linear-gradient(155deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9) 55%, hsl(var(--primary-soft) / 0.8));
+  border: 1px solid hsl(var(--subtle-border) / 0.75);
+  box-shadow: 0 1px 0 hsl(var(--card) / 0.7) inset, 0 16px 32px -20px hsl(var(--foreground) / 0.24);
+  backdrop-filter: blur(4px);
+}
+.virtual-id-header { border-bottom: 1px solid hsl(var(--border) / 0.4); margin-bottom: 18px; }
+.virtual-id-portrait {
+  border: 1px solid hsl(var(--border) / 0.75);
+  box-shadow: 0 3px 10px -5px hsl(var(--foreground) / 0.2);
 }
 .virtual-id::before {
-  content: "";
-  position: absolute;
-  z-index: 2;
-  width: 34px;
-  height: 2px;
-  border-radius: 999px;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.72), transparent);
-  box-shadow: 0 0 8px hsl(var(--primary) / 0.32);
-  opacity: 0;
-  offset-path: inset(1px round 27px);
-  offset-distance: 0%;
-  offset-rotate: auto;
+  content: ""; position: absolute; z-index: 2; width: 34px; height: 2px;
+  border-radius: 999px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.4), transparent);
+  box-shadow: 0 0 5px hsl(var(--primary) / 0.18); opacity: 0;
+  offset-path: inset(1px round 23px); offset-distance: 0%; offset-rotate: auto;
 }
-.virtual-id-band { background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--primary) / 0.72)); }
 .virtual-id-sheen {
-  position: absolute; inset: 0; pointer-events: none; z-index: 1;
-  background: linear-gradient(115deg, transparent 43%, hsl(var(--primary-foreground) / 0.1) 49%, hsl(var(--primary-foreground) / 0.14) 50%, hsl(var(--primary-foreground) / 0.1) 51%, transparent 57%);
-  transform: translateX(-115%);
-  opacity: 0;
+  position: absolute; inset: 0; pointer-events: none; z-index: -1;
+  background: linear-gradient(115deg, transparent 46%, hsl(var(--foreground) / 0.025) 49%, hsl(var(--card) / 0.15) 50%, transparent 54%);
+  transform: translateX(-115%); opacity: 0;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .virtual-id {
-    animation: id-glass-breathe 9s ease-in-out infinite;
-  }
-
-  .virtual-id::before {
-    animation: id-edge-flare 10s linear infinite;
-  }
-
-  .virtual-id-sheen {
-    animation: id-sheen 12s ease-in-out 1.4s infinite;
-  }
+  .virtual-id { animation: id-glass-breathe 12s ease-in-out infinite; }
+  .virtual-id::before { animation: id-edge-flare 14s linear infinite; }
+  .virtual-id-sheen { animation: id-sheen 18s ease-in-out 1.4s infinite; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .virtual-id,
-  .virtual-id::before,
-  .virtual-id-sheen {
-    animation: none !important;
-  }
-
-  .virtual-id::before,
-  .virtual-id-sheen {
-    opacity: 0;
-  }
+  .virtual-id, .virtual-id::before, .virtual-id-sheen { animation: none !important; }
+  .virtual-id::before, .virtual-id-sheen { opacity: 0; }
 }
 @keyframes id-edge-flare {
-  0%, 100% { offset-distance: 0%; opacity: 0.22; }
-  8%, 92% { opacity: 0.62; }
-  50% { opacity: 0.48; }
-  99.9% { offset-distance: 100%; }
+  0% { offset-distance: 0%; opacity: 0.18; }
+  8%, 92% { opacity: 0.4; }
+  50% { opacity: 0.3; }
+  100% { offset-distance: 100%; opacity: 0.18; }
 }
 @keyframes id-glass-breathe {
   0%, 100% {
-    box-shadow: 0 0 0 1px hsl(var(--card) / 0.6) inset, 0 18px 50px -18px hsl(var(--primary) / 0.42), 0 0 22px -7px hsl(var(--primary) / 0.2);
+    box-shadow: 0 1px 0 hsl(var(--card) / 0.65) inset, 0 16px 32px -20px hsl(var(--foreground) / 0.24), 0 0 6px -3px hsl(var(--primary) / 0.1);
   }
   50% {
-    box-shadow: 0 0 0 1px hsl(var(--card) / 0.68) inset, 0 18px 50px -18px hsl(var(--primary) / 0.48), 0 0 25px -6px hsl(var(--primary) / 0.28);
+    box-shadow: 0 1px 0 hsl(var(--card) / 0.8) inset, 0 16px 32px -20px hsl(var(--foreground) / 0.24), 0 0 8px -3px hsl(var(--primary) / 0.18);
   }
 }
 @keyframes id-sheen {
   0%, 10% { transform: translateX(-115%); opacity: 0; }
-  13% { opacity: 0.3; }
-  25% { transform: translateX(115%); opacity: 0; }
+  13% { opacity: 0.25; }
+  30% { transform: translateX(115%); opacity: 0; }
   100% { transform: translateX(115%); opacity: 0; }
 }

@@ -5,20 +5,13 @@ import { Button } from "@/components/ui/button";
 import { readCachedSchoolContact } from "@/hooks/useAppSettingsCache";
 import { toast } from "sonner";
 import {
-  Download, Loader2, Hash, Briefcase, CalendarDays, Phone, Mail, PhoneCall, Building2, MapPin, UserRound, GraduationCap,
+  Download, Loader2, CalendarDays, Phone, Mail, PhoneCall, Building2, MapPin, UserRound,
 } from "lucide-react";
 
 // Frontend-only Virtual ID. Renders from the existing cached useProfile() data
 // and the logo URL already cached in localStorage by useCompanyLogo().
 // No queries, RPCs, subscriptions or uploads are made by this page.
 const LOGO_CACHE_KEY = "ayty:company_logo_url";
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: "Admin",
-  assistant: "Assistant Admin",
-  staff: "Staff",
-  it_manager: "IT Manager",
-};
 
 function readCachedLogo(): string | null {
   try {
@@ -49,18 +42,12 @@ export default function MyIdPage() {
 
   const p = profile as typeof profile & { emergency_phone?: string | null; internal_name?: string | null };
   const initials = (p.full_name || "U").split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
-  const position = [ROLE_LABEL[p.role] ?? p.role, p.class && p.class !== "Neutral" ? p.class : null]
-    .filter(Boolean)
-    .join(" · ");
-
   const fields: Field[] = [
     { icon: UserRound, label: "Internal Name", value: p.internal_name || "—" },
-    { icon: Briefcase, label: "Role", value: ROLE_LABEL[p.role] ?? p.role ?? "—" },
-    { icon: GraduationCap, label: "Class", value: p.class || "—" },
     { icon: CalendarDays, label: "Join Date", value: p.join_date || "—" },
     { icon: Phone, label: "Phone", value: p.phone || "—" },
     { icon: Mail, label: "Email", value: user?.email ?? "—" },
-    { icon: PhoneCall, label: "Emergency", value: p.emergency_phone || "—" },
+    { icon: PhoneCall, label: "Emergency Contact", value: p.emergency_phone || "—" },
     { icon: Building2, label: "School Phone", value: school.phone || "—" },
     { icon: MapPin, label: "School Address", value: school.address || "—" },
   ];
@@ -70,8 +57,6 @@ export default function MyIdPage() {
     try {
       const blob = await renderIdImage({
         name: p.full_name,
-        position,
-        idNo: typeof p.sequence === "number" ? `ID: #${p.sequence}` : "",
         initials,
         avatarUrl: photoFailed ? null : p.avatar_url ?? null,
         logoUrl,
@@ -95,53 +80,35 @@ export default function MyIdPage() {
 
   return (
     <div className="flex items-start sm:items-center justify-center min-h-[calc(100dvh-12rem)] md:min-h-[calc(100dvh-8rem)]">
-      <article className="virtual-id relative w-full max-w-[400px] rounded-[28px] overflow-hidden motion-safe:animate-id-in">
+      <article className="virtual-id relative w-full max-w-[400px] rounded-[24px] overflow-hidden" aria-label="Staff ID Card">
         <span aria-hidden className="virtual-id-sheen" />
-        {/* Header band */}
-        <header className="virtual-id-band relative px-5 pt-4 pb-10 flex items-center gap-3">
-          {logoUrl ? (
-            <img src={logoUrl} alt="" className="h-11 w-11 rounded-full bg-card object-contain p-0.5 shadow" />
-          ) : (
-            <div className="h-11 w-11 rounded-full bg-card/90" />
-          )}
-          <div className="leading-tight">
-            <p className="font-display font-bold tracking-wide text-primary-foreground text-[15px]">AYE YAIT THARYAR</p>
-            <p className="text-[11px] tracking-[0.18em] text-primary-foreground/80">SMART HR SYSTEM</p>
+        <header className="virtual-id-header relative flex items-start justify-between gap-3 px-5 pt-5 pb-4 sm:px-6">
+          <div className="min-w-0">
+            <p className="font-display font-semibold text-lg leading-relaxed text-foreground">Aye Yait Tharyar</p>
+            <p className="text-xs text-muted-foreground">Staff ID Card</p>
           </div>
+          {logoUrl && <img src={logoUrl} alt="School logo" className="h-12 w-12 shrink-0 object-contain" />}
         </header>
-
-        <div className="relative -mt-8 px-5 pb-5 flex flex-col items-center text-center">
-          {p.avatar_url && !photoFailed ? (
-            <img
-              src={p.avatar_url}
-              alt={p.full_name}
-              onError={() => setPhotoFailed(true)}
-              className="h-24 w-24 rounded-full object-cover ring-4 ring-card shadow-lg"
-            />
-          ) : (
-            <div className="h-24 w-24 rounded-full ring-4 ring-card shadow-lg bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary">
-              {initials}
-            </div>
-          )}
-          <h2 className="mt-2 text-xl font-bold leading-[1.7] text-foreground">{p.full_name}</h2>
-          <p className="text-sm text-muted-foreground leading-snug">{position}</p>
-          {typeof p.sequence === "number" && (
-            <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-0.5 text-xs font-semibold text-primary">
-              <Hash className="h-3 w-3" /> ID: {p.sequence}
-            </span>
-          )}
-
-          <dl className="mt-3 w-full divide-y divide-border/60 text-left text-[13px]">
+        <div className="relative px-5 pb-5 sm:px-6">
+          <div className="flex flex-col items-center text-center">
+            {p.avatar_url && !photoFailed ? (
+              <img src={p.avatar_url} alt={p.full_name} onError={() => setPhotoFailed(true)} className="virtual-id-portrait h-44 w-36 rounded-md object-cover" />
+            ) : (
+              <div className="virtual-id-portrait h-44 w-36 rounded-md bg-muted flex items-center justify-center text-4xl font-semibold text-muted-foreground" aria-label="Profile photo unavailable">{initials}</div>
+            )}
+            <h2 className="mt-3 w-full text-2xl font-bold leading-[1.7] text-foreground break-words [overflow-wrap:anywhere]">{p.full_name}</h2>
+          </div>
+          <dl className="mt-4 w-full divide-y divide-border/40">
             {fields.map(({ icon: Icon, label, value }) => (
-              <div key={label} className="flex items-start gap-2 py-1">
-                <Icon className="h-3.5 w-3.5 mt-[3px] shrink-0 text-primary" />
-                <dt className="w-28 shrink-0 text-muted-foreground">{label}</dt>
-                <dd className="flex-1 min-w-0 font-medium text-foreground break-words">{value}</dd>
+              <div key={label} className="grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.55fr)] items-start gap-3 py-2">
+                <dt className="flex items-start gap-1.5 text-[11px] leading-[1.8] text-muted-foreground">
+                  <Icon aria-hidden className="mt-1 h-3 w-3 shrink-0 opacity-70" />{label}
+                </dt>
+                <dd className="min-w-0 text-[13px] font-medium leading-[1.8] text-foreground [overflow-wrap:anywhere]">{value}</dd>
               </div>
             ))}
           </dl>
-
-          <Button onClick={handleSave} disabled={saving} className="mt-4 w-full rounded-full h-11">
+          <Button onClick={handleSave} disabled={saving} className="mt-4 w-full rounded-md h-11">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Save Virtual ID
           </Button>
@@ -163,95 +130,102 @@ function loadImg(src: string): Promise<HTMLImageElement | null> {
   });
 }
 
-function cssHsl(varName: string, fallback: string) {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-  return v ? `hsl(${v})` : fallback;
+// Print palette is opaque and independent from light/dark app surfaces.
+function printColor(varName: string) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  if (!value) throw new Error("Missing print design token");
+  return `hsl(${value})`;
 }
 
 async function renderIdImage(o: {
-  name: string; position: string; idNo: string; initials: string;
+  name: string; initials: string;
   avatarUrl: string | null; logoUrl: string | null; fields: Field[];
 }): Promise<Blob> {
-  const W = 400, H = 800, S = 3;
+  await document.fonts.ready;
+  const W = 400, S = 3;
   const c = document.createElement("canvas");
+  const ctx = c.getContext("2d");
+  if (!ctx) throw new Error("Canvas unavailable");
+  const font = getComputedStyle(document.body).fontFamily;
+  const setFont = (size: number, weight = 500) => { ctx.font = `${weight} ${size}px ${font}`; };
+  // Segment by grapheme so unspaced emails and Myanmar combining marks wrap safely.
+  const Segmenter = (Intl as typeof Intl & {
+    Segmenter?: new (locale?: string, options?: { granularity: string }) => {
+      segment: (text: string) => Iterable<{ segment: string }>;
+    };
+  }).Segmenter;
+  const segmenter = Segmenter ? new Segmenter(undefined, { granularity: "grapheme" }) : null;
+  const wrap = (text: string, width: number) => {
+    const lines: string[] = []; let line = "";
+    const segments = segmenter
+      ? Array.from(segmenter.segment(text || "—"), part => part.segment)
+      : (text || "—").match(/\P{Mark}\p{Mark}*|\p{Mark}+/gu) || ["—"];
+    for (const segment of segments) {
+      if (segment === "\n") { lines.push(line); line = ""; continue; }
+      if (line && ctx.measureText(line + segment).width > width) { lines.push(line.trimEnd()); line = ""; }
+      line += segment;
+    }
+    if (line) lines.push(line.trimEnd());
+    return lines.length ? lines : ["—"];
+  };
+  setFont(23, 700);
+  const nameLines = wrap(o.name, W - 48);
+  setFont(14);
+  const rows = o.fields.map(f => ({ ...f, lines: wrap(f.value, 216) }));
+  const bodyTop = 296 + nameLines.length * 38 + 20;
+  const H = Math.max(760, bodyTop + rows.reduce((h, f) => h + Math.max(42, f.lines.length * 25 + 16), 0) + 40);
   c.width = W * S; c.height = H * S;
-  const ctx = c.getContext("2d")!;
   ctx.scale(S, S);
-  const primary = cssHsl("--primary", "#2563eb");
-  const fg = cssHsl("--foreground", "#0f172a");
-  const muted = cssHsl("--muted-foreground", "#64748b");
-  const font = `"Noto Sans Myanmar", "Padauk", "Myanmar Text", system-ui, sans-serif`;
-
+  const paper = printColor("--id-print-paper");
+  const ink = printColor("--id-print-ink");
+  const muted = printColor("--id-print-muted");
+  const accent = printColor("--id-print-accent");
+  const rule = printColor("--id-print-rule");
+  const photoSurface = printColor("--id-print-photo");
   const round = (x: number, y: number, w: number, h: number, r: number) => {
     ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
     ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
   };
-
-  ctx.fillStyle = "#ffffff"; round(0, 0, W, H, 28); ctx.fill(); ctx.save(); ctx.clip();
-  const g = ctx.createLinearGradient(0, 0, W, 110);
-  g.addColorStop(0, primary); g.addColorStop(1, primary.replace(")", " / 0.7)"));
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 110);
-
+  ctx.fillStyle = paper; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = accent; ctx.fillRect(0, 0, W, 5);
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = ink; setFont(20, 700); ctx.fillText("Aye Yait Tharyar", 24, 40);
+  ctx.fillStyle = muted; setFont(12, 400); ctx.fillText("Staff ID Card", 24, 65);
   const [logo, avatar] = await Promise.all([
     o.logoUrl ? loadImg(o.logoUrl) : null,
     o.avatarUrl ? loadImg(o.avatarUrl) : null,
   ]);
-  ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(42, 40, 22, 0, Math.PI * 2); ctx.fill();
-  if (logo) ctx.drawImage(logo, 22, 20, 40, 40);
-  ctx.fillStyle = "#ffffff"; ctx.textBaseline = "alphabetic";
-  ctx.font = `700 15px ${font}`; ctx.fillText("AYE YAIT THARYAR", 76, 38);
-  ctx.font = `400 11px ${font}`; ctx.fillText("SMART HR SYSTEM", 76, 55);
-
-  // Avatar
-  const cx = W / 2, cy = 128, r = 48;
-  ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.fill();
-  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+  if (logo) {
+    const scale = Math.min(48 / logo.naturalWidth, 48 / logo.naturalHeight);
+    const w = logo.naturalWidth * scale, h = logo.naturalHeight * scale;
+    ctx.drawImage(logo, 352 - w / 2, 48 - h / 2, w, h);
+  }
+  ctx.strokeStyle = rule; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(24, 88); ctx.lineTo(376, 88); ctx.stroke();
+  const px = 128, py = 108, pw = 144, ph = 180;
+  ctx.save(); round(px, py, pw, ph, 6); ctx.clip();
+  ctx.fillStyle = photoSurface; ctx.fillRect(px, py, pw, ph);
   if (avatar) {
-    const s = Math.max((2 * r) / avatar.naturalWidth, (2 * r) / avatar.naturalHeight);
-    const w = avatar.naturalWidth * s, h = avatar.naturalHeight * s;
-    ctx.drawImage(avatar, cx - w / 2, cy - h / 2, w, h);
+    const scale = Math.max(pw / avatar.naturalWidth, ph / avatar.naturalHeight);
+    const w = avatar.naturalWidth * scale, h = avatar.naturalHeight * scale;
+    ctx.drawImage(avatar, px + (pw - w) / 2, py + (ph - h) / 2, w, h);
   } else {
-    ctx.fillStyle = primary.replace(")", " / 0.12)"); ctx.fillRect(cx - r, cy - r, 2 * r, 2 * r);
-    ctx.fillStyle = primary; ctx.font = `700 30px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(o.initials, cx, cy);
+    ctx.fillStyle = muted; setFont(36, 600); ctx.textAlign = "center"; ctx.fillText(o.initials, W / 2, py + ph / 2);
   }
-  ctx.restore();
-
-  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = fg; ctx.font = `700 20px ${font}`; ctx.fillText(o.name, cx, 212, W - 40);
-  ctx.fillStyle = muted; ctx.font = `400 13px ${font}`; ctx.fillText(o.position, cx, 236, W - 40);
-  let y = 256;
-  if (o.idNo) {
-    ctx.fillStyle = primary.replace(")", " / 0.12)"); round(cx - 45, 246, 90, 22, 11); ctx.fill();
-    ctx.fillStyle = primary; ctx.font = `600 12px ${font}`; ctx.fillText(o.idNo, cx, 261);
-    y = 280;
-  }
-
+  ctx.restore(); ctx.strokeStyle = rule; round(px, py, pw, ph, 6); ctx.stroke();
+  ctx.textAlign = "center"; ctx.fillStyle = ink; setFont(23, 700);
+  nameLines.forEach((line, i) => ctx.fillText(line, W / 2, 318 + i * 38));
   ctx.textAlign = "left";
-  const wrap = (text: string, maxW: number) => {
-    const words = text.split(/(\s+)/); const lines: string[] = []; let line = "";
-    for (const w of words) {
-      const t = line + w;
-      if (ctx.measureText(t).width > maxW && line) { lines.push(line.trim()); line = w.trimStart(); } else line = t;
-    }
-    if (line.trim()) lines.push(line.trim());
-    return lines.length ? lines : ["—"];
-  };
-  for (const f of o.fields) {
-    ctx.font = `500 13px ${font}`;
-    const lines = wrap(f.value, W - 170);
-    ctx.fillStyle = primary; ctx.beginPath(); ctx.arc(30, y + 14, 3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = muted; ctx.font = `400 13px ${font}`; ctx.fillText(f.label, 42, y + 19);
-    ctx.fillStyle = fg; ctx.font = `500 13px ${font}`;
-    lines.forEach((l, i) => ctx.fillText(l, 150, y + 19 + i * 20));
-    y += 12 + lines.length * 20;
-    ctx.strokeStyle = "rgba(0,0,0,0.06)"; ctx.beginPath(); ctx.moveTo(24, y + 2); ctx.lineTo(W - 24, y + 2); ctx.stroke();
-    y += 4;
+  let y = bodyTop;
+  for (const f of rows) {
+    ctx.fillStyle = muted; setFont(10, 400); ctx.fillText(f.label, 24, y + 18);
+    ctx.fillStyle = ink; setFont(14);
+    f.lines.forEach((line, i) => ctx.fillText(line, 160, y + 18 + i * 25));
+    y += Math.max(42, f.lines.length * 25 + 16);
+    ctx.strokeStyle = rule; ctx.beginPath(); ctx.moveTo(24, y); ctx.lineTo(376, y); ctx.stroke();
   }
-  ctx.restore();
-  ctx.strokeStyle = primary.replace(")", " / 0.35)"); ctx.lineWidth = 1.5; round(0.75, 0.75, W - 1.5, H - 1.5, 28); ctx.stroke();
-
+  ctx.strokeStyle = rule; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+  ctx.fillStyle = accent; ctx.fillRect(24, H - 19, W - 48, 2);
   return new Promise((resolve, reject) =>
-    c.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png"),
+    c.toBlob(b => b ? resolve(b) : reject(new Error("toBlob failed")), "image/png"),
   );
 }

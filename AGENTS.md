@@ -1,0 +1,2 @@
+# Architecture rules
+- My ID renders from existing profile and locally cached school/logo values; its live CSS and static Canvas print renderer share displayed fields without introducing data requests, so visual changes cannot affect HR data loading.
