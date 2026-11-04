@@ -11,6 +11,7 @@ import { Suspense, lazy } from "react";
 import { Loader2 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { AppUpdateManager } from "@/components/AppUpdateManager";
+import { AttendanceNotificationGate } from "@/components/AttendanceNotificationGate";
 
 function RoleRedirect() {
   const { isAdmin, isItManager, loading } = useProfile();
@@ -92,7 +93,7 @@ const App = () => (
                 <Route element={<AppLayout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/staff" element={<Staff />} />
-                  <Route path="/attendance" element={<Attendance />} />
+                  <Route path="/attendance" element={<AttendanceNotificationGate><Attendance /></AttendanceNotificationGate>} />
                   <Route path="/leave" element={<Leave />} />
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/tasks" element={<Tasks />} />

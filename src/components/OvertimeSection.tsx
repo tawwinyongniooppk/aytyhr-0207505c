@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
-import { sendPush, notifyAdmins } from "@/lib/push";
+import { sendPush, sendVerifiedAdminEvent } from "@/lib/push";
 import { formatMMTDateTime, getMMTDateParts } from "@/lib/mmt";
 import { useQueryClient } from "@tanstack/react-query";
 import { fetchStaffDirectory } from "@/hooks/useStaffDirectory";
@@ -162,7 +162,9 @@ export function OvertimeSection() {
 
     setSubmitting(true);
     try {
+      const requestId = crypto.randomUUID();
       const { error } = await supabase.from("overtime_requests").insert({
+        id: requestId,
         user_id: user.id,
         title: title.trim(),
         description: description.trim(),
@@ -197,11 +199,7 @@ export function OvertimeSection() {
         return;
       }
       toast({ title: "Overtime request submitted ✓" });
-      notifyAdmins(
-        "New overtime request",
-        `${profile?.full_name ?? "Staff"} requested OT: ${title.trim()}`,
-        "/leave",
-      );
+      void sendVerifiedAdminEvent({ type: "overtime_requested", record_id: requestId });
       setTitle(""); setDescription(""); setReason(""); setStartAt(""); setEndAt("");
       void load();
     } finally {

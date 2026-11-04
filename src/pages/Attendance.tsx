@@ -33,8 +33,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
-import { notifyAdmins, sendPush } from "@/lib/push";
+import { sendVerifiedAdminEvent, sendPush } from "@/lib/push";
 import { PushNotificationSettings } from "@/components/PushNotificationSettings";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface AttendanceRecord {
   id: string;
@@ -151,6 +152,7 @@ function playAlertSound() {
 export default function Attendance() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { attendanceReady } = useNotifications();
   const [record, setRecord] = useState<AttendanceRecord | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [salary, setSalary] = useState<SalaryRecord | null>(null);
@@ -740,7 +742,7 @@ export default function Attendance() {
   };
 
   const handleCheckIn = async () => {
-    if (!user || checkingIn) return;
+    if (!user || checkingIn || !attendanceReady()) return;
 
     try {
       setCheckingIn(true);
@@ -772,6 +774,7 @@ export default function Attendance() {
       }
 
 
+      if (!attendanceReady()) return;
       const now = new Date();
       const effectiveStartTime = expectedCheckInTime;
 
@@ -827,11 +830,7 @@ export default function Attendance() {
             actualLateMin > 0 ? `Checked in (${actualLateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}`,
         });
 
-        notifyAdmins(
-          "Staff checked in",
-          `${fullName || "Staff"} checked in${actualLateMin > 0 ? ` (${actualLateMin} charged min · -${(actualLateMin * staffLateRate).toLocaleString()} Ks)` : " on time"}`,
-          "/attendance",
-        );
+        void sendVerifiedAdminEvent({ type: "attendance_check_in", record_id: savedRecord.id });
 
 
         // Show salary notification after check-in
@@ -867,7 +866,7 @@ export default function Attendance() {
   };
 
   const handleCheckOut = async () => {
-    if (!user || !record || checkingOut) return;
+    if (!user || !record || checkingOut || !attendanceReady()) return;
 
     try {
       setCheckingOut(true);
@@ -885,6 +884,7 @@ export default function Attendance() {
       // protected field and is computed/written server-side by the
       // apply-attendance-deduction edge function.
       void earlyMin;
+      if (!attendanceReady()) return;
       const { data, error } = await supabase
         .from("attendance")
         .update({ check_out_time: now.toISOString() } as any)
@@ -942,11 +942,7 @@ export default function Attendance() {
       toast({ title: checkoutMsg });
       setCheckInNotice(null);
       setCheckOutNotice(checkoutMsg);
-      notifyAdmins(
-        "Staff checked out",
-        `${fullName || "Staff"} checked out${earlyMin > 0 ? ` (${earlyMin} min early)` : ""}${excuseNote}`,
-        "/attendance",
-      );
+      void sendVerifiedAdminEvent({ type: "attendance_check_out", record_id: updatedRecord.id });
     } catch (e) {
       console.error("handleCheckOut error:", e);
       toast({

@@ -68,6 +68,16 @@ self.addEventListener("push", (event) => {
       }
 
       const normalized = normalizePayload(payload || {});
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const visible = windows.filter((client) => new URL(client.url).origin === self.location.origin && client.visibilityState === "visible");
+      if (visible.length && payload) {
+        // Match the existing Firebase client's onMessage protocol; do not
+        // also display here, because the foreground handler displays once.
+        for (const client of visible) {
+          client.postMessage({ ...payload, isFirebaseMessaging: true, messageType: "push-received" });
+        }
+        return;
+      }
       await applyBadge(normalized.badgeValue);
       await self.registration.showNotification(normalized.title, normalized.options);
     })(),
@@ -104,10 +114,8 @@ self.addEventListener("notificationclick", (event) => {
       }
       const wins = await clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const w of wins) {
-        if ("focus" in w) {
-          if (new URL(w.url).origin === self.location.origin) {
-            w.navigate(url).catch(() => {});
-          }
+        if ("focus" in w && new URL(w.url).origin === self.location.origin) {
+          await w.navigate(url).catch(() => {});
           return w.focus();
         }
       }

@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
-import { sendPush, notifyAdmins } from "@/lib/push";
+import { sendPush, notifyAdmins, sendVerifiedAdminEvent } from "@/lib/push";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { LeaveBalanceCard, pendingLeaveUnitsKey } from "@/components/LeaveBalanceCard";
@@ -181,6 +181,7 @@ export default function Leave() {
     setSubmitting(true);
     try {
       const payload: any = {
+        id: crypto.randomUUID(),
         user_id: user.id,
         date,
         type,
@@ -200,11 +201,7 @@ export default function Leave() {
           type === "half_leave"
             ? `${halfPeriodLabel(halfPeriod)}`
             : TYPE_LABEL[type];
-        notifyAdmins(
-          "New leave request",
-          `${profile?.full_name ?? "Staff"} requested ${typeText} on ${date}`,
-          "/leave",
-        );
+        void sendVerifiedAdminEvent({ type: "leave_requested", record_id: payload.id });
         setDate("");
         setReason("");
         setType("leave");

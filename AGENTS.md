@@ -1,2 +1,4 @@
 # Architecture rules
 - My ID renders from existing profile and locally cached school/logo values; its live CSS and static Canvas print renderer share displayed fields without introducing data requests, so visual changes cannot affect HR data loading.
+- NotificationProvider owns device setup and coalesces registration across startup, settings, tests, and Attendance; only confirmed current-user registration plus browser permission unlocks Attendance, preventing duplicate registration paths.
+- Staff-to-manager push uses the existing send-push function with verified owned recent event records and server-derived recipients/content; arbitrary staff messages remain self-only to preserve security.

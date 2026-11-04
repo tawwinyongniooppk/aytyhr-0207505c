@@ -6,8 +6,10 @@ export const PUSH_TOKEN_KEY = "push_device_token";
 
 export function isPushEnabled(): boolean {
   if (typeof localStorage === "undefined") return true;
-  const v = localStorage.getItem(PUSH_ENABLED_KEY);
-  return v === null ? true : v === "true";
+  try {
+    const v = localStorage.getItem(PUSH_ENABLED_KEY);
+    return v === null ? true : v === "true";
+  } catch { return true; }
 }
 
 export function setPushEnabled(enabled: boolean) {
@@ -138,4 +140,22 @@ export async function getAdminUserIds(): Promise<string[]> {
 export async function notifyAdmins(title: string, body: string, url = "/") {
   const ids = await getAdminUserIds();
   if (ids.length) await sendPush({ user_ids: ids, title, body, url });
+}
+
+// Uses the existing sender; server validates ownership, current state, and
+// recency, then derives recipients and message. Never accepts arbitrary targets.
+export async function sendVerifiedAdminEvent(event: {
+  type: "attendance_check_in" | "attendance_check_out" | "leave_requested" | "overtime_requested" | "task_submitted" | "task_resubmitted";
+  record_id: string;
+  source?: "tasks" | "calendar_event_assignments";
+}) {
+  try {
+    const { data, error } = await supabase.functions.invoke("send-push", { body: { event } });
+    if (error) throw error;
+    if (!data?.ok) console.warn("[push] verified event not dispatched", data?.error ?? "No registered recipient device");
+    return data;
+  } catch (error) {
+    console.error("[push] verified event failed", error);
+    return { ok: false };
+  }
 }
