@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
 import { notifyAdmins, sendPush } from "@/lib/push";
 import { PushNotificationSettings } from "@/components/PushNotificationSettings";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface AttendanceRecord {
   id: string;
@@ -151,6 +152,7 @@ function playAlertSound() {
 export default function Attendance() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { attendanceReady } = useNotifications();
   const [record, setRecord] = useState<AttendanceRecord | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [salary, setSalary] = useState<SalaryRecord | null>(null);
@@ -740,7 +742,7 @@ export default function Attendance() {
   };
 
   const handleCheckIn = async () => {
-    if (!user || checkingIn) return;
+    if (!user || checkingIn || !attendanceReady()) return;
 
     try {
       setCheckingIn(true);
@@ -772,6 +774,7 @@ export default function Attendance() {
       }
 
 
+      if (!attendanceReady()) return;
       const now = new Date();
       const effectiveStartTime = expectedCheckInTime;
 
@@ -867,7 +870,7 @@ export default function Attendance() {
   };
 
   const handleCheckOut = async () => {
-    if (!user || !record || checkingOut) return;
+    if (!user || !record || checkingOut || !attendanceReady()) return;
 
     try {
       setCheckingOut(true);
@@ -885,6 +888,7 @@ export default function Attendance() {
       // protected field and is computed/written server-side by the
       // apply-attendance-deduction edge function.
       void earlyMin;
+      if (!attendanceReady()) return;
       const { data, error } = await supabase
         .from("attendance")
         .update({ check_out_time: now.toISOString() } as any)
