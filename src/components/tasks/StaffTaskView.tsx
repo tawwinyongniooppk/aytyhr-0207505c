@@ -7,7 +7,7 @@ import { Loader2, ClipboardList, Send, CheckCircle2, Clock, AlertTriangle, Thumb
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-import { notifyAdmins } from "@/lib/push";
+import { sendVerifiedAdminEvent } from "@/lib/push";
 import { getMMTTodayISO } from "@/lib/mmt";
 import { toast } from "sonner";
 import { StatusMonitor } from "./StatusMonitor";
@@ -156,7 +156,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
       toast.success("Task submitted successfully");
       setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, submission_status: "submitted", completed: true, rejection_reason: null } : t));
       const t = localTasks.find(x => x.id === taskId);
-      notifyAdmins("Task submitted for review", `${staffName} submitted: ${t?.title ?? "a task"}`, "/tasks");
+      void sendVerifiedAdminEvent({ type: "task_submitted", record_id: taskId, source: "tasks" });
     } catch { toast.error("Failed to submit task"); }
     finally { setSubmittingTaskId(null); }
   }
@@ -177,7 +177,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
       if (error) throw error;
       toast.success("Submitted successfully");
       setLocalAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, submission_status: "submitted", rejection_reason: null } : a));
-      notifyAdmins("Task submitted for review", `${staffName} submitted a task`, "/tasks");
+      void sendVerifiedAdminEvent({ type: "task_submitted", record_id: assignmentId, source: "calendar_event_assignments" });
     } catch { toast.error("Failed to submit"); }
     finally { setSubmittingId(null); }
   }
@@ -197,7 +197,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
       toast.success("Resubmitted for review");
       setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, submission_status: "submitted", completed: true, rejection_reason: null } : t));
       const t = localTasks.find(x => x.id === taskId);
-      notifyAdmins("Task resubmitted", `${staffName} resubmitted: ${t?.title ?? "a task"}`, "/tasks");
+      void sendVerifiedAdminEvent({ type: "task_resubmitted", record_id: taskId, source: "tasks" });
     } catch { toast.error("Failed to resubmit task"); }
     finally { setSubmittingTaskId(null); }
   }
@@ -213,7 +213,7 @@ export function StaffTaskView({ tasks, calendarEvents = [], eventAssignments = [
       if (error) throw error;
       toast.success("Resubmitted for review");
       setLocalAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, submission_status: "submitted", rejection_reason: null } : a));
-      notifyAdmins("Task resubmitted", `${staffName} resubmitted a task`, "/tasks");
+      void sendVerifiedAdminEvent({ type: "task_resubmitted", record_id: assignmentId, source: "calendar_event_assignments" });
     } catch { toast.error("Failed to resubmit"); }
     finally { setSubmittingId(null); }
   }

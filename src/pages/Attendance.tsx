@@ -33,7 +33,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { getMMTMonthStartISO, getMMTTodayISO } from "@/lib/mmt";
-import { notifyAdmins, sendPush } from "@/lib/push";
+import { sendVerifiedAdminEvent, sendPush } from "@/lib/push";
 import { PushNotificationSettings } from "@/components/PushNotificationSettings";
 import { useNotifications } from "@/hooks/useNotifications";
 
@@ -830,11 +830,7 @@ export default function Attendance() {
             actualLateMin > 0 ? `Checked in (${actualLateMin} min late)${overrideNote}` : `Checked in on time ✓${overrideNote}`,
         });
 
-        notifyAdmins(
-          "Staff checked in",
-          `${fullName || "Staff"} checked in${actualLateMin > 0 ? ` (${actualLateMin} charged min · -${(actualLateMin * staffLateRate).toLocaleString()} Ks)` : " on time"}`,
-          "/attendance",
-        );
+        void sendVerifiedAdminEvent({ type: "attendance_check_in", record_id: savedRecord.id });
 
 
         // Show salary notification after check-in
@@ -946,11 +942,7 @@ export default function Attendance() {
       toast({ title: checkoutMsg });
       setCheckInNotice(null);
       setCheckOutNotice(checkoutMsg);
-      notifyAdmins(
-        "Staff checked out",
-        `${fullName || "Staff"} checked out${earlyMin > 0 ? ` (${earlyMin} min early)` : ""}${excuseNote}`,
-        "/attendance",
-      );
+      void sendVerifiedAdminEvent({ type: "attendance_check_out", record_id: updatedRecord.id });
     } catch (e) {
       console.error("handleCheckOut error:", e);
       toast({
