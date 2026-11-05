@@ -6,33 +6,6 @@ import { isPushEnabled, registerCurrentDevicePushToken, setPushEnabled, unregist
 import { attendanceNotificationsReady, currentNotificationPermission, type NotificationSetupStatus } from "@/lib/notificationSetup";
 import { toast } from "sonner";
 
-async function showForegroundNotification(title: string, body: string, url: string) {
-  try {
-    if (typeof window === "undefined" || typeof Notification === "undefined") return;
-    if (Notification.permission !== "granted") return;
-
-    const registration =
-      (await navigator.serviceWorker?.getRegistration(FCM_SW_SCOPE)) ||
-      (await navigator.serviceWorker?.getRegistration());
-    const options = {
-      body,
-      icon: "/pwa-192x192.png",
-      badge: "/pwa-192x192.png",
-      data: { url },
-      tag: `fg-${crypto.randomUUID?.() ?? Date.now()}`,
-      sound: "default",
-      vibrate: [200, 100, 200],
-    } as NotificationOptions & { vibrate?: number[]; badge?: string; sound?: string };
-    if (registration) {
-      await registration.showNotification(title, options as NotificationOptions);
-    } else {
-      new Notification(title, options);
-    }
-  } catch (e) {
-    console.warn("[fcm] foreground notification failed", e);
-  }
-}
-
 interface Ctx {
   hasFor: (_route: string) => boolean;
   markRead: (_route: string) => void;
@@ -94,6 +67,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         }
         const result = await registerCurrentDevicePushToken({ prompt });
         if (currentUser.current !== owner) return { ok: false, reason: "The signed-in account changed. Please retry." };
+        if (currentNotificationPermission() !== "granted") {
+          confirmedUser.current = null;
+          setSetupStatus("incomplete");
+          return { ok: false, reason: "Notification permission is required." };
+        }
         if (!result.ok) {
           confirmedUser.current = null;
           setSetupStatus(currentNotificationPermission() === "granted" ? "failed" : "incomplete");
@@ -201,7 +179,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
               },
             } : undefined,
           });
-          showForegroundNotification(title, body, url);
+          // The messaging worker displays the system notification exactly
+          // once in both foreground and background; this handler owns toast.
           try {
             const nav: any = navigator;
             if (nav && typeof nav.setAppBadge === "function") {

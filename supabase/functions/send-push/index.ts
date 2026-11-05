@@ -257,7 +257,9 @@ Deno.serve(async (req) => {
                   renotify: true,
                   ...(banner ? { image: banner } : {}),
                 },
-                fcm_options: { link: url },
+                // FCM requires an absolute HTTPS link. Internal routes are
+                // already carried in data.url for the existing click handler.
+                ...(/^https:\/\//i.test(url) ? { fcm_options: { link: url } } : {}),
               },
             },
           }),
