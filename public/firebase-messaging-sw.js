@@ -71,12 +71,11 @@ self.addEventListener("push", (event) => {
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       const visible = windows.filter((client) => new URL(client.url).origin === self.location.origin && client.visibilityState === "visible");
       if (visible.length && payload) {
-        // Match the existing Firebase client's onMessage protocol; do not
-        // also display here, because the foreground handler displays once.
+        // Forward to Firebase onMessage for the in-app toast. The worker
+        // owns system display even when a window's handler is not ready.
         for (const client of visible) {
           client.postMessage({ ...payload, isFirebaseMessaging: true, messageType: "push-received" });
         }
-        return;
       }
       await applyBadge(normalized.badgeValue);
       await self.registration.showNotification(normalized.title, normalized.options);

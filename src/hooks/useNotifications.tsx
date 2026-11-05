@@ -94,6 +94,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         }
         const result = await registerCurrentDevicePushToken({ prompt });
         if (currentUser.current !== owner) return { ok: false, reason: "The signed-in account changed. Please retry." };
+        if (currentNotificationPermission() !== "granted") {
+          confirmedUser.current = null;
+          setSetupStatus("incomplete");
+          return { ok: false, reason: "Notification permission is required." };
+        }
         if (!result.ok) {
           confirmedUser.current = null;
           setSetupStatus(currentNotificationPermission() === "granted" ? "failed" : "incomplete");
@@ -201,7 +206,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
               },
             } : undefined,
           });
-          showForegroundNotification(title, body, url);
+          // The messaging worker displays the system notification exactly
+          // once in both foreground and background; this handler owns toast.
           try {
             const nav: any = navigator;
             if (nav && typeof nav.setAppBadge === "function") {
