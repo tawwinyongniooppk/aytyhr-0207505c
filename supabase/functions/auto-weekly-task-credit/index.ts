@@ -341,6 +341,8 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Notification-only tracking: announce only credits inserted by this run.
+    const newlyCreditedUsers = new Set<string>();
     if (bonusPayload.length > 0) {
       const { error: bulkBtErr } = await admin
         .from("bonus_transactions")
@@ -354,9 +356,9 @@ Deno.serve(async (req) => {
             .insert(row);
           if (rowErr) {
             console.error("[auto-weekly-credit] per-row bonus insert FAILED for user", row.user_id, rowErr);
-          }
+          } else newlyCreditedUsers.add(String(row.user_id));
         }
-      }
+      } else for (const row of bonusPayload) newlyCreditedUsers.add(String(row.user_id));
     }
 
 
@@ -392,6 +394,7 @@ Deno.serve(async (req) => {
           });
 
           if (fixErr) console.error("[auto-weekly-credit] backfill bonus insert FAILED", a.user_id, fixErr);
+          else newlyCreditedUsers.add(a.user_id);
         }
       }
     }
@@ -401,7 +404,7 @@ Deno.serve(async (req) => {
     // 6d) Push notifications (fire-and-forget, in parallel)
     await Promise.allSettled(
       missing
-        .filter((s) => assByUser.has(s.id))
+        .filter((s) => newlyCreditedUsers.has(s.id))
         .map((s) => {
           const perUnit = perUnitByUser.get(s.id) ?? 0;
           return fetch(`${SUPABASE_URL}/functions/v1/send-push`, {

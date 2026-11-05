@@ -29,6 +29,7 @@ async function click(label: string) {
   });
 }
 beforeEach(() => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   mocks.register.mockReset(); mocks.enabled = true; permission = "default";
   Object.defineProperty(globalThis, "Notification", { configurable: true, value: { get permission() { return permission; } } });
 });
