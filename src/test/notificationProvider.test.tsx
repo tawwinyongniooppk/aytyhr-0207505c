@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { createRoot, type Root } from "react-dom/client";
+import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NotificationProvider, useNotifications } from "@/hooks/useNotifications";
 
@@ -13,44 +14,58 @@ function Probe() {
   return <><output aria-label="access">{n.attendanceReady() ? "allowed" : "blocked"}</output><output aria-label="status">{n.setupStatus}</output><button onClick={() => { void n.enableNotifications(true); void n.enableNotifications(true); }}>Enable</button><button onClick={() => { void n.disableNotifications(); }}>Disable</button></>;
 }
 let permission: NotificationPermission;
+let root: Root | undefined;
+let container: HTMLDivElement;
+async function renderProbe() {
+  container = document.createElement("div"); document.body.append(container);
+  root = createRoot(container);
+  await act(async () => { root?.render(<NotificationProvider><Probe /></NotificationProvider>); });
+}
+function text(label: string) { return container.querySelector(`[aria-label="${label}"]`)?.textContent; }
+async function click(label: string) {
+  await act(async () => {
+    const button = Array.from(container.querySelectorAll("button")).find(b => b.textContent === label);
+    button?.click();
+  });
+}
 beforeEach(() => {
   mocks.register.mockReset(); mocks.enabled = true; permission = "default";
   Object.defineProperty(globalThis, "Notification", { configurable: true, value: { get permission() { return permission; } } });
 });
-afterEach(cleanup);
+afterEach(async () => { await act(async () => root?.unmount()); container?.remove(); });
 describe("shared device registration flow", () => {
   it("blocks default permission until an explicit enable registers successfully, coalescing clicks", async () => {
     mocks.register.mockResolvedValue({ ok: false, reason: "Permission required" });
-    render(<NotificationProvider><Probe /></NotificationProvider>);
-    await waitFor(() => expect(screen.getByLabelText("status")).toHaveTextContent("incomplete"));
+    await renderProbe();
+    expect(text("status")).toBe("incomplete");
     expect(mocks.register).toHaveBeenCalledWith({ prompt: false });
-    expect(screen.getByLabelText("access")).toHaveTextContent("blocked");
+    expect(text("access")).toBe("blocked");
     mocks.register.mockImplementation(async () => { permission = "granted"; return { ok: true }; });
-    fireEvent.click(screen.getByText("Enable"));
-    await waitFor(() => expect(screen.getByLabelText("access")).toHaveTextContent("allowed"));
+    await click("Enable");
+    expect(text("access")).toBe("allowed");
     expect(mocks.register).toHaveBeenCalledTimes(2);
   });
   it("blocks granted permission if token registration fails and allows retry", async () => {
     permission = "granted"; mocks.register.mockRejectedValue(new Error("Registration failed"));
-    render(<NotificationProvider><Probe /></NotificationProvider>);
-    await waitFor(() => expect(screen.getByLabelText("status")).toHaveTextContent("failed"));
-    expect(screen.getByLabelText("access")).toHaveTextContent("blocked");
-    mocks.register.mockResolvedValue({ ok: true }); fireEvent.click(screen.getByText("Enable"));
-    await waitFor(() => expect(screen.getByLabelText("access")).toHaveTextContent("allowed"));
+    await renderProbe();
+    expect(text("status")).toBe("failed");
+    expect(text("access")).toBe("blocked");
+    mocks.register.mockResolvedValue({ ok: true }); await click("Enable");
+    expect(text("access")).toBe("allowed");
   });
   it("revocation blocks access on returning to the app without polling or registration", async () => {
     permission = "granted"; mocks.register.mockResolvedValue({ ok: true });
-    render(<NotificationProvider><Probe /></NotificationProvider>);
-    await waitFor(() => expect(screen.getByLabelText("access")).toHaveTextContent("allowed"));
-    permission = "denied"; fireEvent.focus(window);
-    expect(screen.getByLabelText("access")).toHaveTextContent("blocked");
+    await renderProbe();
+    expect(text("access")).toBe("allowed");
+    permission = "denied"; await act(async () => { window.dispatchEvent(new Event("focus")); });
+    expect(text("access")).toBe("blocked");
     expect(mocks.register).toHaveBeenCalledTimes(1);
   });
   it("existing off control blocks Attendance", async () => {
     permission = "granted"; mocks.register.mockResolvedValue({ ok: true });
-    render(<NotificationProvider><Probe /></NotificationProvider>);
-    await waitFor(() => expect(screen.getByLabelText("access")).toHaveTextContent("allowed"));
-    fireEvent.click(screen.getByText("Disable"));
-    await waitFor(() => expect(screen.getByLabelText("access")).toHaveTextContent("blocked"));
+    await renderProbe();
+    expect(text("access")).toBe("allowed");
+    await click("Disable");
+    expect(text("access")).toBe("blocked");
   });
 });
