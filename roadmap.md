@@ -5,6 +5,8 @@
 - [ ] Verify actual signed-in employee photo/logo and download through My ID; blocked because no requesting-user auth account matches and no session is available.
 
 # Notification reliability
-- [ ] Audit every existing notification event, recipients, delivery paths, and live schedules; document a complete rule matrix.
-- [ ] Gate Attendance on notification permission and successful existing device registration, retaining location enforcement and notification controls.
-- [ ] Apply only confirmed notification defects and add focused tests; report device checks separately.
+- [x] Inspect notification sources and live schedules; document the 23-event-family matrix and remaining risks in notification-audit.md.
+- [x] Gate Attendance on notification permission and successful existing device registration, retaining location enforcement and notification controls.
+- [x] Deploy targeted sender and weekly notification fixes; 13 focused tests passed and latest automatic app checks passed.
+- [ ] Verify authenticated Attendance/setup, real token registration, and foreground/background/both-party delivery; blocked by unavailable authorized session and real-device environment.
+- [ ] Resolve Notification Centre concurrency/replay and ambiguous duplicate-message rules; blocked pending explicit delivery/idempotency design approval or intended-rule clarification.
